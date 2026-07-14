@@ -58,6 +58,9 @@ app.use(cors());
 app.use(express.json());
 
 const pool = new Pool({
+  connectionTimeoutMillis: 5000,
+  statement_timeout: 8000,
+  idle_in_transaction_session_timeout: 10000,
   user: 'tracker',
   host: '192.168.1.104',
   database: 'tracking_db',
@@ -88,7 +91,7 @@ const RANGE_M  = 370400;   // 200 nautical miles
 app.get('/api/vessels', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT
+      SELECT DISTINCT ON (lt.entity_id)
         e.entity_id,
         e.entity_type,
         e.vessel_name,
@@ -109,26 +112,18 @@ app.get('/api/vessels', async (req, res) => {
         lt.recorded_at,
         e.first_seen,
         e.last_seen,
-        -- Age in seconds — frontend uses this to dim stale contacts
+        -- Age in seconds
         EXTRACT(EPOCH FROM (NOW() - lt.recorded_at))::int AS age_seconds
-      FROM entities e
-      JOIN LATERAL (
-        SELECT *
-        FROM live_tracks l
-        WHERE l.entity_id = e.entity_id
-          AND l.recorded_at > NOW() - INTERVAL '24 hours'
-        ORDER BY l.recorded_at DESC
-        LIMIT 1
-      ) lt ON true
-      WHERE e.entity_type = 'VESSEL'
-        -- Hide all vessels not heard from in the last 30 minutes.
-        -- If you can't see it, it's not out there.
-        AND lt.recorded_at > NOW() - INTERVAL '30 minutes'
+      FROM live_tracks lt
+      JOIN entities e ON e.entity_id = lt.entity_id
+      WHERE lt.recorded_at > NOW() - INTERVAL '30 minutes'
+        AND e.entity_type = 'VESSEL'
         AND ST_DWithin(
           lt.location::geography,
           ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
           $3
-        );
+        )
+      ORDER BY lt.entity_id, lt.recorded_at DESC;
     `, [HOME_LON, HOME_LAT, RANGE_M]);
     res.json(result.rows);
   } catch (err) {
