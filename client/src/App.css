@@ -1,0 +1,436 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #0d1117;
+  --panel-bg: rgba(13, 17, 23, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-highlight: rgba(255, 255, 255, 0.04);
+  --text-primary: #e6edf3;
+  --text-secondary: #7d8590;
+  --text-dim: #484f58;
+  --accent-blue: #58a6ff;
+  --accent-green: #3fb950;
+  --accent-amber: #d29922;
+  --accent-red: #f85149;
+  --live-green: #3fb950;
+  --border-radius: 10px;
+  --border-radius-sm: 6px;
+  --font-main: 'Inter', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --panel-width: 270px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  font-family: var(--font-main);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+.app-root {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* ─── Main Map ─────────────────────────────────────────── */
+.main-map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* ─── Glass Panel Base ─────────────────────────────────── */
+.glass {
+  background: var(--panel-bg);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+}
+
+/* ─── Detail Panel (Left) ──────────────────────────────── */
+.detail-panel {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: var(--panel-width);
+  max-height: calc(100vh - 70px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-radius: var(--border-radius);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  animation: slideInLeft 0.2s ease;
+  scrollbar-width: thin;
+  scrollbar-color: var(--glass-border) transparent;
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 14px 14px 10px;
+  border-bottom: 1px solid var(--glass-border);
+  position: sticky;
+  top: 0;
+  background: var(--panel-bg);
+  backdrop-filter: blur(16px);
+  z-index: 1;
+}
+
+.detail-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--accent-blue);
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+}
+
+.detail-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  font-family: var(--font-mono);
+}
+
+.detail-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all 0.15s;
+  line-height: 1;
+}
+.detail-close:hover { color: var(--text-primary); background: var(--glass-highlight); }
+
+.detail-section {
+  padding: 8px 14px 4px;
+  border-bottom: 1px solid var(--glass-border);
+}
+.detail-section:last-child { border-bottom: none; padding-bottom: 12px; }
+
+.detail-section-title {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  padding: 4px 0 6px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+  border-radius: 4px;
+}
+.detail-row-highlight { background: var(--glass-highlight); padding: 3px 6px; margin: 0 -6px; }
+
+.detail-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.detail-value {
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  text-align: right;
+  margin-left: 8px;
+}
+.detail-unit { color: var(--text-secondary); font-size: 0.7rem; }
+
+/* ─── Layer Control Panel (Right) ─────────────────────── */
+.layer-panel {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 210px;
+  max-height: calc(100vh - 70px);
+  overflow-y: auto;
+  border-radius: var(--border-radius);
+  z-index: 1000;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--glass-border) transparent;
+}
+
+.layer-panel-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--glass-border);
+  margin-bottom: 4px;
+}
+
+.layer-section-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  margin: 8px 0 2px;
+}
+
+.layer-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 10px;
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-sm);
+  color: var(--text-secondary);
+  font-family: var(--font-main);
+  font-size: 0.78rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+.layer-btn:hover:not(:disabled) {
+  background: var(--glass-highlight);
+  color: var(--text-primary);
+  border-color: rgba(255,255,255,0.15);
+}
+.layer-btn-active {
+  color: var(--text-primary) !important;
+  border-color: var(--accent-blue) !important;
+  background: rgba(88, 166, 255, 0.08) !important;
+}
+.layer-btn-live.layer-btn-active {
+  border-color: var(--accent-green) !important;
+  background: rgba(63, 185, 80, 0.08) !important;
+}
+.layer-btn-stub {
+  opacity: 0.45;
+  cursor: not-allowed !important;
+}
+
+.stub-badge {
+  font-size: 0.6rem;
+  background: rgba(125, 133, 144, 0.2);
+  color: var(--text-dim);
+  border-radius: 3px;
+  padding: 1px 4px;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.basemap-buttons {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.basemap-btn {
+  flex: 1;
+  padding: 5px 4px;
+  font-size: 0.7rem;
+  background: transparent;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font-main);
+}
+.basemap-btn:hover { background: var(--glass-highlight); color: var(--text-primary); }
+.basemap-btn-active { color: var(--text-primary); border-color: var(--accent-blue); background: rgba(88,166,255,0.1); }
+
+/* ─── Status Bar (Bottom) ──────────────────────────────── */
+.status-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 44px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 0;
+  border-top: 1px solid var(--glass-border);
+  border-radius: 0;
+}
+
+.status-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+}
+.status-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--glass-border);
+}
+.status-spacer { flex: 1; }
+
+.status-icon { font-size: 0.9rem; }
+.status-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--accent-blue);
+}
+.status-label { font-size: 0.75rem; color: var(--text-secondary); }
+.status-dim { font-size: 0.7rem; color: var(--text-dim); }
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.status-dot-live {
+  background: var(--live-green);
+  box-shadow: 0 0 6px var(--live-green);
+  animation: pulse 2s infinite;
+}
+.status-dot-stale { background: var(--accent-amber); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ─── Aircraft Labels (on-map) ─────────────────────────── */
+.ac-label {
+  position: absolute;
+  left: 32px;
+  top: -15px;
+  white-space: nowrap;
+  pointer-events: none;
+  background-color: rgba(60, 64, 67, 0.85);
+  color: #ffffff;
+  padding: 4px 6px;
+  border-radius: 4px;
+  line-height: 1.15;
+  box-shadow: 0 0 6px rgba(0,0,0,0.4);
+}
+
+/* Leader line back to the icon */
+.ac-label::before {
+  content: "";
+  position: absolute;
+  right: 100%;
+  top: 15px;
+  width: 16px;
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.6);
+}
+
+.ac-label-line {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+/* ─── Home Base Marker ─────────────────────────────────── */
+.home-marker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.home-label {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: #f59e0b;
+  white-space: nowrap;
+  text-shadow: 0 0 8px #f59e0b;
+}
+
+/* ─── Range Ring Labels ────────────────────────────────── */
+.ring-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #000000;
+  white-space: nowrap;
+  text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 3px #fff;
+  letter-spacing: 0.03em;
+}
+
+/* ─── Leaflet Overrides ────────────────────────────────── */
+.leaflet-container { background: #0d1117; }
+.leaflet-control-zoom {
+  border: 1px solid var(--glass-border) !important;
+  border-radius: var(--border-radius-sm) !important;
+  overflow: hidden;
+}
+.leaflet-control-zoom a {
+  background: var(--panel-bg) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--glass-border) !important;
+  backdrop-filter: blur(8px);
+}
+.leaflet-control-zoom a:hover { background: var(--glass-highlight) !important; }
+.leaflet-control-attribution { display: none; }
+
+/* Fix: popup goes dark — prevent any modal overlay and style the popup */
+.leaflet-popup-pane { z-index: 700; }
+.leaflet-popup-content-wrapper {
+  background: rgba(5, 20, 38, 0.97) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  border-radius: 10px !important;
+  color: #cfd8dc !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
+}
+.leaflet-popup-tip { background: rgba(5, 20, 38, 0.97) !important; }
+.leaflet-popup-close-button { color: #78909c !important; font-size: 18px !important; }
+.leaflet-popup-close-button:hover { color: #cfd8dc !important; }
+
+
+.alt-legend {
+  position: absolute;
+  bottom: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.alt-legend-bar {
+  width: 360px;
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(to right, #ff3232, #ff7800, #ffdc00, #00dc00, #00d2d2, #0064ff, #a000ff);
+  opacity: 0.85;
+}
+.alt-legend-labels {
+  display: flex;
+  justify-content: space-between;
+  width: 360px;
+}
+.alt-legend-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--text-dim);
+}

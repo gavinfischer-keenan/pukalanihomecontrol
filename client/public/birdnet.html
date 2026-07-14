@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BirdNET — Hawaii</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b22;
+    --surface2:  #21262d;
+    --border:    #30363d;
+    --text:      #e6edf3;
+    --muted:     #8b949e;
+    --accent:    #58a6ff;
+    --green:     #3fb950;
+    --yellow:    #d29922;
+    --orange:    #db6d28;
+    --red:       #f85149;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .header-left h1 { font-size: 1.1rem; font-weight: 600; }
+  .header-left .sub { font-size: 0.75rem; color: var(--muted); }
+
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .refresh-info {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-align: right;
+    line-height: 1.4;
+  }
+  .refresh-info span { color: var(--accent); font-weight: 500; }
+
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .stat {
+    background: var(--surface);
+    padding: 10px 16px;
+    text-align: center;
+  }
+  .stat-val { font-size: 1.4rem; font-weight: 700; color: var(--accent); }
+  .stat-lbl { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; }
+
+  .section-title {
+    padding: 14px 20px 6px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .cards { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: start;
+    gap: 12px;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card.new { border-color: var(--green); background: color-mix(in srgb, var(--green) 8%, var(--surface)); }
+
+  .conf-ring {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 700;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .conf-ring svg { position: absolute; top: 0; left: 0; }
+  .conf-ring .val { position: relative; z-index: 1; }
+
+  .bird-info {}
+  .common-name { font-size: 1rem; font-weight: 600; line-height: 1.2; }
+  .sci-name { font-size: 0.75rem; color: var(--muted); font-style: italic; margin-top: 2px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .badge {
+    font-size: 0.65rem;
+    padding: 2px 7px;
+    border-radius: 20px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .badge.new-bird { background: color-mix(in srgb, var(--yellow) 15%, var(--surface2)); border-color: var(--yellow); color: var(--yellow); }
+
+  .time-col { text-align: right; flex-shrink: 0; }
+  .time-hms { font-size: 0.8rem; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+  .time-ago { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
+  .source { font-size: 0.6rem; color: var(--border); margin-top: 4px; }
+
+  .empty { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .empty .icon { font-size: 3rem; margin-bottom: 12px; }
+
+  .loading { text-align: center; padding: 40px; color: var(--muted); font-size: 0.85rem; }
+
+  #error-banner {
+    display: none;
+    background: color-mix(in srgb, var(--red) 15%, var(--surface));
+    border: 1px solid var(--red);
+    color: var(--red);
+    padding: 10px 20px;
+    font-size: 0.8rem;
+    margin: 8px 12px;
+    border-radius: 8px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="status-dot" id="statusDot"></div>
+    <div>
+      <h1>🦅 BirdNET — Hawaii</h1>
+      <div class="sub">Acoustic bird detection · Real-time</div>
+    </div>
+  </div>
+  <div class="refresh-info">
+    <div>Next refresh in <span id="countdown">60</span>s</div>
+    <div id="lastUpdate">—</div>
+  </div>
+</header>
+
+<div class="stats-bar" id="statsBar">
+  <div class="stat"><div class="stat-val" id="statToday">—</div><div class="stat-lbl">Today</div></div>
+  <div class="stat"><div class="stat-val" id="statSpecies">—</div><div class="stat-lbl">Species</div></div>
+  <div class="stat"><div class="stat-val" id="statLast">—</div><div class="stat-lbl">Last detection</div></div>
+  <div class="stat"><div class="stat-val" id="statConf">—</div><div class="stat-lbl">Avg confidence</div></div>
+</div>
+
+<div id="error-banner"></div>
+<div class="section-title">Recent Detections</div>
+<div class="cards" id="cards"><div class="loading">Loading bird detections…</div></div>
+
+<script>
+const API = '/api/birdnet';
+let countdown = 60;
+let timer;
+
+function confColor(c) {
+  if (c >= 0.85) return '#3fb950'; // green
+  if (c >= 0.70) return '#d29922'; // yellow
+  if (c >= 0.55) return '#db6d28'; // orange
+  return '#f85149';                // red
+}
+
+function makeRing(conf) {
+  const pct = Math.round(conf * 100);
+  const color = confColor(conf);
+  const r = 17, cx = 22, cy = 22;
+  const circ = 2 * Math.PI * r;
+  const dash = circ * conf;
+  return `
+    <div class="conf-ring" style="color:${color}">
+      <svg width="44" height="44" viewBox="0 0 44 44">
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#30363d" stroke-width="3"/>
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="3"
+          stroke-dasharray="${dash} ${circ}" stroke-dashoffset="${circ/4}"
+          stroke-linecap="round" transform="rotate(-90 ${cx} ${cy})"/>
+      </svg>
+      <div class="val">${pct}%</div>
+    </div>`;
+}
+
+function timeAgo(ts) {
+  const diff = (Date.now() - new Date(ts)) / 1000;
+  if (diff < 60) return `${Math.round(diff)}s ago`;
+  if (diff < 3600) return `${Math.round(diff/60)}m ago`;
+  return `${Math.round(diff/3600)}h ago`;
+}
+
+function formatTime(ts) {
+  return new Date(ts).toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+}
+
+async function fetchDetections() {
+  const resp = await fetch(`${API}?limit=30`);
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const json = await resp.json();
+  return json.data || json;
+}
+
+function renderCards(detections) {
+  const el = document.getElementById('cards');
+  if (!detections.length) {
+    el.innerHTML = '<div class="empty"><div class="icon">🎵</div>No recent detections</div>';
+    return;
+  }
+
+  // Stats
+  const today = new Date().toISOString().slice(0,10);
+  const todayDets = detections.filter(d => d.date === today);
+  const species = new Set(detections.map(d => d.speciesCode)).size;
+  const avgConf = detections.reduce((s,d) => s + d.confidence, 0) / detections.length;
+  const latest = detections[0];
+  const minAgo = Math.round((Date.now() - new Date(latest.timestamp)) / 60000);
+
+  document.getElementById('statToday').textContent = todayDets.length;
+  document.getElementById('statSpecies').textContent = species;
+  document.getElementById('statLast').textContent = minAgo < 60 ? `${minAgo}m` : `${Math.round(minAgo/60)}h`;
+  document.getElementById('statConf').textContent = Math.round(avgConf * 100) + '%';
+
+  const now5 = Date.now() - 5 * 60 * 1000;
+
+  el.innerHTML = detections.map(d => {
+    const isNew = new Date(d.timestamp) > now5;
+    const isNewBird = d.daysSinceFirstSeen <= 1;
+    return `
+      <div class="card ${isNew ? 'new' : ''}">
+        ${makeRing(d.confidence)}
+        <div class="bird-info">
+          <div class="common-name">${d.commonName}</div>
+          <div class="sci-name">${d.scientificName}</div>
+          <div class="meta">
+            ${d.source?.displayName ? `<span class="badge">${d.source.displayName}</span>` : ''}
+            ${d.daysSinceFirstSeen !== undefined ? `<span class="badge">Season: ${d.daysThisSeason}d</span>` : ''}
+            ${isNewBird ? `<span class="badge new-bird">⭐ New species!</span>` : ''}
+            ${d.verified === 'verified' ? `<span class="badge" style="color:#3fb950;border-color:#3fb950">✓ Verified</span>` : ''}
+          </div>
+        </div>
+        <div class="time-col">
+          <div class="time-hms">${formatTime(d.timestamp)}</div>
+          <div class="time-ago">${timeAgo(d.timestamp)}</div>
+          <div class="source">${d.date}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function refresh() {
+  const dot = document.getElementById('statusDot');
+  const errBanner = document.getElementById('error-banner');
+  try {
+    const data = await fetchDetections();
+    renderCards(data);
+    dot.style.background = '#3fb950';
+    errBanner.style.display = 'none';
+    document.getElementById('lastUpdate').textContent = 'Updated ' + new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:false});
+  } catch(e) {
+    dot.style.background = '#f85149';
+    errBanner.style.display = 'block';
+    errBanner.textContent = 'BirdNET API unavailable — ' + e.message;
+  }
+}
+
+function startCountdown() {
+  countdown = 60;
+  clearInterval(timer);
+  timer = setInterval(() => {
+    countdown--;
+    document.getElementById('countdown').textContent = countdown;
+    if (countdown <= 0) { refresh(); startCountdown(); }
+  }, 1000);
+}
+
+refresh();
+startCountdown();
+</script>
+</body>
+</html>

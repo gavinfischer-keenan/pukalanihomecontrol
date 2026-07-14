@@ -1,0 +1,161 @@
+/* Ecowitt WS90 Map Icon — compact badge on map */
+.pws-icon {
+  background: rgba(2, 14, 26, 0.95);
+  border: 1.5px solid rgba(102, 187, 106, 0.8);
+  border-radius: 8px;
+  padding: 3px 6px 2px;
+  text-align: center;
+  min-width: 56px;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.5);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.pws-icon:hover { border-color: #66bb6a; box-shadow: 0 0 8px rgba(102,187,106,0.4); }
+.pws-icon.pws-stale { border-color: rgba(255, 152, 0, 0.6); opacity: 0.75; }
+
+.pws-icon-temp {
+  font-size: 14px;
+  font-weight: 900;
+  color: #ffa726;
+  font-family: monospace;
+  line-height: 1.1;
+}
+.pws-icon-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.pws-icon-wind { font-size: 10px; color: #80cbc4; font-family: monospace; }
+.pws-icon-rain { font-size: 10px; }
+
+/* Floating panel — rendered outside MapContainer, no dark overlay */
+.pws-floating-panel {
+  position: fixed;
+  top: 80px;
+  right: 220px;          /* sit left of the layer control panel */
+  width: 260px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(4, 14, 28, 0.97);
+  border: 1px solid rgba(102, 187, 106, 0.35);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+  z-index: 1200;
+  animation: pws-drop 0.2s ease;
+}
+@keyframes pws-drop {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.pws-floating-panel .pws-popup-header {
+  flex-shrink: 0;
+  background: rgba(0, 8, 18, 0.98);
+}
+
+.pws-floating-panel .pws-popup-inner {
+  overflow-y: auto;
+  flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+/* Icon highlight when panel is open */
+.pws-icon-open {
+  border-color: #66bb6a !important;
+  box-shadow: 0 0 10px rgba(102,187,106,0.5) !important;
+}
+
+/* Close button */
+.pws-close-btn {
+  background: none;
+  border: none;
+  color: #546e7a;
+  cursor: pointer;
+  padding: 2px 5px;
+  font-size: 13px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.pws-close-btn:hover { color: #cfd8dc; }
+
+
+
+.pws-popup-inner {
+  padding: 10px 14px 10px;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #cfd8dc;
+  min-width: 240px;
+}
+
+.pws-popup-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.pws-popup-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #66bb6a;
+  flex: 1;
+}
+.pws-popup-stale { font-size: 10px; color: #ff9800; font-weight: 700; }
+.pws-popup-time  { font-size: 10px; color: #78909c; font-family: monospace; }
+
+.pws-loading {
+  font-size: 12px;
+  color: #78909c;
+  text-align: center;
+  padding: 14px 0;
+  line-height: 1.6;
+}
+.pws-loading small { font-size: 10px; color: #546e7a; }
+
+/* Section headers */
+.pws-section-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  color: #546e7a;
+  text-transform: uppercase;
+  margin: 8px 0 3px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+/* Data rows */
+.pws-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 2px 0;
+}
+.pws-row-label {
+  font-size: 11px;
+  color: #90a4ae;           /* was #455a64 — too dark, raised for readability */
+}
+.pws-row-value {
+  font-size: 11px;
+  font-weight: 700;
+  color: #cfd8dc;           /* was #90a4ae — raised contrast */
+  font-family: monospace;
+}
+.pws-unit {
+  font-size: 9px;
+  font-weight: 400;
+  color: #78909c;
+}
+
+.pws-batt {
+  font-size: 10px;
+  color: #546e7a;
+  text-align: right;
+  margin-top: 7px;
+  font-family: monospace;
+}

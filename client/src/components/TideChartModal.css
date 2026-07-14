@@ -1,0 +1,114 @@
+.tide-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadein 0.2s ease;
+}
+@keyframes fadein { from { opacity: 0 } to { opacity: 1 } }
+
+.tide-modal {
+  width: min(620px, 96vw);
+  border-radius: 14px;
+  overflow: hidden;
+  animation: slideUp 0.25s ease;
+  background: rgba(4, 14, 28, 0.97);
+  border: 1px solid rgba(41, 182, 246, 0.35);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(41,182,246,0.12);
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.tide-modal-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid rgba(41,182,246,0.15);
+  position: relative;
+}
+.tide-modal-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #e3f2fd;
+  font-family: inherit;
+}
+.tide-modal-sub {
+  font-size: 11px;
+  color: #546e7a;
+  font-family: monospace;
+}
+.tide-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: #546e7a;
+  font-size: 16px;
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.tide-modal-close:hover { background: rgba(255,255,255,0.08); color: #fff; }
+
+.tide-modal-current {
+  padding: 8px 18px 4px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.tide-modal-level {
+  font-size: 26px;
+  font-weight: 900;
+  color: #29b6f6;
+  font-family: monospace;
+}
+.tide-modal-label {
+  font-size: 11px;
+  color: #546e7a;
+}
+
+.tide-chart-wrap {
+  padding: 4px 8px 0;
+  height: 200px;
+}
+
+.tide-chart-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #546e7a;
+  font-size: 13px;
+}
+.tide-chart-err {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #ef5350;
+  font-size: 12px;
+}
+
+.tide-modal-legend {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  padding: 8px 18px 14px;
+  font-size: 11px;
+  font-family: monospace;
+}
+.legend-high { color: #64b5f6; }
+.legend-now  { color: #ffd54f; }
+.legend-low  { color: #ff7043; }

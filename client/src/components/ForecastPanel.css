@@ -1,0 +1,202 @@
+.fp-panel {
+  width: 280px;
+  max-height: 40vh;         /* never more than 40% of screen height */
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(4, 14, 28, 0.97);
+  border: 1px solid rgba(100, 181, 246, 0.25);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  animation: fp-drop 0.22s ease;
+}
+@keyframes fp-drop {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Header + tabs */
+.fp-header {
+  background: rgba(0, 8, 18, 0.98);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  padding-right: 6px;
+  flex-shrink: 0;            /* header never gets squashed */
+}
+.fp-tabs { display: flex; flex: 1; }
+.fp-tab {
+  flex: 1;
+  padding: 7px 4px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #546e7a;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.fp-tab:hover  { color: #90a4ae; }
+.fp-tab.active {
+  color: #29b6f6;
+  border-bottom-color: #29b6f6;
+  background: rgba(41,182,246,0.04);
+}
+.fp-close-btn {
+  background: none;
+  border: none;
+  color: #546e7a;
+  cursor: pointer;
+  padding: 4px 6px;
+  font-size: 13px;
+  line-height: 1;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+.fp-close-btn:hover { color: #cfd8dc; }
+
+/* Body — scrollable, fills remaining space */
+.fp-body {
+  overflow-y: auto;
+  flex: 1;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+.fp-loading {
+  padding: 16px;
+  text-align: center;
+  color: #78909c;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Daily row — compact */
+.fp-day {
+  display: grid;
+  grid-template-columns: 38px 24px 1fr auto;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background 0.15s;
+}
+.fp-day:hover { background: rgba(255,255,255,0.03); }
+.fp-day-today {
+  background: rgba(41,182,246,0.05);
+  border-left: 2px solid #29b6f6;
+}
+
+.fp-dow {
+  font-size: 11px;
+  font-weight: 700;
+  color: #90a4ae;
+  font-family: monospace;
+}
+.fp-day-today .fp-dow { color: #29b6f6; }
+
+.fp-icon { font-size: 16px; text-align: center; }
+
+.fp-temps { display: flex; align-items: baseline; gap: 2px; }
+.fp-hi    { font-size: 12px; font-weight: 700; color: #ffb74d; font-family: monospace; }
+.fp-lo    { font-size: 10px; color: #78909c; font-family: monospace; }
+
+.fp-details {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+.fp-pop  { font-size: 10px; color: #64b5f6; font-family: monospace; }
+.fp-wind { font-size: 10px; color: #90a4ae; font-family: monospace; }
+
+/* Footer links */
+.fp-footer {
+  padding: 6px 10px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.fp-climate-link {
+  font-size: 10px;
+  color: #64b5f6;             /* was #37474f — far too dark */
+  text-decoration: none;
+  transition: color 0.15s;
+  display: block;
+}
+.fp-climate-link:hover { color: #90caf9; text-decoration: underline; }
+
+/* ── Fishing tab ── */
+.fp-fishing { padding: 10px; }
+
+.fp-fish-rating {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.fp-stars { font-size: 18px; color: #ffd54f; letter-spacing: 2px; }
+.fp-fish-label {
+  font-size: 15px;
+  font-weight: 900;
+  font-family: monospace;
+}
+.fp-fish-excellent { color: #00e676; }
+.fp-fish-good      { color: #aed581; }
+.fp-fish-fair      { color: #ffd54f; }
+.fp-fish-poor      { color: #90a4ae; }   /* was #78909c — a touch lighter */
+
+.fp-fish-meta {
+  font-size: 11px;
+  color: #78909c;             /* was #37474f — barely visible */
+  font-family: monospace;
+  margin-bottom: 10px;
+}
+
+.fp-fish-times {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.fp-ft-section {}
+.fp-ft-label {
+  font-size: 10px;             /* minimum: size of "Moon overhead" text */
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #78909c;              /* was #263238 — completely invisible */
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding-bottom: 2px;
+}
+.fp-ft-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+.fp-ft-icon { font-size: 14px; }
+.fp-ft-time {
+  font-family: monospace;
+  font-size: 12px;             /* minimum readable size */
+  font-weight: 700;
+  color: #80cbc4;
+  min-width: 72px;
+}
+.fp-ft-desc {
+  font-size: 11px;             /* matches "Moon overhead" baseline */
+  color: #90a4ae;              /* was #546e7a — too dark */
+}
+
+.fp-fish-note {
+  font-size: 10px;
+  color: #78909c;              /* was #263238 — invisible */
+  line-height: 1.5;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding-top: 8px;
+}

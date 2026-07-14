@@ -1,0 +1,100 @@
+.apt-status-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  pointer-events: auto;
+  animation: apt-drop 0.25s ease;
+}
+@keyframes apt-drop {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.apt-card {
+  width: 108px;
+  border-radius: 10px;
+  border: 1.5px solid;
+  background: rgba(4, 14, 28, 0.95);
+  backdrop-filter: blur(12px);
+  padding: 6px 8px 5px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: transform 0.15s;
+  cursor: default;
+}
+.apt-card:hover { transform: translateY(-2px); }
+.apt-card-loading {
+  border-color: #37474f;
+  justify-content: center;
+  align-items: center;
+  height: 82px;
+}
+
+.apt-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+.apt-icao {
+  font-size: 14px;
+  font-weight: 900;
+  font-family: monospace;
+  letter-spacing: 1px;
+}
+.apt-dim { color: #455a64; }
+.apt-cat {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  border: 1px solid;
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-family: monospace;
+}
+
+.apt-delay {
+  font-size: 9px;
+  font-weight: 700;
+  margin-bottom: 2px;
+  background: rgba(255,112,67,0.1);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
+.apt-field {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.apt-fl {
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: #37474f;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  width: 28px;
+}
+.apt-fv {
+  font-size: 10px;
+  color: #b0bec5;
+  font-family: monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.apt-altim { color: #546e7a; font-size: 9px; }
+
+.apt-loading-dot {
+  width: 8px;
+  height: 8px;
+  border: 2px solid rgba(41,182,246,0.3);
+  border-top-color: #29b6f6;
+  border-radius: 50%;
+  animation: apt-spin 1s linear infinite;
+  margin-top: 4px;
+}
+@keyframes apt-spin { to { transform: rotate(360deg); } }
