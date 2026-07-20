@@ -1,4 +1,5 @@
 require('dotenv').config();
+const nwsService = require('./nws-service');
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
@@ -53,8 +54,47 @@ async function prefetchAirportStatus() {
 prefetchAirportStatus().catch(console.error);
 setInterval(() => prefetchAirportStatus().catch(console.error), AIRPORT_STATUS_TTL);
 
+// ── Tide predictions — server-side proxy cache (8 hours) ───────────────────────
+const tideCache = {};
+const TIDE_TTL_MS = 8 * 60 * 60 * 1000;
 
-app.use(cors());
+app.get('/api/noaa-tides/:station', async (req, res) => {
+  const station = req.params.station;
+  const now = Date.now();
+  if (tideCache[station] && (now - tideCache[station].fetchedAt) < TIDE_TTL_MS) {
+    return res.json(tideCache[station].data);
+  }
+  try {
+    const days = parseInt(req.query.days || '2');
+    const begin = new Date();
+    const end = new Date(begin.getTime() + days * 86400000);
+    const pad = (n) => String(n).padStart(2, '0');
+    const ymd = (d) => `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
+    const url = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=predictions&datum=MLLW&time_zone=lst_ldt&interval=h&units=english&format=json&begin_date=${ymd(begin)}&end_date=${ymd(end)}&station=${station}`;
+    const r = await axios.get(url, { timeout: 15000 });
+    tideCache[station] = { data: r.data, fetchedAt: now };
+    console.log(`[noaa-tides] cached station=${station} @ ${new Date().toISOString()}`);
+    res.json(r.data);
+  } catch (err) {
+    console.error('tide fetch error:', err.message);
+    if (tideCache[station]) {
+      res.json(tideCache[station].data);
+    } else {
+      res.status(502).json({ error: 'NOAA API unavailable' });
+    }
+  }
+});
+
+app.use(cors({
+  origin: (origin, cb) => {
+    // Allow requests with no origin (direct, curl, server-to-server)
+    if (!origin) return cb(null, true);
+    // Allow LAN origins and localhost
+    if (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.)/.test(origin)) return cb(null, true);
+    cb(new Error('CORS: origin not allowed'));
+  },
+  credentials: true
+}));
 app.use(express.json());
 
 const pool = new Pool({
@@ -104,6 +144,7 @@ app.get('/api/vessels', async (req, res) => {
         e.draught,
         lt.speed,
         lt.heading,
+        lt.heading AS course,
         lt.rot,
         lt.nav_status,
         lt.source_type,
@@ -125,6 +166,8 @@ app.get('/api/vessels', async (req, res) => {
         )
       ORDER BY lt.entity_id, lt.recorded_at DESC;
     `, [HOME_LON, HOME_LAT, RANGE_M]);
+    // Record sightings for all active vessels
+    result.rows.forEach(v => recordVesselSighting(String(v.entity_id), v.vessel_name).catch(()=>{}));
     res.json(result.rows);
   } catch (err) {
     console.error('vessels query error:', err.message);
@@ -191,6 +234,71 @@ app.get('/api/status', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// ── System health endpoint for monitoring ───────────────────────────────────
+app.get('/api/health', async (req, res) => {
+  const health = { status: 'ok', timestamp: new Date().toISOString(), checks: {} };
+  
+  // DB connectivity
+  try {
+    await pool.query('SELECT 1');
+    health.checks.database = { ok: true };
+  } catch(e) {
+    health.checks.database = { ok: false, error: e.message };
+    health.status = 'degraded';
+  }
+  
+  // AIS freshness (data in last 10 min)
+  try {
+    const r = await pool.query("SELECT COUNT(*) as cnt FROM live_tracks WHERE source_type='ais' AND recorded_at > NOW() - INTERVAL '10 minutes'");
+    const cnt = parseInt(r.rows[0]?.cnt || 0);
+    health.checks.ais = { ok: cnt > 0, vessels_10min: cnt };
+    if (cnt === 0) health.status = 'degraded';
+  } catch(e) {
+    health.checks.ais = { ok: false, error: e.message };
+  }
+  
+  // ADS-B freshness
+  try {
+    const r = await pool.query("SELECT COUNT(*) as cnt FROM live_tracks WHERE source_type='adsb' AND recorded_at > NOW() - INTERVAL '5 minutes'");
+    const cnt = parseInt(r.rows[0]?.cnt || 0);
+    health.checks.adsb = { ok: cnt > 0, aircraft_5min: cnt };
+  } catch(e) {
+    health.checks.adsb = { ok: false, error: e.message };
+  }
+  
+  // Weather freshness
+  try {
+    const r = await pool.query("SELECT COUNT(*) as cnt FROM pws_obs WHERE obs_time > NOW() - INTERVAL '5 minutes'");
+    const cnt = parseInt(r.rows[0]?.cnt || 0);
+    health.checks.weather = { ok: cnt > 0 };
+  } catch(e) {
+    health.checks.weather = { ok: false, error: e.message };
+  }
+  
+  // tar1090
+  try {
+    const r = await axios.get(process.env.TAR1090_URL || TAR1090_URL, { timeout: 2000 });
+    health.checks.tar1090 = { ok: true, aircraft: r.data.aircraft?.length || 0 };
+  } catch(e) {
+    health.checks.tar1090 = { ok: false, error: e.message };
+    health.status = 'degraded';
+  }
+  
+  const statusCode = health.status === 'ok' ? 200 : 207;
+  res.status(statusCode).json(health);
+});
+
+// ── Nightly health report ────────────────────────────────────────────────────
+const fs_health = require('fs');
+app.get('/api/health-report', (req, res) => {
+  try {
+    const report = JSON.parse(fs_health.readFileSync('/tmp/health-report.json', 'utf8'));
+    res.json(report);
+  } catch(e) {
+    res.json({ available: false, message: 'No health report yet — runs nightly at 02:00 HST' });
   }
 });
 
@@ -320,7 +428,6 @@ app.get('/api/winds-aloft', async (req, res) => {
     `);
     res.json(result.rows);
   } catch (err) {
-    console.error('winds aloft error:', err.message);
     console.error('winds aloft error:', err.message);
     res.json([]);
   }
@@ -560,6 +667,283 @@ app.get('/api/hawaii-ports', async (req, res) => {
 
 
 const PORT = 3001;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// VESSEL & AIRCRAFT LOCAL KNOWLEDGE BASE
+// ═══════════════════════════════════════════════════════════════════════════
+const multer = require('multer');
+const path_mod = require('path');
+const fs_mod = require('fs');
+
+// Ensure uploads directory exists
+const UPLOADS_DIR = '/opt/dashboard/uploads/vessels';
+if (!fs_mod.existsSync(UPLOADS_DIR)) fs_mod.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+const vesselUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, UPLOADS_DIR),
+    filename: (req, file, cb) => {
+      const ext = path_mod.extname(file.originalname) || '.jpg';
+      cb(null, `${req.params.mmsi}${ext}`);
+    }
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Images only'));
+  }
+});
+
+// Serve uploaded vessel photos
+app.use('/uploads/vessels', express.static(UPLOADS_DIR));
+// Serve static GeoJSON map data
+app.use('/static', express.static('/opt/dashboard/public/static'));
+
+// ── Auto-record vessel sightings (called from vessel polling) ─────────────
+async function recordVesselSighting(mmsi, vesselName) {
+  if (!mmsi) return;
+  try {
+    // Record today's sighting
+    await pool.query(
+      `INSERT INTO vessel_sightings (mmsi, seen_day) VALUES ($1, CURRENT_DATE) ON CONFLICT DO NOTHING`,
+      [mmsi]
+    );
+    // Upsert vessel_info basics
+    await pool.query(`
+      INSERT INTO vessel_info (mmsi, vessel_name, first_seen, last_seen, seen_days)
+      VALUES ($1, $2, now(), now(), 1)
+      ON CONFLICT (mmsi) DO UPDATE SET
+        last_seen = now(),
+        vessel_name = COALESCE(vessel_info.vessel_name, EXCLUDED.vessel_name),
+        seen_days = (SELECT COUNT(DISTINCT seen_day) FROM vessel_sightings WHERE mmsi = $1)
+    `, [mmsi, vesselName || null]);
+  } catch (e) {
+    // Non-fatal — don't break vessel API on sighting errors
+  }
+}
+
+// ── GET vessel local knowledge ────────────────────────────────────────────
+app.get('/api/vessel-info/:mmsi', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT vi.*,
+        (SELECT COUNT(DISTINCT seen_day) FROM vessel_sightings WHERE mmsi = vi.mmsi) AS seen_days_count,
+        (SELECT ARRAY_AGG(seen_day ORDER BY seen_day DESC) FROM vessel_sightings WHERE mmsi = vi.mmsi LIMIT 30) AS recent_days
+       FROM vessel_info vi WHERE vi.mmsi = $1`,
+      [req.params.mmsi]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'No local record' });
+    res.json(rows[0]);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST / upsert vessel local knowledge ─────────────────────────────────
+app.post('/api/vessel-info/:mmsi', express.json(), async (req, res) => {
+  const mmsi = req.params.mmsi;
+  const {
+    vessel_name, imo, call_sign, flag, vessel_type,
+    gross_tonnage, year_built, length_m, beam_m,
+    owner, operator, notes, photo_url, data_source
+  } = req.body;
+  try {
+    await pool.query(`
+      INSERT INTO vessel_info (mmsi, vessel_name, imo, call_sign, flag, vessel_type,
+        gross_tonnage, year_built, length_m, beam_m, owner, operator, notes, photo_url, data_source,
+        first_seen, last_seen, updated_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,now(),now(),now())
+      ON CONFLICT (mmsi) DO UPDATE SET
+        vessel_name   = COALESCE($2, vessel_info.vessel_name),
+        imo           = COALESCE($3, vessel_info.imo),
+        call_sign     = COALESCE($4, vessel_info.call_sign),
+        flag          = COALESCE($5, vessel_info.flag),
+        vessel_type   = COALESCE($6, vessel_info.vessel_type),
+        gross_tonnage = COALESCE($7, vessel_info.gross_tonnage),
+        year_built    = COALESCE($8, vessel_info.year_built),
+        length_m      = COALESCE($9, vessel_info.length_m),
+        beam_m        = COALESCE($10, vessel_info.beam_m),
+        owner         = COALESCE($11, vessel_info.owner),
+        operator      = COALESCE($12, vessel_info.operator),
+        notes         = COALESCE($13, vessel_info.notes),
+        photo_url     = COALESCE($14, vessel_info.photo_url),
+        data_source   = COALESCE($15, vessel_info.data_source),
+        updated_at    = now()
+    `, [mmsi, vessel_name, imo, call_sign, flag, vessel_type,
+        gross_tonnage, year_built, length_m, beam_m,
+        owner, operator, notes, photo_url, data_source || 'manual']);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST vessel photo upload ──────────────────────────────────────────────
+app.post('/api/vessel-photo/:mmsi', vesselUpload.single('photo'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file' });
+  const photoUrl = `/uploads/vessels/${req.file.filename}`;
+  try {
+    await pool.query(
+      `UPDATE vessel_info SET photo_url=$1, photo_local=true, updated_at=now() WHERE mmsi=$2`,
+      [photoUrl, req.params.mmsi]
+    );
+    res.json({ ok: true, photo_url: photoUrl });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET vessel seen-days ──────────────────────────────────────────────────
+app.get('/api/vessel-info/:mmsi/seen-days', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT seen_day FROM vessel_sightings WHERE mmsi=$1 ORDER BY seen_day DESC`,
+      [req.params.mmsi]
+    );
+    res.json({ count: rows.length, days: rows.map(r => r.seen_day) });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// AIRCRAFT LOCAL KNOWLEDGE BASE (3-sighting rule)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── Auto-record aircraft sightings (3-sighting rule) ─────────────────────
+async function recordAircraftSighting(icaoHex, registration, aircraftType) {
+  if (!icaoHex || icaoHex === '000000') return;
+  try {
+    // Increment raw sighting count
+    const { rows } = await pool.query(`
+      INSERT INTO aircraft_sighting_counts (icao_hex, sighting_count, first_seen, last_seen)
+      VALUES ($1, 1, now(), now())
+      ON CONFLICT (icao_hex) DO UPDATE SET
+        sighting_count = aircraft_sighting_counts.sighting_count + 1,
+        last_seen = now()
+      RETURNING sighting_count
+    `, [icaoHex]);
+
+    const count = rows[0]?.sighting_count || 0;
+
+    // Only persist to aircraft_info after 3rd sighting
+    if (count >= 3) {
+      await pool.query(`
+        INSERT INTO aircraft_info (icao_hex, registration, aircraft_type, sighting_count, first_seen, last_seen)
+        VALUES ($1, $2, $3, $4, now(), now())
+        ON CONFLICT (icao_hex) DO UPDATE SET
+          last_seen = now(),
+          sighting_count = $4,
+          registration = COALESCE(aircraft_info.registration, EXCLUDED.registration),
+          aircraft_type = COALESCE(aircraft_info.aircraft_type, EXCLUDED.aircraft_type)
+      `, [icaoHex, registration || null, aircraftType || null, count]);
+
+      // Record seen-day
+      await pool.query(
+        `INSERT INTO aircraft_sightings (icao_hex, seen_day) VALUES ($1, CURRENT_DATE) ON CONFLICT DO NOTHING`,
+        [icaoHex]
+      );
+
+      // Update seen_days count
+      await pool.query(`
+        UPDATE aircraft_info SET
+          seen_days = (SELECT COUNT(DISTINCT seen_day) FROM aircraft_sightings WHERE icao_hex = $1)
+        WHERE icao_hex = $1
+      `, [icaoHex]);
+    }
+  } catch (e) {
+    // Non-fatal
+  }
+}
+
+// ── GET aircraft local knowledge ──────────────────────────────────────────
+app.get('/api/aircraft-info/:icao', async (req, res) => {
+  const icao = req.params.icao.toLowerCase();
+  try {
+    // Check raw sighting count first
+    const countRow = await pool.query(
+      `SELECT sighting_count FROM aircraft_sighting_counts WHERE icao_hex=$1`,
+      [icao]
+    );
+    const sightingCount = countRow.rows[0]?.sighting_count || 0;
+
+    const { rows } = await pool.query(
+      `SELECT ai.*,
+        (SELECT COUNT(DISTINCT seen_day) FROM aircraft_sightings WHERE icao_hex = ai.icao_hex) AS seen_days_count
+       FROM aircraft_info ai WHERE ai.icao_hex = $1`,
+      [icao]
+    );
+
+    if (!rows.length) {
+      // Return minimal info even if below threshold
+      return res.json({
+        icao_hex: icao,
+        sighting_count: sightingCount,
+        threshold_met: sightingCount >= 3,
+        record_exists: false
+      });
+    }
+    res.json({ ...rows[0], threshold_met: true, record_exists: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST / upsert aircraft local knowledge ────────────────────────────────
+app.post('/api/aircraft-info/:icao', express.json(), async (req, res) => {
+  const icao = req.params.icao.toLowerCase();
+  const { registration, aircraft_type, operator, notes, photo_url, data_source } = req.body;
+  try {
+    // Only allow if threshold met
+    const countRow = await pool.query(
+      `SELECT sighting_count FROM aircraft_sighting_counts WHERE icao_hex=$1`, [icao]
+    );
+    if ((countRow.rows[0]?.sighting_count || 0) < 3) {
+      return res.status(403).json({ error: 'Aircraft seen fewer than 3 times — record not yet created' });
+    }
+    await pool.query(`
+      INSERT INTO aircraft_info (icao_hex, registration, aircraft_type, operator, notes, photo_url, data_source, first_seen, last_seen)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,now(),now())
+      ON CONFLICT (icao_hex) DO UPDATE SET
+        registration  = COALESCE($2, aircraft_info.registration),
+        aircraft_type = COALESCE($3, aircraft_info.aircraft_type),
+        operator      = COALESCE($4, aircraft_info.operator),
+        notes         = COALESCE($5, aircraft_info.notes),
+        photo_url     = COALESCE($6, aircraft_info.photo_url),
+        data_source   = COALESCE($7, aircraft_info.data_source),
+        updated_at    = now()
+    `, [icao, registration, aircraft_type, operator, notes, photo_url, data_source || 'manual']);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET aircraft seen-days ────────────────────────────────────────────────
+app.get('/api/aircraft-info/:icao/seen-days', async (req, res) => {
+  const icao = req.params.icao.toLowerCase();
+  try {
+    const { rows } = await pool.query(
+      `SELECT seen_day FROM aircraft_sightings WHERE icao_hex=$1 ORDER BY seen_day DESC`,
+      [icao]
+    );
+    const countRow = await pool.query(
+      `SELECT sighting_count FROM aircraft_sighting_counts WHERE icao_hex=$1`, [icao]
+    );
+    res.json({
+      count: rows.length,
+      days: rows.map(r => r.seen_day),
+      total_sightings: countRow.rows[0]?.sighting_count || 0,
+      threshold_met: (countRow.rows[0]?.sighting_count || 0) >= 3
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// NWS/NOAA caching service
+nwsService.init(app, express);
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Hawaii API Server running on port ${PORT}`);
 });

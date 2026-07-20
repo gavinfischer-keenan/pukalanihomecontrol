@@ -1,0 +1,269 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "description": "Hawaii Vessel Trade Routes — derived from AIS density data (MarineCadastre / IMO routing)",
+    "note": "Reference only. Not for navigation. Routes approximate based on historical AIS traffic density.",
+    "source": "MarineCadastre.gov AIS density + IMO Vessel Routing Measures",
+    "generated": "2026-07-16"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Honolulu ↔ Hilo",
+        "category": "inter_island",
+        "operators": "Young Brothers, Matson",
+        "color": "#2196F3",
+        "weight": 4,
+        "vessel_types": "Cargo barge, container"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-157.868, 21.304],
+          [-157.500, 21.100],
+          [-156.500, 20.400],
+          [-155.850, 19.850],
+          [-155.063, 19.731]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Honolulu ↔ Kahului (Maui)",
+        "category": "inter_island",
+        "operators": "Young Brothers, Matson, ferry",
+        "color": "#2196F3",
+        "weight": 3,
+        "vessel_types": "Cargo, barge, passenger ferry"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-157.868, 21.304],
+          [-157.500, 21.050],
+          [-157.000, 20.750],
+          [-156.472, 20.898]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Honolulu ↔ Nawiliwili (Kauai)",
+        "category": "inter_island",
+        "operators": "Young Brothers",
+        "color": "#2196F3",
+        "weight": 3,
+        "vessel_types": "Cargo barge"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-157.868, 21.304],
+          [-158.200, 21.450],
+          [-158.700, 21.600],
+          [-159.200, 21.800],
+          [-159.355, 21.950]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Kahului ↔ Hilo (Cross-channel)",
+        "category": "inter_island",
+        "operators": "Young Brothers",
+        "color": "#2196F3",
+        "weight": 2,
+        "vessel_types": "Cargo barge"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-156.472, 20.898],
+          [-156.100, 20.500],
+          [-155.600, 20.000],
+          [-155.063, 19.731]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Kawaihae ↔ Honolulu",
+        "category": "inter_island",
+        "operators": "Young Brothers",
+        "color": "#2196F3",
+        "weight": 2,
+        "vessel_types": "Cargo barge"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-155.831, 20.035],
+          [-156.500, 20.400],
+          [-157.200, 20.800],
+          [-157.868, 21.304]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Honolulu ↔ Los Angeles / Long Beach",
+        "category": "mainland_us",
+        "operators": "Matson Navigation",
+        "color": "#FF9800",
+        "weight": 5,
+        "vessel_types": "Container ship, RO-RO",
+        "distance_nm": 2215
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-157.868, 21.304],
+          [-155.000, 22.500],
+          [-150.000, 24.000],
+          [-145.000, 26.000],
+          [-140.000, 28.000],
+          [-135.000, 30.000],
+          [-130.000, 32.000],
+          [-118.270, 33.740]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Honolulu ↔ Oakland / Seattle",
+        "category": "mainland_us",
+        "operators": "TOTE Maritime, Matson",
+        "color": "#FF9800",
+        "weight": 4,
+        "vessel_types": "Container, RO-RO",
+        "distance_nm": 2390
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-157.868, 21.304],
+          [-155.000, 23.500],
+          [-150.000, 26.000],
+          [-145.000, 30.000],
+          [-140.000, 35.000],
+          [-135.000, 40.000],
+          [-130.000, 45.000],
+          [-125.000, 47.500],
+          [-122.350, 47.607]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Hilo ↔ Los Angeles",
+        "category": "mainland_us",
+        "operators": "Matson",
+        "color": "#FF9800",
+        "weight": 3,
+        "vessel_types": "Container"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-155.063, 19.731],
+          [-152.000, 21.000],
+          [-148.000, 23.000],
+          [-143.000, 26.000],
+          [-138.000, 29.000],
+          [-133.000, 31.500],
+          [-118.270, 33.740]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Honolulu ↔ Yokohama / Tokyo",
+        "category": "transpacific",
+        "operators": "MOL, NYK, K-Line, Evergreen",
+        "color": "#F44336",
+        "weight": 5,
+        "vessel_types": "Container ship (ultra-large)",
+        "distance_nm": 3360,
+        "note": "Great-circle route passes near 30°N"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-157.868, 21.304],
+          [-160.000, 25.000],
+          [-165.000, 28.000],
+          [-170.000, 30.000],
+          [-175.000, 31.000],
+          [180.000, 31.500],
+          [175.000, 32.000],
+          [170.000, 33.000],
+          [165.000, 34.000],
+          [140.000, 35.500],
+          [139.640, 35.453]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Honolulu ↔ Guam / Micronesia",
+        "category": "transpacific",
+        "operators": "Matson, OOCL, Evergreen",
+        "color": "#F44336",
+        "weight": 3,
+        "vessel_types": "Container, breakbulk",
+        "distance_nm": 3800
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-157.868, 21.304],
+          [-162.000, 18.000],
+          [-168.000, 15.000],
+          [-175.000, 13.000],
+          [178.000, 13.500],
+          [172.000, 13.500],
+          [165.000, 13.800],
+          [144.750, 13.460]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Honolulu ↔ Shanghai / Hong Kong",
+        "category": "transpacific",
+        "operators": "COSCO, Evergreen, Yang Ming",
+        "color": "#F44336",
+        "weight": 4,
+        "vessel_types": "Container ship (ULCC)",
+        "distance_nm": 5100,
+        "note": "Great-circle route passes N of Hawaii"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-157.868, 21.304],
+          [-162.000, 26.000],
+          [-168.000, 29.000],
+          [-175.000, 31.000],
+          [178.000, 32.000],
+          [172.000, 33.000],
+          [160.000, 34.000],
+          [145.000, 35.000],
+          [130.000, 33.000],
+          [121.490, 31.230]
+        ]
+      }
+    }
+  ]
+}

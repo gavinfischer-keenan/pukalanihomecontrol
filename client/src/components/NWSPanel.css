@@ -1,0 +1,125 @@
+/* ── NWSPanel ─────────────────────────────────────────────────────────── */
+
+.nws-panel {
+  position: fixed;
+  top: 48px;
+  right: 260px;          /* clear the LayerControl */
+  width: min(90vw, 900px);
+  height: min(88vh, 720px);
+  display: flex;
+  flex-direction: column;
+  background: rgba(4, 14, 28, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7);
+  z-index: 1200;
+  overflow: hidden;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────── */
+.nws-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  height: 44px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  background: rgba(0, 8, 18, 0.8);
+}
+
+.nws-panel-title {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  color: #29b6f6;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.nws-panel-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  overflow-x: auto;
+}
+
+.nws-tab-btn {
+  background: none;
+  border: none;
+  color: #546e7a;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+  white-space: nowrap;
+  font-family: inherit;
+}
+
+.nws-tab-btn:hover {
+  color: #90a4ae;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.nws-tab-btn.active {
+  color: #29b6f6;
+  background: rgba(41, 182, 246, 0.1);
+}
+
+.nws-close-btn {
+  background: none;
+  border: none;
+  color: #546e7a;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 0.15s;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.nws-close-btn:hover {
+  color: #ef5350;
+}
+
+/* ── Body ─────────────────────────────────────────────────────────────── */
+.nws-panel-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* ── Placeholder (non-maps tabs) ──────────────────────────────────────── */
+.nws-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  height: 100%;
+  color: #37474f;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+}
+
+.nws-ext-link {
+  color: #29b6f6;
+  text-decoration: none;
+  font-size: 12px;
+  padding: 6px 14px;
+  border: 1px solid rgba(41, 182, 246, 0.3);
+  border-radius: 6px;
+  transition: all 0.15s;
+}
+
+.nws-ext-link:hover {
+  background: rgba(41, 182, 246, 0.1);
+  border-color: rgba(41, 182, 246, 0.6);
+}

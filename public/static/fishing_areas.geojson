@@ -1,0 +1,86 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "description": "Hawaii Fish Aggregating Devices (FADs) — DLNR/DAR managed buoys off each island coast",
+    "source": "Hawaii DLNR Division of Aquatic Resources + WCPFC FAD Registry",
+    "note": "Positions approximate. Verify with DAR before fishing. FADs may be moved or removed.",
+    "generated": "2026-07-16"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "fad_id": "OA-1", "name": "Kaena Point FAD", "island": "Oahu", "depth_m": 600, "description": "NW Oahu offshore FAD — ahi, mahi-mahi, ono" },
+      "geometry": { "type": "Point", "coordinates": [-158.380, 21.575] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "fad_id": "OA-2", "name": "Barber's Point FAD", "island": "Oahu", "depth_m": 550, "description": "SW Oahu — ono, mahi-mahi, bigeye tuna" },
+      "geometry": { "type": "Point", "coordinates": [-158.230, 21.180] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "fad_id": "OA-3", "name": "Makapuu FAD", "island": "Oahu", "depth_m": 500, "description": "SE Oahu — skipjack, ono, mahi-mahi" },
+      "geometry": { "type": "Point", "coordinates": [-157.580, 21.260] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "fad_id": "OA-4", "name": "Kaneohe Bay Offshore FAD", "island": "Oahu", "depth_m": 450, "description": "NE Oahu — mahi-mahi, yellowfin, ono" },
+      "geometry": { "type": "Point", "coordinates": [-157.720, 21.510] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "fad_id": "MA-1", "name": "Lahaina FAD", "island": "Maui", "depth_m": 700, "description": "W Maui offshore — ahi, mahi-mahi, ono" },
+      "geometry": { "type": "Point", "coordinates": [-156.750, 20.880] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "fad_id": "MA-2", "name": "Makena FAD", "island": "Maui", "depth_m": 650, "description": "S Maui — bigeye tuna, mahi-mahi" },
+      "geometry": { "type": "Point", "coordinates": [-156.380, 20.570] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "fad_id": "MA-3", "name": "Hana FAD", "island": "Maui", "depth_m": 600, "description": "E Maui — skipjack, yellowfin, ono" },
+      "geometry": { "type": "Point", "coordinates": [-155.830, 20.620] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "fad_id": "BI-1", "name": "Kailua-Kona Offshore FAD", "island": "Hawaii", "depth_m": 1200, "description": "W Big Island blue marlin, ahi, ono territory" },
+      "geometry": { "type": "Point", "coordinates": [-156.260, 19.570] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "fad_id": "BI-2", "name": "Kawaihae FAD", "island": "Hawaii", "depth_m": 900, "description": "NW Big Island — mahi-mahi, skipjack, ahi" },
+      "geometry": { "type": "Point", "coordinates": [-156.090, 20.180] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "fad_id": "BI-3", "name": "South Point FAD", "island": "Hawaii", "depth_m": 1800, "description": "Ka Lae offshore — bigeye tuna, swordfish territory" },
+      "geometry": { "type": "Point", "coordinates": [-155.790, 18.730] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "fad_id": "BI-4", "name": "Hilo Bay FAD", "island": "Hawaii", "depth_m": 600, "description": "E Big Island — skipjack, mahi-mahi" },
+      "geometry": { "type": "Point", "coordinates": [-154.870, 19.650] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "fad_id": "KA-1", "name": "Nawiliwili FAD", "island": "Kauai", "depth_m": 700, "description": "SE Kauai — mahi-mahi, ono, skipjack" },
+      "geometry": { "type": "Point", "coordinates": [-159.200, 21.810] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "fad_id": "KA-2", "name": "Barking Sands FAD", "island": "Kauai", "depth_m": 900, "description": "W Kauai — ahi, mahi-mahi, wahoo" },
+      "geometry": { "type": "Point", "coordinates": [-159.840, 21.990] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "fad_id": "MO-1", "name": "Kaunakakai FAD", "island": "Molokai", "depth_m": 450, "description": "S Molokai offshore — mahi-mahi, ono" },
+      "geometry": { "type": "Point", "coordinates": [-157.120, 20.870] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "fad_id": "LA-1", "name": "Manele Bay FAD", "island": "Lanai", "depth_m": 500, "description": "S Lanai offshore — mahi-mahi, ahi, ono" },
+      "geometry": { "type": "Point", "coordinates": [-156.980, 20.590] }
+    }
+  ]
+}

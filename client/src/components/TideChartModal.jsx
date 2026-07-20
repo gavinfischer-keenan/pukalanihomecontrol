@@ -8,11 +8,8 @@ function ymd(d) {
   return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
 }
 
-async function fetchPredictions(stationId, days = 2) {
-  const begin = new Date();
-  const end = new Date(begin.getTime() + days * 86400000);
-  const url = `${NOAA_BASE}?product=predictions&datum=MLLW&time_zone=lst_ldt&interval=h&units=english&format=json` +
-    `&begin_date=${ymd(begin)}&end_date=${ymd(end)}&station=${stationId}`;
+async function fetchPredictions(stationId, apiBase, days = 2) {
+  const url = `${apiBase}/api/noaa-tides/${stationId}?days=${days}`;
   const r = await fetch(url);
   const data = await r.json();
   return (data.predictions || []).map(p => ({
@@ -163,7 +160,7 @@ function TideChart({ points }) {
 }
 
 // ── Modal component ─────────────────────────────────────────
-export default function TideChartModal({ station, onClose }) {
+export default function TideChartModal({ station, onClose, apiBase }) {
   const [points, setPoints] = useState(null);
   const [error,  setError]  = useState(null);
 
@@ -171,10 +168,10 @@ export default function TideChartModal({ station, onClose }) {
     if (!station) return;
     setPoints(null);
     setError(null);
-    fetchPredictions(station.station_id)
+    fetchPredictions(station.station_id, apiBase)
       .then(setPoints)
       .catch(e => setError(e.message));
-  }, [station]);
+  }, [station, apiBase]);
 
   if (!station) return null;
 

@@ -33,6 +33,8 @@ import EcowittLayer, { EcowittFloatingPanel } from './components/EcowittLayer';
 import MapEventTracker    from './components/MapEventTracker';
 import Legend             from './components/Legend';
 import AlertsPage         from './components/AlertsPage';
+import ErrorBoundary      from './components/ErrorBoundary';
+// NWS/NOAA is a fully separate app at /nws/ — no imports here
 
 const OAHU_CENTER = [21.3069, -157.8583];
 const HOME_BASE   = { lat: 21.2861516, lon: -157.7935187, label: '3786 Pukalani Pl' };
@@ -59,7 +61,7 @@ const DEFAULT_LAYERS = {
   forecast:      { label: '📅 7-Day Forecast',        live: true,  enabled: false },
   fishing:       { label: '🎣 Fishing Index',         live: true,  enabled: false },
   localWx:       { label: '🌡️ Local Weather / PWS',  live: true,  enabled: false },
-  noaaCharts:    { label: '🗺️ NOAA Charts',           live: false, enabled: false },
+  // NWS/NOAA lives at /nws/ — fully separate app, no layer keys here
   // Home
   homeBase:      { label: '🏠 Home Base',           live: true,  enabled: true  },
   reference:     { label: '🧭 Reference Objects',   live: false, enabled: true  },
@@ -152,7 +154,7 @@ function App() {
   const [vessels,        setVessels]        = useState([]);
   const [selected,       setSelected]       = useState(null);
   const [tideStation,    setTideStation]    = useState(null);
-  const [layers,         setLayers]         = useState(DEFAULT_LAYERS);
+  const [layers, setLayers] = useState(DEFAULT_LAYERS);
   const [airportSettings,setAirportSettings]= useState(DEFAULT_AIRPORTS);
   const [showAlerts,     setShowAlerts]     = useState(false);
   const [showLabels,     setShowLabels]     = useState(true);
@@ -294,57 +296,63 @@ function App() {
           />
         )}
 
-        {layers.rangeRings.enabled && <RangeRings center={[HOME_BASE.lat, HOME_BASE.lon]} rings={[5, 10, 25, 50, 100]} />}
+        {layers.rangeRings.enabled && <RangeRings center={[HOME_BASE.lat, HOME_BASE.lon]} rings={[1, 2.5, 5, 10, 25, 50, 100]} />}
         {layers.homeBase.enabled   && <HomeBase position={HOME_BASE} />}
         {layers.reference?.enabled && <ReferenceObjects position={HOME_BASE} />}
 
         {(layers.acTrails?.enabled || layers.vesselTrails?.enabled) && (
-          <TrailLayer
-            aircraft={layers.acTrails?.enabled && layers.aircraft?.enabled ? aircraft : []}
-            vessels={layers.vesselTrails?.enabled && layers.vessels?.enabled ? vessels : []}
-            apiBase={API_BASE}
-          />
+          <ErrorBoundary>
+            <TrailLayer
+              aircraft={layers.acTrails?.enabled && layers.aircraft?.enabled ? aircraft : []}
+              vessels={layers.vesselTrails?.enabled && layers.vessels?.enabled ? vessels : []}
+              apiBase={API_BASE}
+            />
+          </ErrorBoundary>
         )}
 
         {/* Marine */}
-        {layers.surf?.enabled && <BuoyLayer buoys={buoys} selected={selected} onSelect={handleSelectEntity} />}
-        {layers.surf?.enabled && <SurfLayer selected={selected} onSelect={handleSelectEntity} />}
-        {layers.tides.enabled && <TideLayer tides={tides} selected={tideStation} onSelect={handleSelectEntity} />}
+        {layers.surf?.enabled && <ErrorBoundary><BuoyLayer buoys={buoys} selected={selected} onSelect={handleSelectEntity} /></ErrorBoundary>}
+        {layers.surf?.enabled && <ErrorBoundary><SurfLayer selected={selected} onSelect={handleSelectEntity} /></ErrorBoundary>}
+        {layers.tides.enabled && <ErrorBoundary><TideLayer tides={tides} selected={tideStation} onSelect={handleSelectEntity} /></ErrorBoundary>}
 
         {/* Aviation */}
-        {layers.metar.enabled && <MetarLayer metars={metars} selected={selected} onSelect={handleSelectEntity} />}
+        {layers.metar.enabled && <ErrorBoundary><MetarLayer metars={metars} selected={selected} onSelect={handleSelectEntity} /></ErrorBoundary>}
         {layers.vessels.enabled && (
-          <VesselLayer vessels={vessels} selected={selected} showLabels={showLabels} onSelect={handleSelectEntity} predictions={vesselPredictions} />
+          <ErrorBoundary><VesselLayer vessels={vessels} selected={selected} showLabels={showLabels} onSelect={handleSelectEntity} predictions={vesselPredictions} /></ErrorBoundary>
         )}
         {layers.aircraft.enabled && (
-          <AircraftLayer aircraft={aircraft} selected={selected} showLabels={showLabels} onSelect={handleSelectEntity} />
+          <ErrorBoundary><AircraftLayer aircraft={aircraft} selected={selected} showLabels={showLabels} onSelect={handleSelectEntity} /></ErrorBoundary>
         )}
 
         {/* Radar overlay */}
         {layers.radar.enabled && (
-          <RadarLayer
-            visible={layers.radar.enabled}
-            radarFrames={radarFrames}    setRadarFrames={setRadarFrames}
-            radarFrameIdx={radarFrameIdx} setRadarFrameIdx={setRadarFrameIdx}
-            radarAnimating={radarAnimating}
-            radarHost={radarHost}        setRadarHost={setRadarHost}
-          />
+          <ErrorBoundary>
+            <RadarLayer
+              visible={layers.radar.enabled}
+              radarFrames={radarFrames}    setRadarFrames={setRadarFrames}
+              radarFrameIdx={radarFrameIdx} setRadarFrameIdx={setRadarFrameIdx}
+              radarAnimating={radarAnimating}
+              radarHost={radarHost}        setRadarHost={setRadarHost}
+            />
+          </ErrorBoundary>
         )}
 
         {/* Ecowitt PWS marker — click opens floating panel, no Popup */}
         {layers.localWx.enabled && (
-          <EcowittLayer
-            visible={layers.localWx.enabled}
-            apiBase={API_BASE}
-            onOpen={() => {
-              // Fetch fresh data then show panel
-              fetch(`${API_BASE}/api/ecowitt/current`)
-                .then(r => r.json())
-                .then(j => { setPwsData(j.data); setPwsStale(j.stale || !j.data); })
-                .catch(() => setPwsStale(true));
-              setShowPws(true);
-            }}
-          />
+          <ErrorBoundary>
+            <EcowittLayer
+              visible={layers.localWx.enabled}
+              apiBase={API_BASE}
+              onOpen={() => {
+                // Fetch fresh data then show panel
+                fetch(`${API_BASE}/api/ecowitt/current`)
+                  .then(r => r.json())
+                  .then(j => { setPwsData(j.data); setPwsStale(j.stale || !j.data); })
+                  .catch(() => setPwsStale(true));
+                setShowPws(true);
+              }}
+            />
+          </ErrorBoundary>
         )}
       </MapContainer>
 
@@ -373,7 +381,7 @@ function App() {
       />
 
       {/* Tide chart modal */}
-      <TideChartModal station={tideStation} onClose={() => setTideStation(null)} />
+      <TideChartModal station={tideStation} onClose={() => setTideStation(null)} apiBase={API_BASE} />
 
       {/* PWS floating panel — rendered outside MapContainer, no dark overlay */}
       {showPws && (
@@ -399,6 +407,7 @@ function App() {
       />
 
       {/* Alerts overlay */}
+
       {showAlerts && <AlertsPage onClose={() => setShowAlerts(false)} />}
 
       {/* Alerts trigger button — fixed bottom-left */}

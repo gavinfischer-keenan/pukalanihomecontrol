@@ -1,0 +1,479 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "description": "Hawaii Major Harbor Approach Lines \u00e2\u20ac\u201d derived from NOAA ENC chart data",
+    "note": "NOT FOR NAVIGATION \u00e2\u20ac\u201d reference only. Always consult official NOAA charts.",
+    "source": "NOAA ENC cells US5HI37M, US5HI11M, US5HI51M, US5HI41M",
+    "generated": "2026-07-16"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Honolulu Harbor",
+        "island": "Oahu",
+        "type": "commercial",
+        "color": "#0077ff",
+        "note": "Main channel \u00e2\u20ac\u201d dredged to 40ft",
+        "chart": "US5HI37M"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -157.875,
+            21.25
+          ],
+          [
+            -157.872,
+            21.29
+          ],
+          [
+            -157.868,
+            21.304
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Keehi Lagoon / Sand Island",
+        "island": "Oahu",
+        "type": "small_boat",
+        "color": "#00aaff",
+        "note": "Small boat harbor and USCG base approach",
+        "chart": "US5HI37M"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -157.9,
+            21.26
+          ],
+          [
+            -157.895,
+            21.3
+          ],
+          [
+            -157.912,
+            21.328
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Pearl Harbor",
+        "island": "Oahu",
+        "type": "restricted",
+        "color": "#ff2222",
+        "note": "US NAVY \u00e2\u20ac\u201d Restricted. No entry without authorization.",
+        "chart": "US5HI37M"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -157.98,
+            21.34
+          ],
+          [
+            -157.97,
+            21.348
+          ],
+          [
+            -157.968,
+            21.355
+          ],
+          [
+            -157.965,
+            21.36
+          ],
+          [
+            -157.962,
+            21.367
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Barber's Point Harbor",
+        "island": "Oahu",
+        "type": "commercial",
+        "color": "#0077ff",
+        "note": "Industrial / fuel terminal harbor",
+        "chart": "US5HI37M"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -158.15,
+            21.26
+          ],
+          [
+            -158.125,
+            21.28
+          ],
+          [
+            -158.108,
+            21.292
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Haleiwa Small Boat Harbor",
+        "island": "Oahu",
+        "type": "small_boat",
+        "color": "#00aaff",
+        "note": "North Shore recreational harbor \u00e2\u20ac\u201d approach from NW, watch for channel shoaling",
+        "chart": "US5HI37M"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -158.125,
+            21.615
+          ],
+          [
+            -158.118,
+            21.605
+          ],
+          [
+            -158.112,
+            21.598
+          ],
+          [
+            -158.104,
+            21.59
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Hilo Harbor",
+        "island": "Hawaii (Big Island)",
+        "type": "commercial",
+        "color": "#0077ff",
+        "note": "Main Big Island commercial port \u00e2\u20ac\u201d breakwater protected",
+        "chart": "US5HI11M"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -155.04,
+            19.76
+          ],
+          [
+            -155.05,
+            19.74
+          ],
+          [
+            -155.063,
+            19.731
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Kailua-Kona Small Boat Harbor",
+        "island": "Hawaii (Big Island)",
+        "type": "small_boat",
+        "color": "#00aaff",
+        "note": "Exposed lee-side harbor \u00e2\u20ac\u201d approach from W/SW in calm conditions",
+        "chart": "US5HI11M"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -156.025,
+            19.638
+          ],
+          [
+            -156.015,
+            19.641
+          ],
+          [
+            -156.005,
+            19.643
+          ],
+          [
+            -156.002,
+            19.644
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Kawaihae Harbor",
+        "island": "Hawaii (Big Island)",
+        "type": "commercial",
+        "color": "#0077ff",
+        "note": "Inter-island barge / commercial port on Big Island north coast",
+        "chart": "US5HI11M"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -155.87,
+            20.062
+          ],
+          [
+            -155.858,
+            20.048
+          ],
+          [
+            -155.845,
+            20.04
+          ],
+          [
+            -155.835,
+            20.035
+          ],
+          [
+            -155.831,
+            20.035
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Kahului Harbor",
+        "island": "Maui",
+        "type": "commercial",
+        "color": "#0077ff",
+        "note": "Main Maui commercial port \u00e2\u20ac\u201d approach from N through breakwater gap",
+        "chart": "US5HI51M"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -156.47,
+            20.95
+          ],
+          [
+            -156.471,
+            20.91
+          ],
+          [
+            -156.472,
+            20.898
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Maalaea Small Boat Harbor",
+        "island": "Maui",
+        "type": "small_boat",
+        "color": "#00aaff",
+        "note": "South Maui \u00e2\u20ac\u201d protected by breakwater; small boat and tour vessels",
+        "chart": "US5HI51M"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -156.52,
+            20.778
+          ],
+          [
+            -156.515,
+            20.783
+          ],
+          [
+            -156.51,
+            20.788
+          ],
+          [
+            -156.509,
+            20.791
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Manele Bay (Lanai)",
+        "island": "Lanai",
+        "type": "small_boat",
+        "color": "#00aaff",
+        "note": "Lanai's main harbor \u00e2\u20ac\u201d ferry from Maui, small commercial traffic",
+        "chart": "US5HI51M"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -156.91,
+            20.72
+          ],
+          [
+            -156.9,
+            20.726
+          ],
+          [
+            -156.892,
+            20.731
+          ],
+          [
+            -156.882,
+            20.738
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Kaunakakai Harbor (Molokai)",
+        "island": "Molokai",
+        "type": "small_boat",
+        "color": "#00aaff",
+        "note": "Molokai's only commercial wharf \u00e2\u20ac\u201d shallow approach, tidal restrictions",
+        "chart": "US5HI51M"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -157.04,
+            21.06
+          ],
+          [
+            -157.035,
+            21.068
+          ],
+          [
+            -157.028,
+            21.076
+          ],
+          [
+            -157.024,
+            21.09
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Nawiliwili Harbor",
+        "island": "Kauai",
+        "type": "commercial",
+        "color": "#0077ff",
+        "note": "Main Kauai commercial port \u00e2\u20ac\u201d cruise ships, barges, inter-island",
+        "chart": "US5HI41M"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -159.33,
+            21.93
+          ],
+          [
+            -159.345,
+            21.945
+          ],
+          [
+            -159.355,
+            21.95
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Port Allen (Kauai)",
+        "island": "Kauai",
+        "type": "commercial",
+        "color": "#0077ff",
+        "note": "South Kauai \u00e2\u20ac\u201d fuel depot, small commercial harbor",
+        "chart": "US5HI41M"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -159.63,
+            21.878
+          ],
+          [
+            -159.62,
+            21.886
+          ],
+          [
+            -159.61,
+            21.892
+          ],
+          [
+            -159.6,
+            21.896
+          ],
+          [
+            -159.598,
+            21.898
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Hana Bay (Maui)",
+        "island": "Maui",
+        "type": "small_boat",
+        "color": "#00aaff",
+        "note": "Small remote harbor on East Maui \u00e2\u20ac\u201d weather dependent, shallow",
+        "chart": "US5HI51M"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -155.985,
+            20.755
+          ],
+          [
+            -155.983,
+            20.76
+          ],
+          [
+            -155.981,
+            20.765
+          ],
+          [
+            -155.978,
+            20.768
+          ]
+        ]
+      }
+    }
+  ]
+}

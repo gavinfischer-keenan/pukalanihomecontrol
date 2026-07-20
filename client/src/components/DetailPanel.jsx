@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 // Aircraft photo from planespotters.net (browser fetch — no 403 from client)
 async function fetchAircraftPhoto(hex) {
@@ -211,24 +211,308 @@ function MetarDetail({ e }) {
   );
 }
 
+// ─── Inline Edit Form — Vessel ────────────────────────────────────────────────
+function VesselEditForm({ mmsi, apiBase, initialData, onClose, onSaved }) {
+  const FIELDS = [
+    { key: 'vessel_name',   label: 'Vessel Name',   type: 'text' },
+    { key: 'imo',           label: 'IMO',            type: 'text' },
+    { key: 'call_sign',     label: 'Call Sign',      type: 'text' },
+    { key: 'flag',          label: 'Flag',           type: 'text' },
+    { key: 'vessel_type',   label: 'Vessel Type',    type: 'text' },
+    { key: 'gross_tonnage', label: 'Gross Tonnage',  type: 'number' },
+    { key: 'year_built',    label: 'Year Built',     type: 'number' },
+    { key: 'length_m',      label: 'Length (m)',     type: 'number' },
+    { key: 'beam_m',        label: 'Beam (m)',       type: 'number' },
+    { key: 'owner',         label: 'Owner',          type: 'text' },
+    { key: 'operator',      label: 'Operator',       type: 'text' },
+    { key: 'notes',         label: 'Notes',          type: 'textarea' },
+  ];
+
+  const [form, setForm]       = useState(() => {
+    const init = {};
+    FIELDS.forEach(f => { init[f.key] = initialData?.[f.key] ?? ''; });
+    return init;
+  });
+  const [saving, setSaving]   = useState(false);
+  const [error, setError]     = useState(null);
+  const fileRef               = useRef();
+
+  function handleChange(key, val) {
+    setForm(prev => ({ ...prev, [key]: val }));
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      const body = new FormData();
+      // Append text fields
+      FIELDS.forEach(f => {
+        if (form[f.key] !== '') body.append(f.key, form[f.key]);
+      });
+      // Append photo if selected
+      if (fileRef.current?.files?.[0]) {
+        body.append('photo', fileRef.current.files[0]);
+      }
+      const r = await fetch(`${apiBase}/api/vessel-info/${mmsi}`, {
+        method: 'POST',
+        body,
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      onSaved?.();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="detail-section" style={{
+      borderTop: '1px solid rgba(0,188,212,0.3)',
+      background: 'rgba(0,188,212,0.04)',
+      borderRadius: '0 0 8px 8px',
+      padding: '10px 12px',
+    }}>
+      <div className="detail-section-title" style={{ color: '#00bcd4', marginBottom: 10 }}>
+        ✏️ EDIT VESSEL INFO
+      </div>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {FIELDS.map(f => (
+          <div key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <label style={{ fontSize: 10, color: '#78909c', letterSpacing: '0.05em' }}>{f.label}</label>
+            {f.type === 'textarea' ? (
+              <textarea
+                value={form[f.key]}
+                onChange={ev => handleChange(f.key, ev.target.value)}
+                rows={3}
+                style={inputStyle}
+              />
+            ) : (
+              <input
+                type={f.type}
+                value={form[f.key]}
+                onChange={ev => handleChange(f.key, ev.target.value)}
+                style={inputStyle}
+              />
+            )}
+          </div>
+        ))}
+
+        {/* Photo upload */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <label style={{ fontSize: 10, color: '#78909c', letterSpacing: '0.05em' }}>Photo (upload)</label>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            style={{ ...inputStyle, padding: '4px 6px', cursor: 'pointer' }}
+          />
+        </div>
+
+        {error && (
+          <div style={{ color: '#ff5252', fontSize: 11, padding: '4px 0' }}>⚠ {error}</div>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+          <button type="submit" disabled={saving} style={btnPrimaryStyle}>
+            {saving ? 'Saving…' : '💾 Save'}
+          </button>
+          <button type="button" onClick={onClose} style={btnSecondaryStyle}>
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ─── Inline Edit Form — Aircraft ──────────────────────────────────────────────
+function AircraftEditForm({ icaoHex, apiBase, initialData, onClose, onSaved }) {
+  const FIELDS = [
+    { key: 'registration',   label: 'Registration',   type: 'text' },
+    { key: 'aircraft_type',  label: 'Aircraft Type',  type: 'text' },
+    { key: 'operator',       label: 'Operator',       type: 'text' },
+    { key: 'notes',          label: 'Notes',          type: 'textarea' },
+  ];
+
+  const [form, setForm]     = useState(() => {
+    const init = {};
+    FIELDS.forEach(f => { init[f.key] = initialData?.[f.key] ?? ''; });
+    return init;
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError]   = useState(null);
+
+  function handleChange(key, val) {
+    setForm(prev => ({ ...prev, [key]: val }));
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      const r = await fetch(`${apiBase}/api/aircraft-info/${icaoHex}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      onSaved?.();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="detail-section" style={{
+      borderTop: '1px solid rgba(0,188,212,0.3)',
+      background: 'rgba(0,188,212,0.04)',
+      borderRadius: '0 0 8px 8px',
+      padding: '10px 12px',
+    }}>
+      <div className="detail-section-title" style={{ color: '#00bcd4', marginBottom: 10 }}>
+        ✏️ EDIT AIRCRAFT INFO
+      </div>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {FIELDS.map(f => (
+          <div key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <label style={{ fontSize: 10, color: '#78909c', letterSpacing: '0.05em' }}>{f.label}</label>
+            {f.type === 'textarea' ? (
+              <textarea
+                value={form[f.key]}
+                onChange={ev => handleChange(f.key, ev.target.value)}
+                rows={3}
+                style={inputStyle}
+              />
+            ) : (
+              <input
+                type={f.type}
+                value={form[f.key]}
+                onChange={ev => handleChange(f.key, ev.target.value)}
+                style={inputStyle}
+              />
+            )}
+          </div>
+        ))}
+
+        {error && (
+          <div style={{ color: '#ff5252', fontSize: 11, padding: '4px 0' }}>⚠ {error}</div>
+        )}
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+          <button type="submit" disabled={saving} style={btnPrimaryStyle}>
+            {saving ? 'Saving…' : '💾 Save'}
+          </button>
+          <button type="button" onClick={onClose} style={btnSecondaryStyle}>
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ─── Shared inline styles ────────────────────────────────────────────────────
+const inputStyle = {
+  background: 'rgba(255,255,255,0.06)',
+  border: '1px solid rgba(0,188,212,0.25)',
+  borderRadius: 4,
+  color: '#eceff1',
+  fontSize: 12,
+  padding: '5px 8px',
+  width: '100%',
+  boxSizing: 'border-box',
+  outline: 'none',
+  fontFamily: 'inherit',
+};
+const btnPrimaryStyle = {
+  flex: 1,
+  background: 'rgba(0,188,212,0.2)',
+  border: '1px solid rgba(0,188,212,0.5)',
+  borderRadius: 4,
+  color: '#00bcd4',
+  fontSize: 12,
+  fontWeight: 700,
+  padding: '6px 12px',
+  cursor: 'pointer',
+};
+const btnSecondaryStyle = {
+  flex: 1,
+  background: 'rgba(255,255,255,0.05)',
+  border: '1px solid rgba(255,255,255,0.15)',
+  borderRadius: 4,
+  color: '#90a4ae',
+  fontSize: 12,
+  padding: '6px 12px',
+  cursor: 'pointer',
+};
+
+// ─── Seen Days Badge ──────────────────────────────────────────────────────────
+function SeenDaysBadge({ days }) {
+  if (days == null) return null;
+  return (
+    <div style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 5,
+      background: 'rgba(0,188,212,0.15)',
+      border: '1px solid rgba(0,188,212,0.35)',
+      borderRadius: 20,
+      padding: '3px 10px',
+      fontSize: 11,
+      color: '#80deea',
+      fontWeight: 600,
+      marginTop: 4,
+    }}>
+      📅 Seen on {days} {days === 1 ? 'day' : 'days'}
+    </div>
+  );
+}
+
+// ─── Main DetailPanel ─────────────────────────────────────────────────────────
 export default function DetailPanel({ entity, onClose, apiBase }) {
-  const [history, setHistory]       = useState(null);
-  const [photo, setPhoto]           = useState(null);
-  const [prediction, setPrediction] = useState(null);
-  const [routes, setRoutes]         = useState([]);
+  const [history, setHistory]         = useState(null);
+  const [photo, setPhoto]             = useState(null);
+  const [prediction, setPrediction]   = useState(null);
+  const [routes, setRoutes]           = useState([]);
+  // Extra info fetched from vessel-info / aircraft-info endpoints
+  const [entityInfo, setEntityInfo]   = useState(null);
+  // Edit form visibility
+  const [showEdit, setShowEdit]       = useState(false);
 
   useEffect(() => {
-    if (!entity) { setHistory(null); setPhoto(null); setPrediction(null); setRoutes([]); return; }
+    if (!entity) {
+      setHistory(null); setPhoto(null); setPrediction(null);
+      setRoutes([]); setEntityInfo(null); setShowEdit(false);
+      return;
+    }
     const type = entity._type || (entity.hex ? 'aircraft' : 'vessel');
     if (type === 'buoy' || type === 'tide' || type === 'metar' || type === 'surf') return;
+
     const id = entity.hex || entity.entity_id;
     fetch(`${apiBase}/api/history/${id}`)
       .then(r => r.json()).then(setHistory).catch(() => {});
+
     if (type === 'aircraft' && entity.hex) {
       fetchAircraftPhoto(entity.hex).then(setPhoto).catch(() => {});
+      // Fetch aircraft-info for seen_days + threshold_met
+      fetch(`${apiBase}/api/aircraft-info/${entity.hex}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => setEntityInfo(data))
+        .catch(() => {});
     }
-    // Vessel-specific: prediction + route history
+
     if (type === 'vessel' && entity.entity_id) {
+      // Fetch vessel-info for seen_days + photo_url
+      fetch(`${apiBase}/api/vessel-info/${entity.entity_id}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => setEntityInfo(data))
+        .catch(() => {});
       fetch(`${apiBase}/api/vessel-predictions`)
         .then(r => r.json())
         .then(rows => {
@@ -261,15 +545,73 @@ export default function DetailPanel({ entity, onClose, apiBase }) {
   };
   const h = headerMap[type] || headerMap.aircraft;
 
+  // Whether the aircraft edit button should be visible
+  const showAircraftEdit = type === 'aircraft' && entityInfo?.threshold_met === true;
+
   return (
     <div className="detail-panel glass">
       <div className="detail-header">
         <div>
           <div className="detail-title">{h.icon} {h.title}</div>
           <div className="detail-subtitle">{h.sub}</div>
+          {/* Seen Days Badge — vessel and aircraft */}
+          {(type === 'vessel' || type === 'aircraft') && entityInfo?.seen_days != null && (
+            <SeenDaysBadge days={entityInfo.seen_days} />
+          )}
         </div>
-        <button className="detail-close" onClick={onClose}>✕</button>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+          {/* EDIT button — vessel (always) */}
+          {type === 'vessel' && (
+            <button
+              onClick={() => setShowEdit(v => !v)}
+              style={{
+                background: showEdit ? 'rgba(0,188,212,0.25)' : 'rgba(255,255,255,0.07)',
+                border: '1px solid rgba(0,188,212,0.4)',
+                borderRadius: 4,
+                color: '#00bcd4',
+                fontSize: 11,
+                fontWeight: 700,
+                padding: '4px 10px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {showEdit ? '✕ Close' : '✏️ Edit'}
+            </button>
+          )}
+          {/* EDIT button — aircraft (only when threshold_met) */}
+          {showAircraftEdit && (
+            <button
+              onClick={() => setShowEdit(v => !v)}
+              style={{
+                background: showEdit ? 'rgba(0,188,212,0.25)' : 'rgba(255,255,255,0.07)',
+                border: '1px solid rgba(0,188,212,0.4)',
+                borderRadius: 4,
+                color: '#00bcd4',
+                fontSize: 11,
+                fontWeight: 700,
+                padding: '4px 10px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {showEdit ? '✕ Close' : '✏️ Edit'}
+            </button>
+          )}
+          <button className="detail-close" onClick={onClose}>✕</button>
+        </div>
       </div>
+
+      {/* Vessel photo from vessel-info */}
+      {type === 'vessel' && entityInfo?.photo_url && (
+        <div style={{ lineHeight: 0 }}>
+          <img
+            src={entityInfo.photo_url}
+            alt="vessel"
+            style={{ width: '100%', maxHeight: 140, objectFit: 'cover', display: 'block' }}
+          />
+        </div>
+      )}
 
       {/* Aircraft photo — tar1090 style */}
       {type === 'aircraft' && photo && (
@@ -315,6 +657,17 @@ export default function DetailPanel({ entity, onClose, apiBase }) {
             <Row label="Sel. Hdg"  value={fmt(entity.nav_heading, 1)}   unit="°" />
             <Row label="Nav QNH"   value={fmt(entity.nav_qnh, 1)}       unit="hPa" />
           </Section>
+
+          {/* Aircraft edit form — slide in below */}
+          {showAircraftEdit && showEdit && (
+            <AircraftEditForm
+              icaoHex={entity.hex}
+              apiBase={apiBase}
+              initialData={entityInfo}
+              onClose={() => setShowEdit(false)}
+              onSaved={() => { setShowEdit(false); onClose?.(); }}
+            />
+          )}
         </>
       )}
 
@@ -377,6 +730,17 @@ export default function DetailPanel({ entity, onClose, apiBase }) {
                 </div>
               ))}
             </Section>
+          )}
+
+          {/* Vessel edit form — slide in below */}
+          {showEdit && (
+            <VesselEditForm
+              mmsi={entity.entity_id}
+              apiBase={apiBase}
+              initialData={entityInfo}
+              onClose={() => setShowEdit(false)}
+              onSaved={() => { setShowEdit(false); onClose?.(); }}
+            />
           )}
         </>
       )}

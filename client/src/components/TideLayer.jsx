@@ -18,12 +18,12 @@ function trendArrow(trend) {
 function trendColor(trend) {
   if (trend === 'rising')  return '#29b6f6';   // blue = rising toward high
   if (trend === 'falling') return '#ef5350';   // red = falling toward low
-  return '#78909c';
+  return '#b0bec5';
 }
 
 // Border color based on whether we're near high or low water
 function borderColor(station) {
-  if (!station.upcoming_hilo || !station.upcoming_hilo.length) return '#78909c';
+  if (!station.upcoming_hilo || !station.upcoming_hilo.length) return '#b0bec5';
   const next = station.upcoming_hilo[0];
   // If next event is High, we're currently low (and rising). Near low = blue.
   // If next event is Low, we're currently high (and falling). Near high = red.
@@ -56,7 +56,7 @@ function tideIcon(station) {
   <!-- Wave indicator top-left -->
   <text x="7" y="17" font-size="12" fill="${arrowColor}">≋</text>
   <!-- TIDE label -->
-  <text x="29" y="14" text-anchor="middle" font-size="8" font-weight="bold" fill="#b0bec5" font-family="sans-serif">TIDE</text>
+  <text x="29" y="14" text-anchor="middle" font-size="8" font-weight="bold" fill="#cfd8dc" font-family="sans-serif">TIDE</text>
   <!-- Current height -->
   <text x="26" y="32" text-anchor="middle" font-size="14" font-weight="bold" fill="white" font-family="monospace">${heightStr}</text>
   <!-- Trend arrow — slightly bigger and bolder -->

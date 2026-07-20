@@ -1,0 +1,245 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "description": "Hawaii Fishing Areas and Zones — commercial longline, nearshore, exclusion zones",
+    "note": "Reference only. Verify boundaries with NOAA NMFS before fishing. Regulations subject to change.",
+    "source": "NOAA NMFS Pacific Islands Regional Office + WCPFC + Hawaii DAR",
+    "generated": "2026-07-16"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Hawaii Longline Fishing Area",
+        "type": "longline_zone",
+        "color": "#FF8C00",
+        "fillColor": "#FF8C00",
+        "fillOpacity": 0.08,
+        "weight": 2,
+        "description": "Hawaii-based longline fleet operating area. Pelagic species: swordfish, bigeye tuna, yellowfin tuna.",
+        "vessels": "Hawaii-permitted longline fleet (~140 vessels)",
+        "target_species": "Swordfish, Bigeye tuna, Yellowfin tuna, Mahi-mahi, Wahoo"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-180.000, 15.000],
+          [-180.000, 35.000],
+          [-145.000, 35.000],
+          [-145.000, 15.000],
+          [-180.000, 15.000]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Turtle Exclusion Zone — Longline (Shallow-Set)",
+        "type": "exclusion_zone",
+        "color": "#4CAF50",
+        "fillColor": "#4CAF50",
+        "fillOpacity": 0.12,
+        "weight": 2,
+        "description": "Area where shallow-set longline is managed to minimize loggerhead and leatherback turtle interactions. NOAA NMFS regulated.",
+        "regulation": "50 CFR Part 665 — Hawaii Pelagic Longline Fishery"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-160.000, 15.000],
+          [-160.000, 26.000],
+          [-145.000, 26.000],
+          [-145.000, 15.000],
+          [-160.000, 15.000]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Coral Reef Ecosystem MPA — Northwestern Hawaiian Islands",
+        "type": "mpa",
+        "color": "#9C27B0",
+        "fillColor": "#9C27B0",
+        "fillOpacity": 0.15,
+        "weight": 2,
+        "description": "Papahānaumokuākea Marine National Monument. Largest protected area in US. Commercial fishing prohibited.",
+        "regulation": "Presidential Proclamation 8031 (2006), expanded 2016"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-180.000, 19.000],
+          [-180.000, 30.000],
+          [-161.000, 30.000],
+          [-161.000, 19.000],
+          [-180.000, 19.000]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Hawaii Nearshore Fishing Zone (0–3nm)",
+        "type": "nearshore",
+        "color": "#2196F3",
+        "fillColor": "#2196F3",
+        "fillOpacity": 0.10,
+        "weight": 2,
+        "description": "State waters: nearshore commercial and recreational fishing. Hook-and-line, net fishing, spearfishing. Managed by Hawaii DAR.",
+        "regulation": "Hawaii Revised Statutes Chapter 188"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-161.000, 18.500],
+          [-161.000, 22.500],
+          [-154.000, 22.500],
+          [-154.000, 18.500],
+          [-161.000, 18.500]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Penguin Bank — Nearshore Productive Zone",
+        "type": "fishing_ground",
+        "color": "#00BCD4",
+        "fillColor": "#00BCD4",
+        "fillOpacity": 0.15,
+        "weight": 2,
+        "description": "Shallow bank between Molokai and Oahu (depth 40-90m). Highly productive bottom fishing area — moi, onaga, opakapaka, hapu'u.",
+        "target_species": "Onaga (long-tail snapper), Opakapaka (pink snapper), Hapu'u (grouper), Moi"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-157.600, 21.000],
+          [-157.600, 21.300],
+          [-156.800, 21.300],
+          [-156.800, 21.000],
+          [-157.600, 21.000]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Maui Nui Bottom Fishing Ground",
+        "type": "fishing_ground",
+        "color": "#00BCD4",
+        "fillColor": "#00BCD4",
+        "fillOpacity": 0.15,
+        "weight": 2,
+        "description": "Inter-island waters between Maui, Molokai, Lanai, Kahoolawe. Productive deepwater snapper fishing 150-300m.",
+        "target_species": "Onaga, Opakapaka, Ehu (squirrelfish snapper), Kalekale"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-157.200, 20.500],
+          [-157.200, 21.000],
+          [-156.200, 21.000],
+          [-156.200, 20.500],
+          [-157.200, 20.500]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Big Island Kona Coast — Pelagic Sport Fishing",
+        "type": "fishing_ground",
+        "color": "#FF5722",
+        "fillColor": "#FF5722",
+        "fillOpacity": 0.12,
+        "weight": 2,
+        "description": "World-famous billfish grounds off Kona. Blue marlin, striped marlin, spearfish, mahi-mahi, ahi. Kona has hosted IGFA world records.",
+        "target_species": "Blue Marlin, Striped Marlin, Broadbill Swordfish, Mahi-mahi, Ahi (yellowfin)"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-156.500, 19.200],
+          [-156.500, 20.200],
+          [-155.800, 20.200],
+          [-155.800, 19.200],
+          [-156.500, 19.200]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Kauai Channel — Pelagic Fishing Corridor",
+        "type": "fishing_ground",
+        "color": "#FF5722",
+        "fillColor": "#FF5722",
+        "fillOpacity": 0.10,
+        "weight": 2,
+        "description": "Kaieiewaho Channel between Oahu and Kauai. Active corridor for mahi-mahi, ono, ahi, and shortbill spearfish.",
+        "target_species": "Mahi-mahi (dorado), Ono (wahoo), Ahi (yellowfin tuna), Spearfish"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-159.500, 21.300],
+          [-159.500, 22.200],
+          [-158.000, 22.200],
+          [-158.000, 21.300],
+          [-159.500, 21.300]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Hawaii EEZ Boundary (200nm)",
+        "type": "eez_boundary",
+        "color": "#607D8B",
+        "fillColor": "none",
+        "fillOpacity": 0,
+        "weight": 2,
+        "dashArray": "8, 6",
+        "description": "US Exclusive Economic Zone boundary — 200nm from Hawaii baselines. Beyond this = international waters (WCPFC regulation)."
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-180.000, 15.000],
+          [-145.000, 15.000],
+          [-145.000, 35.000],
+          [-161.000, 35.000],
+          [-161.000, 30.000],
+          [-180.000, 30.000],
+          [-180.000, 15.000]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Main Hawaiian Islands Small Boat Exclusion Zone (Longline)",
+        "type": "exclusion_zone",
+        "color": "#F44336",
+        "fillColor": "#F44336",
+        "fillOpacity": 0.08,
+        "weight": 2,
+        "dashArray": "5, 5",
+        "description": "Longline fishing prohibited within 75nm of main Hawaiian Islands coastline (MHI prohibited area). Small-scale handline and trolling permitted.",
+        "regulation": "50 CFR 665.801 — MHI Longline Prohibited Area"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [-161.000, 18.500],
+          [-161.000, 22.500],
+          [-154.000, 22.500],
+          [-154.000, 18.500],
+          [-161.000, 18.500]
+        ]]
+      }
+    }
+  ]
+}

@@ -25,7 +25,7 @@ const MARINE_URL = 'https://marine-api.open-meteo.com/v1/marine';
 
 // Wave height → color + label
 function waveStyle(ft) {
-  if (ft == null) return { color: '#546e7a', ring: '#37474f', label: 'flat' };
+  if (ft == null) return { color: '#90a4ae', ring: '#b0bec5', label: 'flat' };
   if (ft < 1)    return { color: '#26c6da', ring: '#00acc1', label: 'flat' };
   if (ft < 2)    return { color: '#29b6f6', ring: '#0288d1', label: 'ankle' };
   if (ft < 3)    return { color: '#42a5f5', ring: '#1976d2', label: `${ft.toFixed(0)}ft` };
@@ -55,7 +55,7 @@ function surfIcon(spot) {
   <!-- Wave icon top-left -->
   <text x="7" y="14" font-size="10" fill="${style.color}" opacity="0.7">≋</text>
   <!-- Spot name truncated at top right -->
-  <text x="44" y="12" text-anchor="end" font-size="7" fill="#546e7a" font-family="sans-serif">${spot.name.split(' ')[0]}</text>
+  <text x="44" y="12" text-anchor="end" font-size="7" fill="#cfd8dc" font-family="sans-serif">${spot.name.split(' ')[0]}</text>
 </svg>`;
 
   return L.divIcon({

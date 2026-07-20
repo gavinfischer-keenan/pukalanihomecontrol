@@ -1,0 +1,556 @@
+{
+  "type": "FeatureCollection",
+  "metadata": {
+    "description": "Hawaii Vessel Trade Routes \u00e2\u20ac\u201d waypoints route AROUND islands, not through them",
+    "source": "Based on AIS density data / IMO routing. Not for navigation.",
+    "generated": "2026-07-16"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "hnl-hilo",
+        "name": "Honolulu \u00e2\u2020\u201d Hilo",
+        "category": "inter_island",
+        "operators": "Young Brothers, Matson",
+        "color": "#2196F3",
+        "weight": 4,
+        "vessel_types": "Cargo barge, container"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -157.868,
+            21.304
+          ],
+          [
+            -157.868,
+            21.26
+          ],
+          [
+            -157.8,
+            21.24
+          ],
+          [
+            -157.5,
+            21.15
+          ],
+          [
+            -157.0,
+            20.95
+          ],
+          [
+            -156.5,
+            20.75
+          ],
+          [
+            -156.0,
+            20.4
+          ],
+          [
+            -155.5,
+            20.1
+          ],
+          [
+            -155.1,
+            19.85
+          ],
+          [
+            -155.063,
+            19.731
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "hnl-kahului",
+        "name": "Honolulu \u00e2\u2020\u201d Kahului (Maui)",
+        "category": "inter_island",
+        "operators": "Young Brothers, Matson",
+        "color": "#2196F3",
+        "weight": 3,
+        "vessel_types": "Cargo, barge"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -157.868,
+            21.304
+          ],
+          [
+            -157.868,
+            21.26
+          ],
+          [
+            -157.8,
+            21.24
+          ],
+          [
+            -157.5,
+            21.35
+          ],
+          [
+            -157.0,
+            21.3
+          ],
+          [
+            -156.5,
+            21.05
+          ],
+          [
+            -156.472,
+            20.898
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "hnl-nawiliwili",
+        "name": "Honolulu \u00e2\u2020\u201d Nawiliwili (Kauai)",
+        "category": "inter_island",
+        "operators": "Young Brothers, Matson",
+        "color": "#2196F3",
+        "weight": 3,
+        "vessel_types": "Cargo, barge"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -157.868,
+            21.304
+          ],
+          [
+            -157.868,
+            21.26
+          ],
+          [
+            -158.0,
+            21.25
+          ],
+          [
+            -158.3,
+            21.4
+          ],
+          [
+            -158.8,
+            21.75
+          ],
+          [
+            -159.3,
+            21.9
+          ],
+          [
+            -159.355,
+            21.95
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "hnl-kawaihae",
+        "name": "Honolulu \u00e2\u2020\u201d Kawaihae (Big Island)",
+        "category": "inter_island",
+        "operators": "Young Brothers",
+        "color": "#2196F3",
+        "weight": 2,
+        "vessel_types": "Cargo barge"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -157.868,
+            21.304
+          ],
+          [
+            -157.868,
+            21.26
+          ],
+          [
+            -157.8,
+            21.24
+          ],
+          [
+            -157.5,
+            21.15
+          ],
+          [
+            -157.0,
+            20.95
+          ],
+          [
+            -156.5,
+            20.75
+          ],
+          [
+            -156.0,
+            20.25
+          ],
+          [
+            -155.85,
+            20.05
+          ],
+          [
+            -155.831,
+            20.035
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "hnl-la",
+        "name": "Honolulu \u00e2\u2020\u2019 Los Angeles / Long Beach",
+        "category": "transpacific",
+        "operators": "Matson, CMA CGM, Hapag-Lloyd",
+        "color": "#FF5722",
+        "weight": 3,
+        "vessel_types": "Container, break bulk"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -157.868,
+            21.304
+          ],
+          [
+            -157.868,
+            21.25
+          ],
+          [
+            -157.65,
+            21.22
+          ],
+          [
+            -157.5,
+            22.0
+          ],
+          [
+            -155.0,
+            24.5
+          ],
+          [
+            -150.0,
+            26.5
+          ],
+          [
+            -142.0,
+            29.5
+          ],
+          [
+            -132.0,
+            31.5
+          ],
+          [
+            -120.0,
+            33.5
+          ],
+          [
+            -118.2,
+            33.75
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "hnl-oakland",
+        "name": "Honolulu \u00e2\u2020\u2019 Oakland / Seattle",
+        "category": "transpacific",
+        "operators": "Matson, APL",
+        "color": "#FF5722",
+        "weight": 3,
+        "vessel_types": "Container"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -157.868,
+            21.304
+          ],
+          [
+            -157.868,
+            21.25
+          ],
+          [
+            -157.65,
+            21.22
+          ],
+          [
+            -157.5,
+            22.5
+          ],
+          [
+            -153.0,
+            26.0
+          ],
+          [
+            -145.0,
+            30.0
+          ],
+          [
+            -137.0,
+            34.0
+          ],
+          [
+            -130.0,
+            37.5
+          ],
+          [
+            -124.0,
+            39.5
+          ],
+          [
+            -122.3,
+            37.8
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "hnl-tokyo",
+        "name": "Honolulu \u00e2\u2020\u2019 Yokohama / Tokyo",
+        "category": "transpacific",
+        "operators": "NYK, MOL, K-Line",
+        "color": "#FF9800",
+        "weight": 3,
+        "vessel_types": "Container, bulk, tanker"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -157.868,
+            21.304
+          ],
+          [
+            -157.868,
+            21.2
+          ],
+          [
+            -160.0,
+            22.5
+          ],
+          [
+            -165.0,
+            24.0
+          ],
+          [
+            -170.0,
+            26.0
+          ],
+          [
+            -175.0,
+            28.0
+          ],
+          [
+            -180.0,
+            30.0
+          ],
+          [
+            175.0,
+            32.0
+          ],
+          [
+            170.0,
+            34.0
+          ],
+          [
+            165.0,
+            35.0
+          ],
+          [
+            141.0,
+            35.5
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "hnl-guam",
+        "name": "Honolulu \u00e2\u2020\u2019 Guam / Micronesia",
+        "category": "transpacific",
+        "operators": "Matson, Sealink",
+        "color": "#9C27B0",
+        "weight": 2,
+        "vessel_types": "Container"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -157.868,
+            21.304
+          ],
+          [
+            -157.868,
+            21.2
+          ],
+          [
+            -155.0,
+            19.5
+          ],
+          [
+            -150.0,
+            17.0
+          ],
+          [
+            -145.0,
+            14.5
+          ],
+          [
+            -140.0,
+            13.0
+          ],
+          [
+            -135.0,
+            12.0
+          ],
+          [
+            -130.0,
+            12.0
+          ],
+          [
+            -120.0,
+            13.0
+          ],
+          [
+            144.8,
+            13.45
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "hnl-shanghai",
+        "name": "Honolulu \u00e2\u2020\u2019 Shanghai / Hong Kong",
+        "category": "transpacific",
+        "operators": "COSCO, Evergreen, OOCL",
+        "color": "#E91E63",
+        "weight": 3,
+        "vessel_types": "Container, VLCC tanker"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -157.868,
+            21.304
+          ],
+          [
+            -157.868,
+            21.2
+          ],
+          [
+            -160.0,
+            23.0
+          ],
+          [
+            -165.0,
+            25.0
+          ],
+          [
+            -170.0,
+            27.0
+          ],
+          [
+            -175.0,
+            29.0
+          ],
+          [
+            -180.0,
+            31.0
+          ],
+          [
+            175.0,
+            33.0
+          ],
+          [
+            165.0,
+            33.0
+          ],
+          [
+            145.0,
+            30.0
+          ],
+          [
+            130.0,
+            27.0
+          ],
+          [
+            121.5,
+            31.2
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "hilo-kona",
+        "name": "Hilo \u00e2\u2020\u201d Kailua-Kona",
+        "category": "inter_island",
+        "operators": "Small commercial",
+        "color": "#2196F3",
+        "weight": 2,
+        "vessel_types": "Small cargo, fishing"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -155.063,
+            19.731
+          ],
+          [
+            -154.95,
+            19.8
+          ],
+          [
+            -154.8,
+            19.55
+          ],
+          [
+            -155.0,
+            19.3
+          ],
+          [
+            -155.5,
+            18.9
+          ],
+          [
+            -155.9,
+            19.1
+          ],
+          [
+            -156.05,
+            19.6
+          ],
+          [
+            -156.002,
+            19.644
+          ]
+        ]
+      }
+    }
+  ]
+}

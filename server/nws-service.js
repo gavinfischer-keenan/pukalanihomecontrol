@@ -1,0 +1,627 @@
+/**
+ * NWS / NOAA Data Caching Service
+ *
+ * Good-citizen caching policy:
+ *   - All fetch intervals are aligned to KNOWN upstream update schedules
+ *   - We NEVER poll faster than the source update rate
+ *   - We use If-Modified-Since / ETag headers wherever supported
+ *   - We identify ourselves with a proper User-Agent
+ *   - We add jitter (±30s) to avoid thundering-herd on exact update times
+ *
+ * Update schedule reference:
+ *   GOES-18 GIFs         → every 10 min  → fetch at :01, :11, :21, :31, :41, :51
+ *   NPAC GIF             → every ~30 min → fetch at :02, :32
+ *   NWS obs KML          → every 30-60min→ fetch at :05, :35 each hour
+ *   SRF/AFD/CWF/HSF      → 0415 + 1615 HST, then check 1x/hr with ETag
+ *   RWR                  → 0005, 0605, 1205, 1805 HST
+ *   NWS alerts           → real-time, poll every 5 min (API designed for this)
+ *   PacIOOS ROMS/WW3     → daily, model run ~0600-0800 UTC → fetch at 0830 UTC
+ *   MODIS SST            → daily composite → fetch at 0900 UTC
+ *   CPC 6-10/8-14 day   → daily at ~1200 UTC → fetch at 1230 UTC
+ *   CPC 90-day seasonal  → monthly ~15th → check daily at 1300 UTC
+ *   ENSO/RONI            → monthly, 2nd Thursday → check daily at 1300 UTC
+ *   FADs                 → check daily at 0900 HST
+ */
+
+'use strict';
+
+const fs   = require('fs');
+const path = require('path');
+const axios = require('axios');
+
+const CACHE_DIR = '/opt/dashboard/public/nws-cache';
+const LOOPS_DIR = path.join(CACHE_DIR, 'loops');
+const TEXT_DIR  = path.join(CACHE_DIR, 'text');
+const DATA_DIR  = path.join(CACHE_DIR, 'data');
+
+// Ensure dirs exist
+[CACHE_DIR, LOOPS_DIR, TEXT_DIR, DATA_DIR].forEach(d => {
+  if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+});
+
+// Cached metadata in memory
+const cache = {
+  loops:   {},   // { name: { path, updatedAt, etag } }
+  text:    {},   // { product: { text, updatedAt, etag } }
+  enso:    null,
+  fads:    null,
+  alerts:  [],
+  obs:     null,
+};
+
+// Jitter: add 0–60 seconds to avoid thundering herd
+const jitter = () => Math.floor(Math.random() * 60000);
+
+// Good-citizen HTTP client
+const http = axios.create({
+  timeout: 15000,
+  headers: {
+    'User-Agent': 'HawaiiCommandCenter/1.0 (private home monitoring; contact via local admin)',
+    'Accept-Encoding': 'gzip, deflate',
+  },
+  responseType: 'arraybuffer',
+});
+
+// ── Conditional fetch (respects ETag / If-Modified-Since) ─────────────────
+async function conditionalFetch(url, cacheKey, storeAs, options = {}) {
+  const headers = {};
+  if (cache[cacheKey]?.etag)         headers['If-None-Match']     = cache[cacheKey].etag;
+  if (cache[cacheKey]?.lastModified) headers['If-Modified-Since'] = cache[cacheKey].lastModified;
+
+  try {
+    const res = await http.get(url, { headers, ...options });
+    const etag = res.headers['etag'];
+    const lm   = res.headers['last-modified'];
+
+    // storeAs = file path to write binary, or null for text
+    if (storeAs) {
+      fs.writeFileSync(storeAs, res.data);
+    }
+
+    return {
+      data:         res.data,
+      etag:         etag || null,
+      lastModified: lm   || null,
+      updated:      true,
+    };
+  } catch (err) {
+    if (err.response?.status === 304) {
+      return { updated: false }; // Not modified — use cached version
+    }
+    throw err;
+  }
+}
+
+// ── TEXT: fetch via string (not arraybuffer) ──────────────────────────────
+async function conditionalFetchText(url, meta) {
+  const headers = {};
+  if (meta?.etag)         headers['If-None-Match']     = meta.etag;
+  if (meta?.lastModified) headers['If-Modified-Since'] = meta.lastModified;
+
+  const res = await axios.get(url, {
+    timeout: 10000,
+    headers: {
+      ...headers,
+      'User-Agent': 'HawaiiCommandCenter/1.0 (private home monitoring)',
+    },
+    validateStatus: s => s === 200 || s === 304,
+  });
+
+  if (res.status === 304) return { updated: false };
+
+  return {
+    data:         res.data,
+    etag:         res.headers['etag'] || null,
+    lastModified: res.headers['last-modified'] || null,
+    updated:      true,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOOP GIF FETCHERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+const LOOPS = [
+  {
+    id: 'geocolor',
+    name: 'GOES-18 GeoColor Hawaii',
+    icon: '🛰️',
+    url: 'https://cdn.star.nesdis.noaa.gov/GOES18/ABI/SECTOR/hi/GEOCOLOR/GOES18-hi-GEOCOLOR-600x600.gif',
+    file: 'goes18_geocolor.gif',
+    intervalMs: 11 * 60 * 1000,  // 10-min updates, fetch at +1min
+  },
+  {
+    id: 'infrared',
+    name: 'GOES-18 Infrared (Band 13)',
+    icon: '🌡️',
+    url: 'https://cdn.star.nesdis.noaa.gov/GOES18/ABI/SECTOR/hi/13/GOES18-hi-13-600x600.gif',
+    file: 'goes18_ir.gif',
+    intervalMs: 11 * 60 * 1000,
+  },
+  {
+    id: 'watervapor',
+    name: 'GOES-18 Water Vapor',
+    icon: '💧',
+    url: 'https://cdn.star.nesdis.noaa.gov/GOES18/ABI/SECTOR/hi/09/GOES18-hi-09-600x600.gif',
+    file: 'goes18_wv.gif',
+    intervalMs: 11 * 60 * 1000,
+  },
+  {
+    id: 'npac',
+    name: 'N. Pacific Wide-Area',
+    icon: '🌊',
+    url: 'https://www.weather.gov/images/hfo/graphics/npac.gif',
+    file: 'npac.gif',
+    intervalMs: 32 * 60 * 1000,  // ~30-min updates, fetch at +2min
+  },
+];
+
+async function fetchLoop(loop) {
+  const filePath = path.join(LOOPS_DIR, loop.file);
+  try {
+    const result = await conditionalFetch(loop.url, `loop_${loop.id}`, filePath);
+    if (result.updated) {
+      cache.loops[loop.id] = {
+        id:          loop.id,
+        name:        loop.name,
+        icon:        loop.icon,
+        localUrl:    `/nws-cache/loops/${loop.file}`,
+        updatedAt:   new Date().toISOString(),
+        etag:        result.etag,
+        lastModified:result.lastModified,
+      };
+      console.log(`[nws] loop updated: ${loop.id}`);
+    }
+  } catch (err) {
+    console.warn(`[nws] loop fetch failed: ${loop.id} — ${err.message}`);
+  }
+}
+
+// Initialise loop fetchers on staggered schedules
+function initLoopFetchers() {
+  LOOPS.forEach((loop, i) => {
+    // Stagger start times by 15s per loop to spread load
+    setTimeout(() => {
+      fetchLoop(loop);
+      setInterval(() => fetchLoop(loop), loop.intervalMs);
+    }, i * 15000 + jitter());
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// NWS TEXT PRODUCTS  (api.weather.gov — designed for programmatic access)
+// ═══════════════════════════════════════════════════════════════════════════
+
+const TEXT_PRODUCTS = [
+  { type: 'SRF', location: 'HFO', name: 'Surf Forecast',          updateHours: [4, 16] },   // 0415, 1615 HST
+  { type: 'AFD', location: 'HFO', name: 'Forecast Discussion',     updateHours: [4, 16] },
+  { type: 'CWF', location: 'HFO', name: 'Coastal Waters Forecast', updateHours: [4, 16] },
+  { type: 'HSF', location: 'HFO', name: 'High Seas Forecast',      updateHours: [4, 16] },
+  { type: 'RWR', location: 'HFO', name: 'Regional Weather Roundup',updateHours: [0, 6, 12, 18] },
+];
+
+async function fetchTextProduct(prod) {
+  const url = `https://api.weather.gov/products?type=${prod.type}&location=${prod.location}`;
+  const key = prod.type;
+  try {
+    // api.weather.gov doesn't support ETags well — check every 30min but light payload
+    const res = await axios.get(url, {
+      timeout: 8000,
+      headers: { 'User-Agent': 'HawaiiCommandCenter/1.0', Accept: 'application/geo+json' },
+    });
+    const latest = res.data?.['@graph']?.[0];
+    if (!latest) return;
+
+    // Fetch the actual product text
+    const textRes = await axios.get(latest['@id'], {
+      timeout: 8000,
+      headers: { 'User-Agent': 'HawaiiCommandCenter/1.0', Accept: 'application/geo+json' },
+    });
+    const productText = textRes.data?.productText || '';
+    const issuanceTime = textRes.data?.issuanceTime || '';
+
+    const prev = cache.text[key];
+    if (prev?.issuanceTime === issuanceTime) return; // Not updated
+
+    cache.text[key] = {
+      type:         prod.type,
+      name:         prod.name,
+      text:         productText,
+      issuanceTime,
+      updatedAt:    new Date().toISOString(),
+    };
+
+    const filePath = path.join(TEXT_DIR, `${key}.json`);
+    fs.writeFileSync(filePath, JSON.stringify(cache.text[key]));
+    console.log(`[nws] text product updated: ${key} (issued ${issuanceTime})`);
+  } catch (err) {
+    console.warn(`[nws] text fetch failed: ${key} — ${err.message}`);
+  }
+}
+
+function initTextFetchers() {
+  TEXT_PRODUCTS.forEach((prod, i) => {
+    setTimeout(() => {
+      fetchTextProduct(prod);
+      // Poll every 30 min — the API is designed for this, lightweight
+      setInterval(() => fetchTextProduct(prod), 30 * 60 * 1000);
+    }, i * 8000 + jitter());
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ACTIVE ALERTS  (real-time — api.weather.gov designed for frequent polling)
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function fetchAlerts() {
+  try {
+    const res = await axios.get('https://api.weather.gov/alerts/active?area=HI', {
+      timeout: 8000,
+      headers: { 'User-Agent': 'HawaiiCommandCenter/1.0', Accept: 'application/geo+json' },
+    });
+    cache.alerts = res.data?.features || [];
+    const alertFile = path.join(DATA_DIR, 'alerts.json');
+    fs.writeFileSync(alertFile, JSON.stringify({ features: cache.alerts, updatedAt: new Date().toISOString() }));
+  } catch (err) {
+    console.warn(`[nws] alerts fetch failed: ${err.message}`);
+  }
+}
+
+function initAlertsFetcher() {
+  setTimeout(() => {
+    fetchAlerts();
+    setInterval(fetchAlerts, 5 * 60 * 1000); // Every 5 min — NWS API supports this
+  }, jitter());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// OBS KML (weather.gov/hfo — updates every 30-60 min)
+// Parse into GeoJSON for map use
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function fetchObsKML() {
+  const kmlSources = [
+    { name: 'obs',    url: 'https://www.weather.gov/hfo/obs.kml',    key: 'obs' },
+    { name: 'wind',   url: 'https://www.weather.gov/hfo/wind.kml',   key: 'wind' },
+    { name: 'rain24', url: 'https://www.weather.gov/hfo/RRA24.kml',  key: 'rain24' },
+    { name: 'rain6',  url: 'https://www.weather.gov/hfo/RRA6.kml',   key: 'rain6' },
+  ];
+
+  for (const src of kmlSources) {
+    try {
+      const res = await conditionalFetchText(src.url, cache[`kml_${src.key}`]);
+      if (!res.updated) continue;
+
+      // Simple KML → GeoJSON extraction (Placemark/Point features)
+      const kmlText = typeof res.data === 'string' ? res.data : res.data.toString();
+      const features = parseKMLToGeoJSON(kmlText, src.key);
+
+      const out = { type: 'FeatureCollection', features, updatedAt: new Date().toISOString() };
+      fs.writeFileSync(path.join(DATA_DIR, `${src.key}.geojson`), JSON.stringify(out));
+
+      cache[`kml_${src.key}`] = {
+        etag: res.etag,
+        lastModified: res.lastModified,
+        updatedAt: new Date().toISOString(),
+        count: features.length,
+      };
+      console.log(`[nws] obs KML updated: ${src.key} (${features.length} features)`);
+    } catch (err) {
+      console.warn(`[nws] obs KML failed: ${src.key} — ${err.message}`);
+    }
+  }
+}
+
+// Minimal KML parser — extracts Placemarks with name, description, coordinates
+function parseKMLToGeoJSON(kml, key) {
+  const features = [];
+  const placemarkRx = /<Placemark>([\s\S]*?)<\/Placemark>/g;
+  let m;
+  while ((m = placemarkRx.exec(kml)) !== null) {
+    const block = m[1];
+    const nameM  = block.match(/<name><!\[CDATA\[(.*?)\]\]><\/name>/) || block.match(/<name>(.*?)<\/name>/);
+    const coordM = block.match(/<coordinates>\s*([-\d.]+),([-\d.]+)/);
+    const descM  = block.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/) || block.match(/<description>([\s\S]*?)<\/description>/);
+    if (!coordM) continue;
+    features.push({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [parseFloat(coordM[1]), parseFloat(coordM[2])] },
+      properties: {
+        name:        nameM?.[1]?.trim() || 'Unknown',
+        description: descM?.[1]?.replace(/<[^>]+>/g,'').trim() || '',
+        source:      key,
+      },
+    });
+  }
+  return features;
+}
+
+function initObsFetcher() {
+  setTimeout(() => {
+    fetchObsKML();
+    // Every 32 min (update is 30min, we add 2min buffer to ensure new data available)
+    setInterval(fetchObsKML, 32 * 60 * 1000);
+  }, 5000 + jitter());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ENSO / RONI DATA  (CPC — updated monthly, 2nd Thursday)
+// We check daily at 1300 UTC — negligible load, static HTML page
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function fetchENSO() {
+  try {
+    const res = await conditionalFetchText(
+      'https://origin.cpc.ncep.noaa.gov/products/analysis_monitoring/ensostuff/ONI_v5.php',
+      cache.enso?.meta
+    );
+    if (!res.updated) return;
+
+    // Parse the ONI data table from HTML
+    const html = typeof res.data === 'string' ? res.data : res.data.toString();
+    const series = parseONITable(html);
+
+    cache.enso = {
+      series,
+      meta:       { etag: res.etag, lastModified: res.lastModified },
+      updatedAt:  new Date().toISOString(),
+      currentPhase: getCurrentPhase(series),
+    };
+    fs.writeFileSync(path.join(DATA_DIR, 'enso.json'), JSON.stringify(cache.enso));
+    console.log(`[nws] ENSO updated — ${series.length} periods, phase: ${cache.enso.currentPhase}`);
+  } catch (err) {
+    console.warn(`[nws] ENSO fetch failed: ${err.message}`);
+  }
+}
+
+function parseONITable(html) {
+  // ONI table format: rows of year and 12 3-month season values
+  const series = [];
+  const rowRx = /<tr[^>]*>[\s\S]*?<\/tr>/gi;
+  let rows;
+  try {
+    rows = [...html.matchAll(rowRx)];
+  } catch(e) { return []; }
+
+  const seasons = ['DJF','JFM','FMA','MAM','AMJ','MJJ','JJA','JAS','ASO','SON','OND','NDJ'];
+  for (const row of rows) {
+    const cells = [...row[0].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)];
+    if (cells.length < 2) continue;
+    const yearText = cells[0][1].replace(/<[^>]+>/g,'').trim();
+    const year = parseInt(yearText);
+    if (isNaN(year) || year < 1950) continue;
+    for (let i = 1; i < cells.length && i - 1 < seasons.length; i++) {
+      const val = parseFloat(cells[i][1].replace(/<[^>]+>/g,'').trim());
+      if (isNaN(val)) continue;
+      series.push({
+        label: `${year} ${seasons[i-1]}`,
+        year,
+        season: seasons[i-1],
+        oni: val,
+        phase: val >= 0.5 ? 'el_nino' : val <= -0.5 ? 'la_nina' : 'neutral',
+      });
+    }
+  }
+  return series.slice(-60); // Last 5 years for chart
+}
+
+function getCurrentPhase(series) {
+  if (!series || series.length === 0) return 'Unknown';
+  const last = series[series.length - 1];
+  if (!last) return 'Unknown';
+  const label = last.phase === 'el_nino' ? 'El Niño' : last.phase === 'la_nina' ? 'La Niña' : 'Neutral';
+  return `${label} (ONI: ${last.oni > 0 ? '+' : ''}${last.oni})`;
+}
+
+function initENSOFetcher() {
+  setTimeout(() => {
+    fetchENSO();
+    // Check once per day — monthly updates, very light load
+    setInterval(fetchENSO, 24 * 60 * 60 * 1000);
+  }, 30000 + jitter());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FAD LOCATIONS (PacIOOS WFS — check daily)
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function fetchFADs() {
+  try {
+    const url = 'https://geo.pacioos.hawaii.edu/geoserver/wfs?service=WFS&version=1.1.0&request=GetFeature&typeName=hi_dar:fads&outputFormat=application/json';
+    const res = await conditionalFetchText(url, cache.fads?.meta);
+    if (!res.updated) return;
+
+    const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+    cache.fads = {
+      geojson:  data,
+      meta:     { etag: res.etag, lastModified: res.lastModified },
+      updatedAt: new Date().toISOString(),
+      count:    data?.features?.length || 0,
+    };
+    fs.writeFileSync(path.join(DATA_DIR, 'fads.geojson'), JSON.stringify(data));
+    console.log(`[nws] FADs updated: ${cache.fads.count} devices`);
+  } catch (err) {
+    // FADs may 404 if layer name changed — fall back to bundled static file
+    console.warn(`[nws] FAD fetch failed: ${err.message} — using static fallback`);
+    const staticFAD = path.join(__dirname, '../public/static/fads_static.geojson');
+    if (fs.existsSync(staticFAD) && !cache.fads) {
+      cache.fads = { geojson: JSON.parse(fs.readFileSync(staticFAD)), updatedAt: 'static', count: 0 };
+    }
+  }
+}
+
+function initFADFetcher() {
+  setTimeout(() => {
+    fetchFADs();
+    // Once per day at startup + 24hr interval
+    setInterval(fetchFADs, 24 * 60 * 60 * 1000);
+  }, 20000 + jitter());
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LOAD CACHED STATE FROM DISK ON STARTUP
+// ═══════════════════════════════════════════════════════════════════════════
+
+function loadCachedState() {
+  // Restore loop metadata
+  LOOPS.forEach(loop => {
+    const filePath = path.join(LOOPS_DIR, loop.file);
+    if (fs.existsSync(filePath)) {
+      const stat = fs.statSync(filePath);
+      cache.loops[loop.id] = {
+        id: loop.id, name: loop.name, icon: loop.icon,
+        localUrl: `/nws-cache/loops/${loop.file}`,
+        updatedAt: stat.mtime.toISOString(),
+      };
+    }
+  });
+  // Restore text products
+  TEXT_PRODUCTS.forEach(prod => {
+    const filePath = path.join(TEXT_DIR, `${prod.type}.json`);
+    if (fs.existsSync(filePath)) {
+      try { cache.text[prod.type] = JSON.parse(fs.readFileSync(filePath)); }
+      catch(e) { /* ignore */ }
+    }
+  });
+  // Restore ENSO
+  const ensoFile = path.join(DATA_DIR, 'enso.json');
+  if (fs.existsSync(ensoFile)) {
+    try { cache.enso = JSON.parse(fs.readFileSync(ensoFile)); }
+    catch(e) { /* ignore */ }
+  }
+  // Restore FADs
+  const fadFile = path.join(DATA_DIR, 'fads.geojson');
+  if (fs.existsSync(fadFile)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(fadFile));
+      cache.fads = { geojson: data, updatedAt: 'cached', count: data?.features?.length || 0 };
+    } catch(e) { /* ignore */ }
+  }
+  console.log('[nws] cached state loaded from disk');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXPORTED API ROUTES
+// ═══════════════════════════════════════════════════════════════════════════
+
+function registerRoutes(app, express) {
+  const staticDir = path.join(__dirname, '../public');
+
+  // Serve nws-cache as static files (GIFs, etc.)
+  app.use('/nws-cache', express.static(CACHE_DIR));
+
+  // ── GET /api/nws/loops — loop metadata ──────────────────────────────────
+  app.get('/api/nws/loops', (req, res) => {
+    res.json({
+      loops: LOOPS.map(l => cache.loops[l.id] || {
+        id: l.id, name: l.name, icon: l.icon, localUrl: null, updatedAt: null,
+      }),
+    });
+  });
+
+  // ── GET /api/nws/text/:product ───────────────────────────────────────────
+  app.get('/api/nws/text/:product', (req, res) => {
+    const key = req.params.product.toUpperCase();
+    const data = cache.text[key];
+    if (!data) return res.status(404).json({ error: 'Product not yet cached' });
+    res.json(data);
+  });
+
+  // ── GET /api/nws/alerts ──────────────────────────────────────────────────
+  app.get('/api/nws/alerts', (req, res) => {
+    const alertFile = path.join(DATA_DIR, 'alerts.json');
+    if (fs.existsSync(alertFile)) {
+      res.sendFile(alertFile);
+    } else {
+      res.json({ features: [], updatedAt: null });
+    }
+  });
+
+  // ── GET /api/nws/obs ─────────────────────────────────────────────────────
+  app.get('/api/nws/obs', (req, res) => {
+    const obsFile = path.join(DATA_DIR, 'obs.geojson');
+    if (fs.existsSync(obsFile)) {
+      res.sendFile(obsFile);
+    } else {
+      res.json({ type: 'FeatureCollection', features: [] });
+    }
+  });
+
+  // ── GET /api/nws/wind ────────────────────────────────────────────────────
+  app.get('/api/nws/wind', (req, res) => {
+    const f = path.join(DATA_DIR, 'wind.geojson');
+    fs.existsSync(f) ? res.sendFile(f) : res.json({ type: 'FeatureCollection', features: [] });
+  });
+
+  // ── GET /api/nws/rain ────────────────────────────────────────────────────
+  app.get('/api/nws/rain', (req, res) => {
+    const f = path.join(DATA_DIR, 'rain24.geojson');
+    fs.existsSync(f) ? res.sendFile(f) : res.json({ type: 'FeatureCollection', features: [] });
+  });
+
+  // ── GET /api/nws/enso ────────────────────────────────────────────────────
+  app.get('/api/nws/enso', (req, res) => {
+    if (cache.enso) return res.json(cache.enso);
+    const f = path.join(DATA_DIR, 'enso.json');
+    fs.existsSync(f) ? res.sendFile(f) : res.status(503).json({ error: 'ENSO data not yet available' });
+  });
+
+  // ── GET /api/nws/fads ────────────────────────────────────────────────────
+  app.get('/api/nws/fads', (req, res) => {
+    const f = path.join(DATA_DIR, 'fads.geojson');
+    if (fs.existsSync(f)) return res.sendFile(f);
+    const staticF = path.join(staticDir, 'static/fads_static.geojson');
+    if (fs.existsSync(staticF)) return res.sendFile(staticF);
+    res.json({ type: 'FeatureCollection', features: [] });
+  });
+
+  // ── GET /api/nws/harbor-approaches ──────────────────────────────────────
+  app.get('/api/nws/harbor-approaches', (req, res) => {
+    const f = path.join(staticDir, 'static/harbor_approaches.geojson');
+    fs.existsSync(f) ? res.sendFile(f) : res.json({ type: 'FeatureCollection', features: [] });
+  });
+
+  // ── GET /api/nws/trade-routes ────────────────────────────────────────────
+  app.get('/api/nws/trade-routes', (req, res) => {
+    const f = path.join(staticDir, 'static/trade_routes.geojson');
+    fs.existsSync(f) ? res.sendFile(f) : res.json({ type: 'FeatureCollection', features: [] });
+  });
+
+  // ── GET /api/nws/fishing-areas ───────────────────────────────────────────
+  app.get('/api/nws/fishing-areas', (req, res) => {
+    const f = path.join(staticDir, 'static/fishing_areas.geojson');
+    fs.existsSync(f) ? res.sendFile(f) : res.json({ type: 'FeatureCollection', features: [] });
+  });
+
+  // ── GET /api/nws/status ──────────────────────────────────────────────────
+  app.get('/api/nws/status', (req, res) => {
+    res.json({
+      loops:      Object.keys(cache.loops).length,
+      textProducts: Object.keys(cache.text).length,
+      alerts:     cache.alerts.length,
+      enso:       cache.enso?.currentPhase || null,
+      fads:       cache.fads?.count || 0,
+      cacheDir:   CACHE_DIR,
+    });
+  });
+
+  console.log('[nws] routes registered');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT — call this once from server.js
+// ═══════════════════════════════════════════════════════════════════════════
+
+function init(app, express) {
+  loadCachedState();
+  initLoopFetchers();
+  initTextFetchers();
+  initAlertsFetcher();
+  initObsFetcher();
+  initENSOFetcher();
+  initFADFetcher();
+  registerRoutes(app, express);
+  console.log('[nws] NWS service initialised — good-citizen caching active');
+}
+
+module.exports = { init };

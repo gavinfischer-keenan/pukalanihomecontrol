@@ -10,8 +10,8 @@ const SECTIONS = [
   },
   {
     id: 'marine',
-    label: 'Marine',
-    icon: '⛵',
+    label: 'Integrated Vessel',
+    icon: '⚓',
     keys: ['vessels', 'vesselTrails', 'surf', 'tides', 'harbor'],
   },
   {
@@ -20,6 +20,7 @@ const SECTIONS = [
     icon: '🗺️',
     keys: ['homeBase', 'rangeRings', 'radar'],
   },
+  // NWS/NOAA is its own standalone app at /nws/ — not a layer in this map
   // HD Radio section — DISABLED for Hawaii. Re-enable for Berkeley CA.
   // { id: 'hdradio', label: 'HD Radio', icon: '📻',
   //   keys: ['hdRadar', 'hdTraffic', 'hdGas', 'hdRadio'] },

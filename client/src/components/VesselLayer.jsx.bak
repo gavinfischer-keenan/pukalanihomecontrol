@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { useMap } from 'react-leaflet';
 
@@ -47,7 +47,7 @@ function classifyByMmsi(mmsi) {
 }
 
 export function classifyVessel(typeCode, mmsi) {
-  if (mmsi && String(mmsi).startsWith('99')) return null;
+  // MMSI-based lookup first (works even with null vessel_type)
   const byMmsi = classifyByMmsi(mmsi);
   if (byMmsi) return byMmsi;
 
@@ -57,8 +57,7 @@ export function classifyVessel(typeCode, mmsi) {
   if (t === 30)                     return 'fishing';
   if (t === 31 || t === 32)         return 'tug';      // towing
   if (t === 33 || t === 34)         return 'tug';      // towing/dredging
-  if (t === 35)                     return 'military';  // military operations
-  if (t === 36)                     return 'sailing';
+  if (t === 35 || t === 36)         return 'sailing';
   if (t === 37)                     return 'sailing';  // pleasure craft
   if (t >= 40 && t <= 49)           return 'hsc';      // high speed craft
   if (t === 50)                     return 'pilot';
@@ -75,7 +74,6 @@ export function classifyVessel(typeCode, mmsi) {
 
 // Color per vessel class
 export const VESSEL_CLASS_COLOR = {
-  military:  '#c0392b',   // dark red (military/navy)
   fishing:   '#2ecc71',   // green
   tug:       '#e67e22',   // orange
   sailing:   '#9b59b6',   // purple
@@ -151,15 +149,6 @@ export function makeVesselSvg(vclass, color, heading, isSelected) {
          <text x="0" y="9" text-anchor="middle" font-size="5" fill="#fff" font-weight="bold">!</text>`,
       );
 
-    // ── Military / Warship: angular destroyer shape with helipad ─────────
-    case 'military':
-      return wrap(
-        `<polygon points="0,-13 5,-2 7,8 5,11 -5,11 -7,8 -5,-2" fill="${color}" ${sel}/>
-         <rect x="-5" y="7" width="10" height="4" rx="0.5" fill="#fff" opacity="0.25"/>
-         <line x1="-4" y1="9" x2="4" y2="9" stroke="#fff" stroke-width="0.8" opacity="0.5"/>
-         <circle cx="0" cy="9" r="2" fill="none" stroke="#fff" stroke-width="0.7" opacity="0.5"/>`,
-      );
-
     // ── Unknown / Other: standard ship arrow ─────────────────────────────
     case 'other':
     case 'unknown':
@@ -173,7 +162,6 @@ export function makeVesselSvg(vclass, color, heading, isSelected) {
 
 // ─── Friendly type name from vclass ──────────────────────────────────────────────
 const VCLASS_LABEL = {
-  military:  'Military Vessel',
   fishing:   'Commercial Fishing',
   tug:       'Harbor Tug',
   sailing:   'Sailing Vessel',
@@ -237,58 +225,12 @@ function makeVesselLabel(vessel, color, vclass, prediction) {
   return `<div class="ac-label">${lines}</div>`;
 }
 
-// ─── Dead-reckoning helpers ───────────────────────────────────────────────────
-const DEG_TO_RAD = Math.PI / 180;
-const RAD_TO_DEG = 180 / Math.PI;
-const EARTH_R_NM = 3440.065; // nautical miles
-// Max projection: 5 minutes. Beyond that, a stale fix is better kept in place.
-const MAX_DR_SECONDS = 300;
-// Min speed threshold: below 0.3 kt a vessel is effectively stationary
-const MIN_MOVING_KT = 0.3;
-
-/**
- * Project a lat/lon forward using great-circle dead-reckoning.
- * @param {number} lat0   - starting latitude  (degrees)
- * @param {number} lon0   - starting longitude (degrees)
- * @param {number} cogDeg - course over ground  (degrees true, 0=N)
- * @param {number} sogKt  - speed over ground   (knots)
- * @param {number} elapsedSec - seconds to project forward
- * @returns {{ lat: number, lon: number }}
- */
-function deadReckon(lat0, lon0, cogDeg, sogKt, elapsedSec) {
-  if (sogKt < MIN_MOVING_KT || elapsedSec <= 0) return { lat: lat0, lon: lon0 };
-
-  const distNm    = (sogKt * elapsedSec) / 3600;
-  const angDist   = distNm / EARTH_R_NM;   // radians
-  const bearingR  = cogDeg * DEG_TO_RAD;
-  const lat0R     = lat0   * DEG_TO_RAD;
-  const lon0R     = lon0   * DEG_TO_RAD;
-
-  const lat1R = Math.asin(
-    Math.sin(lat0R) * Math.cos(angDist) +
-    Math.cos(lat0R) * Math.sin(angDist) * Math.cos(bearingR)
-  );
-  const lon1R = lon0R + Math.atan2(
-    Math.sin(bearingR) * Math.sin(angDist) * Math.cos(lat0R),
-    Math.cos(angDist) - Math.sin(lat0R) * Math.sin(lat1R)
-  );
-
-  return {
-    lat: lat1R * RAD_TO_DEG,
-    lon: lon1R * RAD_TO_DEG,
-  };
-}
-
 // ─── Component ───────────────────────────────────────────────────────────────
 export default function VesselLayer({ vessels, selected, showLabels, onSelect, predictions }) {
   const map = useMap();
-  const markersRef  = useRef({});
-  const labelsRef   = useRef({});
-  // Store per-vessel AIS fix data for dead-reckoning animation
-  const fixDataRef  = useRef({});
-  const rafRef      = useRef(null);
+  const markersRef = useRef({});
+  const labelsRef  = useRef({});
 
-  // ── Static render: update icons/labels when props change ──────────────────
   useEffect(() => {
     const currentIds = new Set(vessels.map(v => v.entity_id));
 
@@ -301,7 +243,6 @@ export default function VesselLayer({ vessels, selected, showLabels, onSelect, p
           map.removeLayer(labelsRef.current[id]);
           delete labelsRef.current[id];
         }
-        delete fixDataRef.current[id];
       }
     }
 
@@ -310,7 +251,7 @@ export default function VesselLayer({ vessels, selected, showLabels, onSelect, p
       if (!lat || !lon) continue;
 
       const isSelected = selected?.entity_id === entity_id;
-      const heading    = vessel.heading ?? vessel.course ?? 0;
+      const heading    = vessel.heading ?? 0;
       const vclass     = classifyVessel(vessel.vessel_type, entity_id);
       const color      = VESSEL_CLASS_COLOR[vclass] || '#aaaaaa';
 
@@ -319,26 +260,8 @@ export default function VesselLayer({ vessels, selected, showLabels, onSelect, p
       const ageSec  = vessel.age_seconds || 0;
       const opacity = Math.max(0.55, 1.0 - (ageSec / 1800) * 0.45);
 
-      // Store fix data for the animation loop
-      // recorded_at comes from the API as an ISO string; convert to ms epoch
-      const fixTime = vessel.recorded_at
-        ? new Date(vessel.recorded_at).getTime()
-        : (Date.now() - ageSec * 1000);
-
-      fixDataRef.current[entity_id] = {
-        lat,
-        lon,
-        cog:       vessel.course  ?? null,   // course over ground
-        sog:       vessel.speed   ?? 0,       // speed over ground (knots)
-        heading:   heading,
-        fixTimeMs: fixTime,
-        vclass,
-        color,
-        opacity,
-        isSelected,
-      };
-
       const iconHtml = makeVesselSvg(vclass, color, heading, isSelected);
+
       const icon     = L.divIcon({ className: '', html: iconHtml, iconSize: [28, 28], iconAnchor: [14, 14] });
 
       if (markersRef.current[entity_id]) {
@@ -373,55 +296,17 @@ export default function VesselLayer({ vessels, selected, showLabels, onSelect, p
     }
   }, [vessels, selected, showLabels, map, onSelect]);
 
-  // ── Animation loop: dead-reckon positions each frame ──────────────────────
   useEffect(() => {
-    let running = true;
-
-    function animate() {
-      if (!running) return;
-
-      const nowMs = Date.now();
-
-      for (const [id, fix] of Object.entries(fixDataRef.current)) {
-        const marker = markersRef.current[id];
-        const label  = labelsRef.current[id];
-        if (!marker) continue;
-
-        // Only dead-reckon moving vessels with a valid COG
-        const { lat, lon, cog, sog, fixTimeMs } = fix;
-        if (cog == null || sog < MIN_MOVING_KT) continue;
-
-        const elapsedSec = Math.min((nowMs - fixTimeMs) / 1000, MAX_DR_SECONDS);
-        if (elapsedSec <= 0) continue;
-
-        const { lat: drLat, lon: drLon } = deadReckon(lat, lon, cog, sog, elapsedSec);
-
-        marker.setLatLng([drLat, drLon]);
-        if (label) label.setLatLng([drLat, drLon]);
-      }
-
-      rafRef.current = requestAnimationFrame(animate);
-    }
-
-    rafRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      running = false;
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [map]); // run once per map mount — the loop reads fixDataRef which is always current
-
-  // ── Cleanup on unmount ────────────────────────────────────────────────────
-  useEffect(() => {
+    // We must capture the refs because React may clear the ref objects on unmount before this runs
     const markers = markersRef.current;
-    const labels  = labelsRef.current;
+    const labels = labelsRef.current;
 
     return () => {
       Object.values(markers).forEach(m => map.removeLayer(m));
       Object.values(labels).forEach(m => map.removeLayer(m));
+      // Ensure we clear the refs so a remount starts fresh
       markersRef.current = {};
-      labelsRef.current  = {};
-      fixDataRef.current = {};
+      labelsRef.current = {};
     };
   }, [map]);
 

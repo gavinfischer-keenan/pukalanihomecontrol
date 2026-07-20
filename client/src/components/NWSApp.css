@@ -1,0 +1,237 @@
+/* ══════════════════════════════════════════════════════════════
+   NWSApp.css — standalone NWS/NOAA app styles
+   Dark theme matching the Hawaii Command Center design language
+   ══════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-deep:      rgba(4, 14, 28, 1);
+  --bg-panel:     rgba(6, 20, 40, 0.98);
+  --bg-card:      rgba(10, 26, 50, 0.95);
+  --border:       rgba(255, 255, 255, 0.08);
+  --border-hi:    rgba(41, 182, 246, 0.35);
+  --accent:       #29b6f6;
+  --accent-dim:   rgba(41, 182, 246, 0.15);
+  --text-primary: #ecf0f1;
+  --text-secondary: #90a4ae;
+  --text-muted:   #546e7a;
+  --nav-height:   52px;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+}
+
+/* ── Root layout ──────────────────────────────────────────── */
+.nwsapp-root {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg-deep);
+}
+
+/* ── Top nav bar ──────────────────────────────────────────── */
+.nwsapp-nav {
+  flex-shrink: 0;
+  height: var(--nav-height);
+  background: rgba(0, 8, 18, 0.98);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 12px 0 0;
+  position: relative;
+  z-index: 100;
+}
+
+.nwsapp-home-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 20px;
+  background: none;
+  border: none;
+  border-right: 1px solid var(--border);
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+  font-family: inherit;
+}
+.nwsapp-home-btn:hover { background: var(--accent-dim); }
+.nwsapp-home-btn span  { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; }
+
+.nwsapp-nav-tabs {
+  display: flex;
+  flex: 1;
+  height: 100%;
+}
+
+.nwsapp-nav-tab {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 22px;
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.nwsapp-nav-tab:hover  { color: var(--text-secondary); background: rgba(255,255,255,0.03); }
+.nwsapp-nav-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.nwsapp-back-btn {
+  margin-left: auto;
+  padding: 6px 14px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.nwsapp-back-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.2);
+}
+
+/* ── Body ─────────────────────────────────────────────────── */
+.nwsapp-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Home / menu tiles ───────────────────────────────────── */
+.nwsapp-home {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 24px;
+  padding: 40px 20px;
+  background: radial-gradient(ellipse at 50% 40%, rgba(41,182,246,0.06) 0%, transparent 70%);
+}
+
+.nwsapp-home-title {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.nwsapp-home-sub {
+  font-size: 14px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  text-align: center;
+  margin-top: -16px;
+}
+
+.nwsapp-home-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  max-width: 900px;
+  width: 100%;
+}
+
+@media (max-width: 700px) {
+  .nwsapp-home-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.nwsapp-home-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  color: var(--text-primary);
+  text-align: center;
+}
+.nwsapp-home-tile:hover {
+  border-color: var(--border-hi);
+  background: rgba(41,182,246,0.08);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(41,182,246,0.12);
+}
+
+.nwsapp-tile-icon {
+  font-size: 40px;
+  line-height: 1;
+}
+.nwsapp-tile-name {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.nwsapp-tile-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* ── Content panels ───────────────────────────────────────── */
+.nwsapp-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.nwsapp-content-map {
+  /* The Leaflet map fills 100% of this area */
+  height: calc(100vh - var(--nav-height));
+}
+
+.nwsapp-content-loops {
+  overflow-y: auto;
+  padding: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+.nwsapp-content-forecasts {
+  overflow-y: auto;
+  padding: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
