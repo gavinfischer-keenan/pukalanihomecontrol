@@ -424,7 +424,175 @@ Test suites:
 
 ---
 
+### CT114 — utilities (PDF Maker + PDF Shrinker web apps)
+
+| Setting | Value |
+|---------|-------|
+| IP | 192.168.1.114 (static) |
+| OS | Debian 13 (unprivileged LXC) |
+| CPU | 2 cores |
+| RAM | 1024 MB |
+| Disk | local-lvm:vm-114-disk-0 — 8 GB |
+| Features | nesting=1 |
+| Port | 3114 |
+| App root | /opt/utilities/ |
+| venv | /opt/utilities/venv (Python 3.13) |
+| Service | utilities.service (systemd, auto-start on boot) |
+| GitHub | utilities/ subfolder in pukalanihomecontrol repo |
+
+**Tools served:**
+
+| Tool | URL | Description |
+|------|-----|-------------|
+| Landing page | http://192.168.1.114:3114/tools/ | Tools dashboard with card links |
+| PDF Maker | http://192.168.1.114:3114/tools/pdfmaker | Merge images, docs & PDFs into one file |
+| PDF Shrinker | http://192.168.1.114:3114/tools/shrinker | Compress existing PDFs at 4 quality levels |
+
+**Architecture:**
+
+```
+Browser (client)                    CT114 (server)
+────────────────                    ──────────────────────────────────
+React 18 SPA                        FastAPI + uvicorn (2 workers)
+  - Session ID in localStorage  →     POST /api/pdfmaker/session
+  - File picked locally         →     POST /api/pdfmaker/import  (multipart upload)
+  - All edits in browser state  →     POST /api/pdfmaker/preview (returns PNG)
+  - Click Download              →     POST /api/pdfmaker/build   (returns PDF bytes)
+  - PDF saved by browser                ↓ (never written to disk, streamed only)
+  - No files stored on server   ✓     Session temp dir auto-purged after 2h
+```
+
+**File storage model:**
+- Uploaded files → `/tmp/pdfmaker-sessions/{uuid}/` (session-scoped temp dir)
+- Auto-purged: background thread checks every 5 min, deletes sessions idle > 2 hours
+- Build output: assembled in-memory buffer, streamed as HTTP response → **never written to disk**
+- User intent: "save/read from client machine only" — server is a stateless PDF processing engine
+
+**Python stack (`/opt/utilities/venv`):**
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| fastapi | ≥0.111 | HTTP framework + OpenAPI |
+| uvicorn | ≥0.30 | ASGI server (2 workers) |
+| pymupdf (fitz) | ≥1.24 | PDF reading, writing, rendering, assembly |
+| Pillow | ≥10.4 | Image loading, EXIF correction, compositing |
+| reportlab | ≥4.2 | Text → PDF rendering |
+| python-docx | ≥1.1 | DOCX text extraction (server fallback, no Word COM) |
+| trimesh | ≥4.4 | 3D model loading (GLTF/GLB/OBJ/STL/FBX) |
+| pyrender | ≥0.1.45 | 3D → PNG rendering (headless via OSMesa) |
+| numpy | ≥1.26 | Required by pyrender |
+| libosmesa6 | system | Headless OpenGL for 3D rendering (no display needed) |
+
+**Environment variables for 3D support:**
+
+```
+PYOPENGL_PLATFORM=osmesa   # tells pyrender to use headless OSMesa renderer
+```
+(set in `/etc/systemd/system/utilities.service`)
+
+**Frontend:**
+
+| Item | Detail |
+|------|--------|
+| Framework | React 18 + Vite 5 |
+| Build output | `/opt/utilities/app/static/` (served by FastAPI StaticFiles) |
+| Routing | React Router DOM 6, base path `/tools/` |
+| Drag-to-reorder | @dnd-kit/sortable |
+| Theme | Dark glassmorphism, Inter font, CSS variables |
+| Design | Matches Pukalani dashboard aesthetic |
+| Source in repo | `utilities/frontend/` |
+
+**API routes:**
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | /api/health | `{"ok":true, "service":"utilities"}` |
+| POST | /api/pdfmaker/session | Create session → `{session_id}` |
+| DELETE | /api/pdfmaker/session/{id} | Delete session + temp files |
+| POST | /api/pdfmaker/import | Upload files → page list with file_ids |
+| POST | /api/pdfmaker/preview | Render page with edit state → PNG bytes |
+| POST | /api/pdfmaker/build | Build final PDF → streaming download |
+| POST | /api/shrinker/compress | Compress PDF at level → download |
+
+**Supported input file types:**
+
+| Category | Extensions |
+|----------|-----------|
+| Images | .jpg .jpeg .png .gif (all frames) .bmp .tiff .tif .webp |
+| Text | .txt (auto-detects UTF-8/Latin-1/CP1252) |
+| Word | .doc .docx (text extraction via python-docx; no Word COM on Linux) |
+| PDF | .pdf (each page imported separately) |
+| 3D Models | .gltf .glb .obj .stl .fbx (rendered via trimesh + pyrender + OSMesa) |
+
+**PDF compression levels (Shrinker):**
+
+| Level | DPI | JPEG Quality | Notes |
+|-------|-----|-------------|-------|
+| light | — | — | Lossless: stream compression + metadata strip only |
+| standard | 150 | 75% | Adobe Quartz equivalent — good balance |
+| aggressive | 96 | 50% | Maximum compression; strips annotations & forms |
+| grayscale | 120 | 65% | Converts to B&W; strips annotations & forms |
+
+**Test suite (76 tests, all passing):**
+
+```bash
+cd /opt/utilities/app
+/opt/utilities/venv/bin/pytest tests/ -q
+```
+
+Tests cover: controller (page state, event bus), pdf_builder (render, assembly, page numbers),
+settings_manager (persistence, fallbacks), API endpoints (health, session, import, shrinker).
+
+**HA Integration — `panel_iframe`:**
+
+Add to `/config/configuration.yaml` in Home Assistant (192.168.1.19):
+
+```yaml
+panel_iframe:
+  utilities:
+    title: "Helper Tools"
+    url: "http://192.168.1.114:3114/tools/"
+    icon: mdi:tools
+    require_admin: false
+```
+
+Then restart HA: `Settings → System → Restart`. The "Helper Tools" panel will appear in the
+HA sidebar with a 🔧 icon and open the tools landing page in an iframe.
+
+**Deployment / rebuild instructions:**
+
+```bash
+# On CT114 (ssh via Proxmox: pct exec 114 -- bash)
+
+# Restart service
+systemctl restart utilities
+systemctl status utilities
+journalctl -u utilities -n 30 --no-pager
+
+# Run tests
+cd /opt/utilities/app
+/opt/utilities/venv/bin/pytest tests/ -v
+
+# Rebuild frontend (after frontend source changes):
+# 1. On your dev machine: npm run build in utilities/frontend/
+# 2. scp dist/* to CT114:/opt/utilities/app/static/
+# 3. systemctl restart utilities
+
+# Install a new Python dependency:
+/opt/utilities/venv/bin/pip install <package>
+# Add it to utilities/app/requirements.txt and commit
+```
+
+**Known limitations:**
+- DOCX conversion: formatting NOT preserved (no MS Word COM on Linux — text extraction only via python-docx)
+- 3D rendering requires OSMesa; pyrender cannot be imported directly (viewer class fails without X11)
+  → FastAPI sets `PYOPENGL_PLATFORM=osmesa` in environment before import
+- Session state is lost if the browser tab is closed without downloading (re-upload required)
+
+---
+
 ## 3. Proxmox Host Services
+
 
 ### Udev Rules (/etc/udev/rules.d/99-hawaii-usb.rules)
 
