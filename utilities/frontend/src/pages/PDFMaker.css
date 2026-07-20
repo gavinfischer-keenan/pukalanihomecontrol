@@ -1,0 +1,355 @@
+.pdfmaker-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg-primary);
+  animation: fadeIn 0.3s ease-out;
+}
+
+.pm-header {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+.pm-header .back-btn {
+  color: var(--text-secondary);
+  margin-right: 1rem;
+}
+.pm-header .back-btn:hover {
+  color: var(--text-primary);
+}
+.pm-header h1 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-right: 1rem;
+}
+.header-status {
+  font-size: 0.9rem;
+  color: var(--accent-blue);
+  margin-left: auto;
+}
+
+.pm-toolbar {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  gap: 0.5rem;
+}
+
+.tb-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: white;
+  transition: all 0.2s;
+}
+
+.tb-btn.primary {
+  background: var(--accent-blue);
+}
+.tb-btn.primary:hover {
+  background: #2563eb;
+}
+
+.tb-btn.danger {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--accent-red);
+}
+.tb-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.pm-main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.file-list-panel {
+  width: 240px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.empty-list {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.sortable-item {
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+}
+.sortable-item.selected {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.drag-handle {
+  padding: 0.75rem 0.5rem;
+  color: var(--text-secondary);
+  cursor: grab;
+  display: flex;
+  align-items: center;
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.item-content {
+  flex: 1;
+  padding: 0.75rem;
+  border-left: 3px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+.item-name {
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.warning-icon {
+  font-size: 0.8rem;
+}
+
+.preview-panel {
+  flex: 1;
+  background: #000;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.preview-placeholder {
+  color: var(--text-secondary);
+}
+
+.spinner-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255,255,255,0.1);
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.editor-panel {
+  width: 260px;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.empty-editor {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.editor-content {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-height: 100%;
+}
+
+.editor-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.page-filename {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  word-break: break-all;
+  margin-top: -1rem;
+}
+
+.editor-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.editor-group label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.toggle-group {
+  display: flex;
+  background: var(--bg-primary);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.toggle-group button {
+  flex: 1;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+.toggle-group button.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.grid-2x2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+.grid-2x2 button {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+.grid-2x2 button.active {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: var(--accent-blue);
+  color: var(--accent-blue);
+}
+
+.bulk-btn {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-align: left;
+}
+.bulk-btn:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.mt-auto {
+  margin-top: auto;
+}
+
+.delete-btn {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--accent-red);
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-weight: 500;
+  width: 100%;
+}
+.delete-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+.pm-savebar {
+  height: 56px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+}
+
+.save-options {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.pill-toggle {
+  width: 40px;
+  height: 22px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  position: relative;
+  transition: all 0.2s;
+}
+.pill-toggle.on {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+}
+.knob {
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: all 0.2s;
+}
+.pill-toggle.on .knob {
+  left: 20px;
+}
+
+.build-btn {
+  background: var(--accent-blue);
+  color: white;
+  padding: 0.5rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.build-btn:hover:not(:disabled) {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+.build-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

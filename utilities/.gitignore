@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+.venv/
+venv/
+env/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Temp files
+/tmp/
+*.tmp
+
+# Node
+node_modules/
+.npm/
+
+# Vite build output (built on server from source)
+frontend/dist/
+
+# OS
+.DS_Store
+Thumbs.db
