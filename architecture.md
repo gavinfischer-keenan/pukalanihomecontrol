@@ -506,10 +506,63 @@ Test suites:
 
 ### 4.3 Weather — Ecowitt GW2000
 
-    Station pushes every ~60s -> POST /api/ecowitt [CT108]
-    -> pws_obs [CT104]
-    GET /api/ecowitt/current -> EcowittLayer.jsx
-    GET /api/ecowitt/history -> charts
+    Hardware: Ecowitt GW2000 gateway + WS90 haptic rain/wind sensor array
+    Station ID (in DB): pukalani_home
+    PASSKEY: C7166AA801074351480D81CB3F0286C2
+    Location: Pukalani, Maui, HI — same lat/lon as dashboard home base
+
+    Push configuration (set in Ecowitt app -> Weather Services -> Customized):
+      Protocol:  Ecowitt  (application/x-www-form-urlencoded)
+      Server:    192.168.1.108
+      Path:      /api/ecowitt
+      Port:      3001        ← IMPORTANT: use 3001 (direct to Node API), NOT 4003 or 80
+      Interval:  60 seconds
+
+    NOTE: Port 4003 was the legacy port (incorrect). Port 3001 is the correct
+    Express API port. nginx on port 80 also proxies /api/* -> 3001 and can be
+    used as an alternative if needed.
+
+    What the server does on each push (server.js POST /api/ecowitt):
+      1. Relays full payload to Home Assistant webhook (async, non-blocking):
+         http://192.168.1.19:8123/api/webhook/5de76fbee15b641d309d042238b47326
+      2. Inserts into pws_obs [CT104] with ON CONFLICT DO UPDATE
+
+    pws_obs table columns (tracking_db on CT104):
+      station_id       — always 'pukalani_home'
+      obs_time         — from dateutc field in payload (falls back to server time)
+      received_at      — server wall-clock time
+      passkey          — from PASSKEY field (C7166AA801074351480D81CB3F0286C2)
+      temp_in_f        — indoor temp (from tempinf)
+      humidity_in      — indoor humidity (from humidityin)
+      temp_out_f       — outdoor temp (from tempf — WS90 outdoor sensor)
+      humidity_out     — outdoor humidity (from humidity)
+      baro_rel_inhg    — relative barometric pressure (from baromrelin)
+      baro_abs_inhg    — absolute barometric pressure (from baromabsin)
+      wind_dir         — wind direction degrees (from winddir)
+      wind_spd_mph     — wind speed mph (from windspeedmph)
+      wind_gust_mph    — wind gust mph (from windgustmph)
+      max_gust_mph     — max daily gust mph (from maxdailygust)
+      rain_rate_in     — rain rate in/hr (WS90 piezo: rrain_piezo, fallback rainratein)
+      rain_event_in    — event rain (erain_piezo / eventrainin)
+      rain_hourly_in   — hourly rain (hrain_piezo / hourlyrainin)
+      rain_daily_in    — daily rain (drain_piezo / dailyrainin)
+      rain_weekly_in   — weekly rain (wrain_piezo / weeklyrainin)
+      rain_monthly_in  — monthly rain (mrain_piezo / monthlyrainin)
+      rain_yearly_in   — yearly rain (yrain_piezo / totalrainin)
+      solar_rad        — solar irradiance W/m² (from solarradiation)
+      uv_index         — UV index (from uv)
+      lightning_dist   — lightning distance km (from lightning)
+      lightning_count  — lightning count (from lightning_num)
+      lightning_time   — lightning last strike UTC (from lightning_time epoch)
+      ws90_batt        — WS90 capacitor voltage (ws90cap_volt / wh90batt)
+      console_batt     — console battery (wh65batt)
+
+    Data consumers:
+      GET /api/ecowitt/current -> EcowittLayer.jsx (map station marker)
+      GET /api/ecowitt/history -> charts in EcowittPanel (temp, wind, rain, UV, solar)
+
+    Future: solar panel efficiency metric
+      formula = enphase_W / pws_obs.solar_rad (normalised W produced per W/m2 irradiance)
 
 ### 4.4 Tides — NOAA CO-OPS (cached 8h)
 
@@ -788,7 +841,9 @@ For an AI agent rebuilding on new hardware. Follow in order, verify each step.
 | RTL-SDR missing after replug | DVB kernel driver reattaches | modprobe -r dvb_usb_rtl28xxu; restart rtl-tcp-ais |
 | AIS-Catcher timeout loop | rtl-tcp-ais crashed | systemctl reset-failed rtl-tcp-ais; start; restart ais-catcher on CT106 |
 | /api/health ais ok=false | No vessels in 10min | Normal at night. Check: ais-catcher logs, USB present? |
-| Weather ok=false | Ecowitt station gap | Wait 2min; power-cycle station if persistent |
+| Weather ok=false | Ecowitt station gap | Wait 2min; power-cycle GW2000 if persistent |
+| Ecowitt not pushing | Wrong port configured | GW2000 app -> Customized: port MUST be 3001 (not 4003, not 80) |
+| GW2000 lost config after reboot | Device reset clears Customized settings | Re-enter: IP=192.168.1.108, Path=/api/ecowitt, Port=3001, Protocol=Ecowitt, Interval=60s |
 | BirdNET zero detections | Normal 10pm-5am | WARN in nightly log — expected |
 | Enphase setup_in_progress | Auth timeout | HA -> Settings -> Integrations -> Enphase -> Re-authenticate |
 | Build fails | Missing import or CSS | Check npm run build output; most common: forgotten CSS import |
