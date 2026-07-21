@@ -434,3 +434,24 @@ html, body, #root {
   font-size: 0.6rem;
   color: var(--text-dim);
 }
+
+/* ── Leaflet div-icon background reset ────────────────────────────────────
+   Leaflet sets background:#fff;border:1px solid #666 on .leaflet-div-icon
+   which bleeds through custom SVG markers. Each custom icon class must
+   explicitly clear these so only the SVG renders.                         */
+.surf-icon,
+.tide-icon,
+.buoy-icon,
+.vessel-icon,
+.aircraft-icon,
+.metar-icon,
+.ecowitt-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* ── Explicit base text colour ────────────────────────────────────────────
+   No browser default black leaking through unset contexts.               */
+body {
+  color: var(--text-primary);
+}

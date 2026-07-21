@@ -7,6 +7,19 @@ const axios = require('axios');
 
 const app = express();
 
+// ── CORS — applied globally BEFORE any route ──────────────────────────────
+// Must be registered before all routes so every endpoint gets the header.
+app.use(cors({
+  origin: (origin, cb) => {
+    // Allow requests with no origin (direct, curl, server-to-server)
+    if (!origin) return cb(null, true);
+    // Allow LAN origins and localhost
+    if (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.)/.test(origin)) return cb(null, true);
+    cb(new Error('CORS: origin not allowed'));
+  },
+  credentials: true,
+}));
+
 // ── Winds Aloft — server-side pre-fetch cache (30 min) ───────────────────────
 let windsAloftCache = { data: null, raw: null, fetchedAt: 0 };
 const WINDS_TTL_MS = 30 * 60 * 1000;
@@ -85,16 +98,6 @@ app.get('/api/noaa-tides/:station', async (req, res) => {
   }
 });
 
-app.use(cors({
-  origin: (origin, cb) => {
-    // Allow requests with no origin (direct, curl, server-to-server)
-    if (!origin) return cb(null, true);
-    // Allow LAN origins and localhost
-    if (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.)/.test(origin)) return cb(null, true);
-    cb(new Error('CORS: origin not allowed'));
-  },
-  credentials: true
-}));
 app.use(express.json());
 
 const pool = new Pool({
