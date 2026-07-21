@@ -1,0 +1,13 @@
+{
+  "title": "Pukalani Project Manager",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to PM API",
+        "data": {
+          "api_url": "API URL"
+        }
+      }
+    }
+  }
+}

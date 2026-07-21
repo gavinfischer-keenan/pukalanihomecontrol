@@ -1,0 +1,3 @@
+refresh:
+  name: Refresh PM Data
+  description: Forces a refresh of data from the Project Manager API
