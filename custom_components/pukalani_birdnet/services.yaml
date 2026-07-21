@@ -1,0 +1,41 @@
+review:
+  name: Review Detection
+  description: Confirm or re-assign species for a detection.
+  fields:
+    detection_id:
+      name: Detection ID
+      description: The ID of the detection to review.
+      required: true
+      example: "123"
+      selector:
+        text:
+    species:
+      name: Species
+      description: The species to assign.
+      required: true
+      example: "Northern Cardinal"
+      selector:
+        text:
+    verified:
+      name: Verified
+      description: Whether the review is verified.
+      required: false
+      default: true
+      selector:
+        boolean:
+
+lock:
+  name: Lock Detection
+  description: Lock a detection so it is not deleted.
+  fields:
+    detection_id:
+      name: Detection ID
+      description: The ID of the detection to lock.
+      required: true
+      example: "123"
+      selector:
+        text:
+
+refresh:
+  name: Refresh Data
+  description: Force a data refresh from BirdNET-Go.

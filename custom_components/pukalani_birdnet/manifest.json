@@ -1,0 +1,11 @@
+{
+  "domain": "pukalani_birdnet",
+  "name": "Pukalani BirdNET-Go",
+  "codeowners": ["@gavin"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/gavin/pukalanihomecontrol",
+  "iot_class": "local_polling",
+  "requirements": [],
+  "version": "1.0.0"
+}
