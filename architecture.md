@@ -2164,6 +2164,98 @@ This section documents significant architectural changes and the reasoning behin
    - *Why:* Was physically present but undocumented
    - *Architecture impact:* Added to USB device table, CT113 config documented
 
+### 2026-07-21: Implementation of Items 1–4 and 7
+
+**Implementation completed — the following architecture items are now live and verified:**
+
+#### Item 1: Project Manager PostgreSQL Migration + HACS Integration — ✅ IMPLEMENTED
+
+**Database migration:**
+- Created `project_mgr` database on CT104 (user: `pm_user`, password: `pukalani_pm`)
+- Schema deployed: `owners`, `vendors`, `vendor_interactions`, `tasks`, `task_supplies`, `maintenance`, `assets`, `warranties` tables
+- JSON → PostgreSQL migration script (`migrate.js`) executed successfully
+- Data integrity verified: 241 tasks, 17 vendors, 4 owners — exact match
+- `dotenv` added to index.js for env var loading
+
+**Express route conversion (CT110):**
+- All routes converted from `fs.readFileSync/writeFileSync` to PostgreSQL `pg` pool queries
+- Dependency cascading logic preserved (date propagation on task completion)
+- New endpoints deployed: `/api/assets`, `/api/warranties`, `/api/purge`, `/api/health`
+- Health endpoint returns: `{"status":"ok","database":"connected","counts":{...}}`
+- PM2 service saved and auto-starts on reboot
+
+**HACS integration (`pukalani_pm`):**
+- Deployed to `/config/custom_components/pukalani_pm/` on HAOS
+- Committed to GitHub repo under `custom_components/pukalani_pm/`
+- DataUpdateCoordinator polls PM API every 300 seconds
+- 6 sensor entities: `pm_total_tasks`, `pm_active_tasks`, `pm_overdue_tasks`, `pm_total_vendors`, `pm_total_assets`, `pm_warranties_expiring`
+- 1 binary sensor: `pm_api_online`
+- Graceful fallback when assets/warranties endpoints not yet available
+
+**Automated tests:**
+- Vitest suite (`server/tests/db.test.js`): DB connection, table count verification, CRUD operations on assets, purge safety — 3/3 pass
+
+#### Item 2: Games on CT114 — ✅ IMPLEMENTED
+
+- LUX (Alux2Win) built with `npx vite build --base=/games/lux/` — WebGL strategy game
+- Trish's Games built with `npx vite build --base=/games/trishsgames/` — 7 casual games
+- Dark-themed games landing page at `/games/` with glassmorphism card layout
+- Static assets deployed to `/opt/utilities/games/{landing,lux,trishsgames}/`
+- FastAPI mount order: specific paths (`/games/lux`, `/games/trishsgames`) before catch-all `/games`
+- HA sidebar panel: `panel_iframe` entry "Entertaining Diversions" (icon: `mdi:gamepad-variant`)
+
+**Automated tests:**
+- Bash integration test suite (`/opt/utilities/tests/integration_test.sh`): 12/12 pass
+- Python pytest suite: 164/164 pass (includes regression checks)
+
+#### Item 3: Apple Health Converter on CT114 — ✅ IMPLEMENTED
+
+- `health_converter.py` module created — reuses original `parser.py` streaming XML engine and `writers.py` CSV manager
+- FastAPI endpoint: `POST /api/healthconverter/convert` — accepts `.xml` or `.zip` upload, returns `.zip` of CSVs
+- Web UI: `health_converter.html` with drag-and-drop upload interface
+- Tool card added to utilities landing page
+- Processing uses temp directories, auto-cleaned after response
+- No server-side file retention — all processing ephemeral
+
+**Automated tests:**
+- Included in the 164-test pytest suite: synthetic export.xml test, zip upload handling, missing file error, endpoint integration
+
+#### Item 4: BirdNET Native Integration — ✅ IMPLEMENTED
+
+**HACS integration (`pukalani_birdnet`):**
+- Deployed to `/config/custom_components/pukalani_birdnet/` on HAOS
+- Committed to GitHub repo under `custom_components/pukalani_birdnet/`
+- DataUpdateCoordinator polls BirdNET-Go REST API every 60 seconds
+- 5 sensor entities: `birdnet_species_today`, `birdnet_detections_today`, `birdnet_last_species`, `birdnet_last_confidence`, `birdnet_top_species`
+- 3 services: `pukalani_birdnet.review`, `pukalani_birdnet.lock`, `pukalani_birdnet.refresh`
+- Uses `Pacific/Honolulu` timezone for "today" filtering
+- Graceful offline handling via `UpdateFailed` exception
+- HA sidebar panel: `panel_iframe` entry "BirdNET" (icon: `mdi:bird`)
+
+**Automated tests:**
+- `test_coordinator.py`: Mocked HTTP responses, data parsing
+- `test_sensor.py`: Entity creation, state verification
+- `test_services.py`: Service call validation
+
+#### Item 7: Architecture Document Update — ✅ IMPLEMENTED
+
+- Architecture document updated with implementation details for all items
+- Playbook step 4 updated to reflect project_mgr database creation
+- Change log updated with this section
+- Status of items 2 and 3 in change log changed from PLANNED to IMPLEMENTED
+
+**HA Configuration changes:**
+- `panel_iframe` section added to `configuration.yaml` with 3 entries:
+  - `helper_tools` → `http://192.168.1.114:3114/tools/` (icon: `mdi:tools`)
+  - `entertaining_diversions` → `http://192.168.1.114:3114/games/` (icon: `mdi:gamepad-variant`)
+  - `birdnet` → `http://192.168.1.25:8080/` (icon: `mdi:bird`)
+- Two HACS custom integrations deployed to `/config/custom_components/`
+- HA core restarted to activate all changes
+
+**Still planned (not implemented in this pass):**
+- Item 5: Kiosk console (requires hardware setup)
+- Item 6: Aqara camera pipeline (requires camera hardware installation)
+
 ---
 
 *End of architecture document.*
