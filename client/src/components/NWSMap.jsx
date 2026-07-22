@@ -331,8 +331,19 @@ function WaveHeightLayer({ visible }) {
 }
 
 // ── Ocean Depth / Bathymetry Overlay ──────────────────────────────────
-// Uses Esri Ocean Reference (depth contours, labels, seafloor features)
-// rendered in a custom pane above the base map tiles
+// Two-layer stack matching the look of official NOAA nautical charts:
+//
+//  Layer 1 — Esri World Ocean Reference
+//    Depth contours (isobaths: 200m, 1000m, 2000m …), labeled submarine features,
+//    and seafloor zone labels. Provides the structural bathymetric layout.
+//
+//  Layer 2 — OpenSeaMap seamark tiles
+//    Individual depth soundings (the scattered numbers across chart).
+//    Zoom-adaptive: low zoom = sparse major soundings, high zoom = dense chart-grade
+//    soundings at the density you'd see on a printed NOAA RNC.
+//    Also adds: rocks/wrecks, light stations, traffic lanes, anchorages.
+//
+// Combined: matches the visual density and information content of NOAA charts.
 function DepthLayer({ visible }) {
   const map = useMap();
   const layerRef = useRef(null);
@@ -344,22 +355,39 @@ function DepthLayer({ visible }) {
       return;
     }
 
-    // Create a custom pane above tilePane (z-index 200) but below overlayPane (400)
+    // Custom pane — above base tiles, below markers
     if (!map.getPane('depthPane')) {
       const pane = map.createPane('depthPane');
       pane.style.zIndex = 250;
       pane.style.pointerEvents = 'none';
     }
 
-    layerRef.current = L.tileLayer(
+    // ── Layer 1: Esri Ocean Reference — contours, isobath labels, feature names ──
+    const esriContours = L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Reference/MapServer/tile/{z}/{y}/{x}',
       {
         pane:        'depthPane',
-        opacity:     0.85,
-        attribution: 'Depth contours &copy; Esri',
+        opacity:     0.80,
         maxZoom:     13,
+        attribution: 'Bathymetry &copy; Esri, GEBCO, NOAA',
       }
-    ).addTo(map);
+    );
+
+    // ── Layer 2: OpenSeaMap — zoom-adaptive depth soundings + nautical features ──
+    // Tiles are transparent PNG overlays; density automatically matches zoom level.
+    // At zoom 8-9: major soundings only (like a passage chart).
+    // At zoom 11-13: dense soundings matching a harbor/approach chart.
+    const openSeaMap = L.tileLayer(
+      'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
+      {
+        pane:        'depthPane',
+        opacity:     0.90,
+        maxZoom:     18,
+        attribution: 'Nautical soundings &copy; OpenSeaMap contributors',
+      }
+    );
+
+    layerRef.current = L.layerGroup([esriContours, openSeaMap]).addTo(map);
 
     return () => { layerRef.current?.remove(); layerRef.current = null; };
   }, [visible, map]);
