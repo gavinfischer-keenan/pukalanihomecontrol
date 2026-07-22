@@ -1,7 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import './NWSLoopsGrid.css';
 
-const REFRESH_MS = 5 * 60 * 1000;
+// How often to re-poll the metadata API while live refresh is active
+const LIVE_POLL_MS   = 60 * 1000;   // 1 min — just to pick up updatedAt timestamps
+// How often to re-poll when no live refresh (quiet background)
+const QUIET_POLL_MS  = 10 * 60 * 1000;  // 10 min
 
 /* ── Descriptions for each loop type ─────────────────────────────────── */
 const DESCRIPTIONS = {
@@ -29,10 +32,15 @@ function timeSince(isoStr) {
 }
 
 export default function NWSLoopsGrid({ apiBase }) {
-  const [loops, setLoops]       = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState(null);
-  const [selected, setSelected] = useState(null);
+  const [loops,             setLoops]             = useState([]);
+  const [loading,           setLoading]           = useState(true);
+  const [error,             setError]             = useState(null);
+  const [selected,          setSelected]          = useState(null);
+  const [liveRefreshActive, setLiveRefreshActive] = useState(false);
+  // imgKeys: per-loop cache-busting key, incremented when we know the image refreshed
+  const [imgKeys,           setImgKeys]           = useState({});
+  const prevUpdatedAt = useRef({});
+  const pollTimerRef  = useRef(null);
 
   const fetchLoops = useCallback(async () => {
     try {
@@ -41,7 +49,24 @@ export default function NWSLoopsGrid({ apiBase }) {
         return r.json();
       });
       const loopsArr = data.loops || data;
-      setLoops(Array.isArray(loopsArr) ? loopsArr : []);
+      const arr = Array.isArray(loopsArr) ? loopsArr : [];
+
+      // Detect any loop whose updatedAt changed → bust that image cache key
+      setImgKeys(prev => {
+        const next = { ...prev };
+        let changed = false;
+        for (const l of arr) {
+          if (l.updatedAt && l.updatedAt !== prevUpdatedAt.current[l.id]) {
+            next[l.id] = (prev[l.id] || 0) + 1;
+            prevUpdatedAt.current[l.id] = l.updatedAt;
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+
+      setLoops(arr);
+      setLiveRefreshActive(!!data.liveRefreshActive);
       setError(null);
     } catch (e) {
       setError(e.message);
@@ -50,11 +75,17 @@ export default function NWSLoopsGrid({ apiBase }) {
     }
   }, [apiBase]);
 
+  // Start polling on mount; adjust cadence based on liveRefreshActive
   useEffect(() => {
-    fetchLoops();
-    const t = setInterval(fetchLoops, REFRESH_MS);
-    return () => clearInterval(t);
+    fetchLoops();  // initial fetch (triggers live refresh on server)
   }, [fetchLoops]);
+
+  useEffect(() => {
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    const pollMs = liveRefreshActive ? LIVE_POLL_MS : QUIET_POLL_MS;
+    pollTimerRef.current = setInterval(fetchLoops, pollMs);
+    return () => clearInterval(pollTimerRef.current);
+  }, [liveRefreshActive, fetchLoops]);
 
   // Auto-select first loop
   useEffect(() => {
@@ -63,10 +94,13 @@ export default function NWSLoopsGrid({ apiBase }) {
     }
   }, [loops, selected]);
 
-  if (loading) {
+  // ── Render ─────────────────────────────────────────────────────────────
+
+  // Show loading spinner only on very first load with no cached data at all
+  if (loading && loops.length === 0) {
     return <div className="nlg-status">Loading satellite loops…</div>;
   }
-  if (error) {
+  if (error && loops.length === 0) {
     return <div className="nlg-status nlg-error">⚠ Failed to load loops: {error}</div>;
   }
   if (!loops.length) {
@@ -74,17 +108,18 @@ export default function NWSLoopsGrid({ apiBase }) {
   }
 
   const activeLoop = loops.find(l => l.id === selected) || loops[0];
+  const imgKey     = imgKeys[activeLoop.id] || 0;
 
   return (
     <div className="nlg-root">
       {/* ── Left: Loop selector list ── */}
       <div className="nlg-sidebar">
-        <div className="nlg-sidebar-title">Satellite & Radar Loops</div>
+        <div className="nlg-sidebar-title">Satellite &amp; Radar Loops</div>
         <div className="nlg-list">
           {loops.map(loop => {
-            const isActive   = selected === loop.id;
-            const desc       = DESCRIPTIONS[loop.id] || '';
-            const timeLabel  = timeSince(loop.updatedAt);
+            const isActive  = selected === loop.id;
+            const desc      = DESCRIPTIONS[loop.id] || '';
+            const timeLabel = timeSince(loop.updatedAt);
 
             return (
               <button
@@ -113,20 +148,33 @@ export default function NWSLoopsGrid({ apiBase }) {
           <span className="nlg-viewer-icon">{activeLoop.icon || '🌐'}</span>
           <span className="nlg-viewer-title">{activeLoop.name}</span>
           {timeSince(activeLoop.updatedAt) && (
-            <span className="nlg-viewer-time">Updated {timeSince(activeLoop.updatedAt)}</span>
+            <span className="nlg-viewer-time">Cached {timeSince(activeLoop.updatedAt)}</span>
           )}
         </div>
         <div className="nlg-viewer-img-wrap">
           {activeLoop.localUrl ? (
             <img
-              key={activeLoop.id}
-              src={`${apiBase}${activeLoop.localUrl}?t=${Date.now()}`}
+              key={`${activeLoop.id}-${imgKey}`}
+              src={`${apiBase}${activeLoop.localUrl}?v=${imgKey}`}
               alt={activeLoop.name}
             />
           ) : (
             <div className="nlg-viewer-placeholder">⏳ Caching imagery…</div>
           )}
         </div>
+
+        {/* ── Live refresh banner ── */}
+        {liveRefreshActive && (
+          <div className="nlg-refresh-banner">
+            <span className="nlg-refresh-spinner" />
+            Fetching current loop from NOAA — image will update automatically
+          </div>
+        )}
+        {!liveRefreshActive && activeLoop.updatedAt && (
+          <div className="nlg-cache-note">
+            📦 Showing cached loop · Next background refresh at 05:00, 11:00, 17:00 or 23:00 HST
+          </div>
+        )}
       </div>
     </div>
   );

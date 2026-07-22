@@ -1,16 +1,35 @@
 /**
  * NWS / NOAA Data Caching Service
  *
- * Good-citizen caching policy:
- *   - All fetch intervals are aligned to KNOWN upstream update schedules
- *   - We NEVER poll faster than the source update rate
- *   - We use If-Modified-Since / ETag headers wherever supported
- *   - We identify ourselves with a proper User-Agent
- *   - We add jitter (±30s) to avoid thundering-herd on exact update times
+ * ╔══════════════════════════════════════════════════════════════════╗
+ * ║  GOOD-CITIZEN CACHING POLICY — DO NOT REMOVE OR WEAKEN         ║
+ * ║                                                                  ║
+ * ║  This service fetches from publicly-funded NOAA/NESDIS servers. ║
+ * ║  We are a single private home monitoring system, not a CDN.     ║
+ * ║  We MUST NOT hammer government servers with excessive requests.  ║
+ * ║                                                                  ║
+ * ║  Rules:                                                          ║
+ * ║  1. NEVER poll faster than the upstream update rate.            ║
+ * ║  2. ALWAYS use ETag / If-Modified-Since conditional fetches.    ║
+ * ║  3. Identify ourselves with an honest User-Agent string.        ║
+ * ║  4. Add random jitter (±60s) to avoid thundering-herd at exact  ║
+ * ║     update boundaries (multiple users opening at same time).    ║
+ * ║  5. Background schedule: 05:00, 11:00, 17:00, 23:00 HST only.  ║
+ * ║     On user open: serve cached immediately + one live refresh.  ║
+ * ║     Live refresh window: 3 hours post-open, then fall back to   ║
+ * ║     background schedule (no sustained high-rate polling).       ║
+ * ║  6. NPAC GIF from weather.gov: fetched at most every 37 min.   ║
+ * ║                                                                  ║
+ * ║  If this code is ever shared publicly, ensure the User-Agent    ║
+ * ║  and rate limits are reviewed before deployment.                ║
+ * ╚══════════════════════════════════════════════════════════════════╝
  *
  * Update schedule reference:
- *   GOES-18 GIFs         → every 10 min  → fetch at :01, :11, :21, :31, :41, :51
- *   NPAC GIF             → every ~30 min → fetch at :02, :32
+ *   GOES-18 GIFs         → every 10 min  → background: 4x/day at 05/11/17/23 HST
+ *                                           live-open:  every ~16 min for 3h after open
+ *                           URLs: cdn.star.nesdis.noaa.gov/GOES18/ABI/SECTOR/HI/{band}/GOES18-HI-{band}-600x600.gif
+ *                           (NESDIS changed URLs ~Jul 2026: lowercase hi → HI, removed ABI from filename)
+ *   NPAC GIF             → every ~30 min → background: 4x/day; live-open: every ~37 min for 3h
  *   NWS obs KML          → every 30-60min→ fetch at :05, :35 each hour
  *   SRF/AFD/CWF/HSF      → 0415 + 1615 HST, then check 1x/hr with ETag
  *   RWR                  → 0005, 0605, 1205, 1805 HST
@@ -126,7 +145,7 @@ const LOOPS = [
     id: 'geocolor',
     name: 'GOES-18 GeoColor Hawaii',
     icon: '🛰️',
-    url: 'https://cdn.star.nesdis.noaa.gov/GOES18/ABI/SECTOR/hi/GEOCOLOR/GOES18-hi-GEOCOLOR-600x600.gif',
+    url: 'https://cdn.star.nesdis.noaa.gov/GOES18/ABI/SECTOR/HI/GEOCOLOR/GOES18-HI-GEOCOLOR-600x600.gif',
     file: 'goes18_geocolor.gif',
     intervalMs: 11 * 60 * 1000,  // 10-min updates, fetch at +1min
   },
@@ -134,15 +153,15 @@ const LOOPS = [
     id: 'infrared',
     name: 'GOES-18 Infrared (Band 13)',
     icon: '🌡️',
-    url: 'https://cdn.star.nesdis.noaa.gov/GOES18/ABI/SECTOR/hi/13/GOES18-hi-13-600x600.gif',
+    url: 'https://cdn.star.nesdis.noaa.gov/GOES18/ABI/SECTOR/HI/13/GOES18-HI-13-600x600.gif',
     file: 'goes18_ir.gif',
     intervalMs: 11 * 60 * 1000,
   },
   {
     id: 'watervapor',
-    name: 'GOES-18 Water Vapor',
+    name: 'GOES-18 Water Vapor (Band 8)',
     icon: '💧',
-    url: 'https://cdn.star.nesdis.noaa.gov/GOES18/ABI/SECTOR/hi/09/GOES18-hi-09-600x600.gif',
+    url: 'https://cdn.star.nesdis.noaa.gov/GOES18/ABI/SECTOR/HI/08/GOES18-HI-08-600x600.gif',
     file: 'goes18_wv.gif',
     intervalMs: 11 * 60 * 1000,
   },
@@ -177,15 +196,98 @@ async function fetchLoop(loop) {
   }
 }
 
-// Initialise loop fetchers on staggered schedules
-function initLoopFetchers() {
+// ═══════════════════════════════════════════════════════════════════════════
+// SMART LOOP CACHE SCHEDULER
+//
+// Background schedule (good-citizen, 4x/day):
+//   Fires at 05:00, 11:00, 17:00, 23:00 HST (Hawaii Standard Time = UTC-10)
+//   This means UTC: 15:00, 21:00, 03:00, 09:00
+//
+// Live-refresh window (triggered when a user opens the Loops tab):
+//   - Serve cached image immediately (never block on a fetch)
+//   - Fire one immediate fetch per loop (staggered by 3s each)
+//   - For the next 3 hours, poll at upstream_interval + 5 min
+//     (GOES-18: 10+5=15 min, NPAC: 30+5=35 min — well within good-citizen limits)
+//   - After 3 hours, stop live polling (fall back to background schedule)
+//   - Multiple simultaneous users share the same live-refresh window
+// ═══════════════════════════════════════════════════════════════════════════
+
+const LIVE_REFRESH_WINDOW_MS = 3 * 60 * 60 * 1000;  // 3 hours
+let   liveRefreshUntil       = 0;                      // epoch ms — 0 = not active
+const liveIntervalHandles    = {};                     // { loop.id: intervalHandle }
+
+// Convert a local HST hour to the next UTC Date occurrence
+function nextHSTOccurrence(hstHour) {
+  const UTC_OFFSET = 10; // HST = UTC-10 (no DST)
+  const utcHour = (hstHour + UTC_OFFSET) % 24;
+  const now = new Date();
+  const candidate = new Date(now);
+  candidate.setUTCHours(utcHour, 0, 0, 0);
+  if (candidate <= now) {
+    candidate.setUTCDate(candidate.getUTCDate() + 1);
+  }
+  return candidate;
+}
+
+// Schedule the 4x/day background fetches at 05/11/17/23 HST
+function scheduleBackgroundFetches() {
+  const BACKGROUND_HOURS_HST = [5, 11, 17, 23];
+
+  function scheduleNext(hstHour) {
+    const next = nextHSTOccurrence(hstHour);
+    const msUntil = next.getTime() - Date.now() + Math.floor(Math.random() * 60000); // ±60s jitter
+    console.log(`[nws] background loop fetch at ${hstHour}:00 HST scheduled in ${Math.round(msUntil/60000)}min`);
+    setTimeout(async () => {
+      console.log(`[nws] background loop fetch firing for ${hstHour}:00 HST`);
+      for (let i = 0; i < LOOPS.length; i++) {
+        await new Promise(r => setTimeout(r, i * 3000 + jitter())); // 3s stagger + jitter
+        fetchLoop(LOOPS[i]);
+      }
+      scheduleNext(hstHour); // schedule next occurrence (24h from now)
+    }, msUntil);
+  }
+
+  BACKGROUND_HOURS_HST.forEach(scheduleNext);
+}
+
+// Start live-refresh polling for all loops (called when user opens Loops tab)
+// Multiple calls are safe — resets the window timer, reuses existing intervals.
+function startLiveRefresh() {
+  liveRefreshUntil = Date.now() + LIVE_REFRESH_WINDOW_MS;
+  console.log(`[nws] live loop refresh window opened (3h)`);
+
   LOOPS.forEach((loop, i) => {
-    // Stagger start times by 15s per loop to spread load
-    setTimeout(() => {
-      fetchLoop(loop);
-      setInterval(() => fetchLoop(loop), loop.intervalMs);
-    }, i * 15000 + jitter());
+    // One immediate fetch per loop, staggered by 3s
+    setTimeout(() => fetchLoop(loop), i * 3000 + Math.floor(Math.random() * 5000));
+
+    // Set up polling interval if not already running
+    if (!liveIntervalHandles[loop.id]) {
+      const pollMs = loop.intervalMs + (5 * 60 * 1000); // upstream interval + 5 min lag
+      liveIntervalHandles[loop.id] = setInterval(() => {
+        if (Date.now() > liveRefreshUntil) {
+          // Window expired — stop polling, clean up
+          clearInterval(liveIntervalHandles[loop.id]);
+          delete liveIntervalHandles[loop.id];
+          console.log(`[nws] live refresh window closed for ${loop.id}`);
+          return;
+        }
+        fetchLoop(loop);
+      }, pollMs);
+    }
   });
+}
+
+// Expose startLiveRefresh so the API route can call it
+module.exports._startLiveLoopRefresh = startLiveRefresh;
+
+function initLoopFetchers() {
+  // 1. Fetch all loops immediately on startup (staggered)
+  LOOPS.forEach((loop, i) => {
+    setTimeout(() => fetchLoop(loop), i * 15000 + jitter());
+  });
+
+  // 2. Schedule the 4x/day background fetches
+  scheduleBackgroundFetches();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -542,11 +644,19 @@ function registerRoutes(app, express) {
 
   // ── GET /api/nws/loops — loop metadata ──────────────────────────────────
   app.get('/api/nws/loops', (req, res) => {
+    // Serve cached data immediately — never block on a fetch
     res.json({
       loops: LOOPS.map(l => cache.loops[l.id] || {
         id: l.id, name: l.name, icon: l.icon, localUrl: null, updatedAt: null,
       }),
+      // Let the client know if a live refresh is currently active
+      liveRefreshActive: Date.now() < liveRefreshUntil,
+      liveRefreshUntil:  liveRefreshUntil > Date.now() ? new Date(liveRefreshUntil).toISOString() : null,
     });
+
+    // Trigger live refresh (non-blocking, safe to call multiple times)
+    // This opens or extends the 3-hour live polling window
+    setImmediate(() => startLiveRefresh());
   });
 
   // ── GET /api/nws/text/:product ───────────────────────────────────────────

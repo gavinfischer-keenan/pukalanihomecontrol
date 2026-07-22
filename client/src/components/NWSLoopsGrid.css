@@ -184,3 +184,36 @@
     min-height: 250px;
   }
 }
+/* ── Live refresh banner ─────────────────────────────────── */
+.nlg-refresh-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  background: rgba(0, 180, 120, 0.12);
+  border-top: 1px solid rgba(0, 200, 130, 0.3);
+  color: #4cffb0;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+.nlg-refresh-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid rgba(76, 255, 176, 0.3);
+  border-top-color: #4cffb0;
+  border-radius: 50%;
+  animation: nlg-spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes nlg-spin {
+  to { transform: rotate(360deg); }
+}
+.nlg-cache-note {
+  padding: 6px 14px;
+  background: rgba(255,255,255,0.04);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.35);
+  font-size: 11px;
+}
