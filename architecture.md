@@ -2137,18 +2137,19 @@ postgresql://pm_user:pukalani_pm@192.168.1.104:5432/project_mgr
 
 | Token Name | Token ID | User | Purpose |
 |------------|----------|------|---------|
-| Antigravity Laptop | `169aad44a6ee4b74b952fd4aab90a0b5` | 3786Pukalani | AI agent API access (Antigravity) |
+| Antigravity july21 ClaudeOpus | `9cfbabcc65ee4d45b2e537b7ff4b7352` | 3786Pukalani | **Active** AI agent API access (Antigravity). Created 2026-07-21. |
+| Antigravity Laptop | `169aad44a6ee4b74b952fd4aab90a0b5` | 3786Pukalani | Legacy — returns 401 (invalidated). Keep for reference. |
 | Alerts long lived token | `950598726d4a4335b80805da730efffd` | 3786Pukalani | Alert system webhooks |
 | HA dashboards longlived | `c179e26b62e34d38a84ed0a809774987` | 3786Pukalani | Dashboard API access |
 | GE smart stove | `e7bcc9451db949918709465b7378148e` | 3786Pukalani | GE Appliance integration |
 
-> **NOTE:** Long-lived access token values (the `eyJhb...` JWT strings) are shown ONLY at creation time.
-> If a token stops working (401 Unauthorized), delete it from Profile → Security → Long-Lived Access Tokens
-> and create a new one with the same name. The JWT value will change.
+> **Active API Token (Antigravity july21 ClaudeOpus):**
+> ```
+> eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI5Y2ZiYWJjYzY1ZWU0ZDQ1YjJlNTM3YjdmZjRiNzM1MiIsImlhdCI6MTc4NDY3OTQ0MSwiZXhwIjoyMTAwMDM5NDQxfQ.--1D08UijvGCtN1FkFtxXk2JvwayuLvHbteB3lRSOH8
+> ```
+> Expires: ~2036. Created 2026-07-21.
 >
-> **The "Antigravity Laptop" token was last regenerated around 2026-07-19.** If it returns 401, the user
-> must regenerate it: HA Profile → Long-Lived Access Tokens → Delete "Antigravity Laptop" → Create Token
-> → name it "Antigravity Laptop" → copy the new `eyJhb...` value.
+> **If this token stops working (401):** HA Profile → Security → Delete token → Create new one → update this document.
 
 #### Preferred HA Access Methods (in order of preference)
 
