@@ -29,7 +29,8 @@
  *                                           live-open:  every ~16 min for 3h after open
  *                           URLs: cdn.star.nesdis.noaa.gov/GOES18/ABI/SECTOR/HI/{band}/GOES18-HI-{band}-600x600.gif
  *                           (NESDIS changed URLs ~Jul 2026: lowercase hi → HI, removed ABI from filename)
- *   NPAC GIF             → every ~30 min → background: 4x/day; live-open: every ~37 min for 3h
+ *   HFO Regional loops   → every ~30 min → background: 4x/day; live-open: every ~37 min for 3h
+ *   NPAC npac.gif          → STATIC single frame, NOT a loop — excluded from this section
  *   NWS obs KML          → every 30-60min→ fetch at :05, :35 each hour
  *   SRF/AFD/CWF/HSF      → 0415 + 1615 HST, then check 1x/hr with ETag
  *   RWR                  → 0005, 0605, 1205, 1805 HST
@@ -140,18 +141,30 @@ async function conditionalFetchText(url, meta) {
 // LOOP GIF FETCHERS
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ── Satellite imagery sources ─────────────────────────────────────────────────
+//
+// All entries are true animated GIF loops (multi-frame, NETSCAPE extension).
+// NPAC from weather.gov/hfo is a STATIC single-frame image — not included here;
+// it belongs in a charts/static section if ever re-added.
+//
+// GOES-18 Hawaii sector (HI): ~10-min update cycle, 50-frame loops
+// HFO visible/IR loops:       ~30-min update cycle, 11-frame loops
+// ─────────────────────────────────────────────────────────────────────────────
 const LOOPS = [
+  // ── GOES-18 High-Resolution Sector (Hawaii) ──
   {
     id: 'geocolor',
-    name: 'GOES-18 GeoColor Hawaii',
+    name: 'GOES-18 GeoColor',
+    group: 'GOES-18 Hawaii Sector',
     icon: '🛰️',
     url: 'https://cdn.star.nesdis.noaa.gov/GOES18/ABI/SECTOR/HI/GEOCOLOR/GOES18-HI-GEOCOLOR-600x600.gif',
     file: 'goes18_geocolor.gif',
-    intervalMs: 11 * 60 * 1000,  // 10-min updates, fetch at +1min
+    intervalMs: 11 * 60 * 1000,  // 10-min upstream, +1min lag
   },
   {
     id: 'infrared',
-    name: 'GOES-18 Infrared (Band 13)',
+    name: 'GOES-18 Infrared',
+    group: 'GOES-18 Hawaii Sector',
     icon: '🌡️',
     url: 'https://cdn.star.nesdis.noaa.gov/GOES18/ABI/SECTOR/HI/13/GOES18-HI-13-600x600.gif',
     file: 'goes18_ir.gif',
@@ -159,19 +172,59 @@ const LOOPS = [
   },
   {
     id: 'watervapor',
-    name: 'GOES-18 Water Vapor (Band 8)',
+    name: 'GOES-18 Water Vapor',
+    group: 'GOES-18 Hawaii Sector',
     icon: '💧',
     url: 'https://cdn.star.nesdis.noaa.gov/GOES18/ABI/SECTOR/HI/08/GOES18-HI-08-600x600.gif',
     file: 'goes18_wv.gif',
     intervalMs: 11 * 60 * 1000,
   },
+
+  // ── NWS HFO Regional Loops (11-frame, ~30-min update) ──
   {
-    id: 'npac',
-    name: 'N. Pacific Wide-Area',
-    icon: '🌊',
-    url: 'https://www.weather.gov/images/hfo/graphics/npac.gif',
-    file: 'npac.gif',
-    intervalMs: 32 * 60 * 1000,  // ~30-min updates, fetch at +2min
+    id: 'hfo_state_vis',
+    name: 'Statewide Visible',
+    group: 'NWS HFO Regional',
+    icon: '🌺',
+    url: 'https://www.weather.gov/images/hfo/satellite/State_VIS_loop.gif',
+    file: 'hfo_state_vis.gif',
+    intervalMs: 32 * 60 * 1000,  // ~30-min upstream, +2min lag
+  },
+  {
+    id: 'hfo_oahu_vis',
+    name: 'Oahu & Maui Visible',
+    group: 'NWS HFO Regional',
+    icon: '🏝️',
+    url: 'https://www.weather.gov/images/hfo/satellite/Oahu-Maui_VIS_loop.gif',
+    file: 'hfo_oahu_vis.gif',
+    intervalMs: 32 * 60 * 1000,
+  },
+  {
+    id: 'hfo_hi_vis',
+    name: 'Big Island Visible',
+    group: 'NWS HFO Regional',
+    icon: '🌋',
+    url: 'https://www.weather.gov/images/hfo/satellite/Hawaii_VIS_loop.gif',
+    file: 'hfo_hi_vis.gif',
+    intervalMs: 32 * 60 * 1000,
+  },
+  {
+    id: 'hfo_kauai_vis',
+    name: 'Kauai Visible',
+    group: 'NWS HFO Regional',
+    icon: '🌿',
+    url: 'https://www.weather.gov/images/hfo/satellite/Kauai_VIS_loop.gif',
+    file: 'hfo_kauai_vis.gif',
+    intervalMs: 32 * 60 * 1000,
+  },
+  {
+    id: 'hfo_ir',
+    name: 'Hawaii Infrared',
+    group: 'NWS HFO Regional',
+    icon: '🔴',
+    url: 'https://www.weather.gov/images/hfo/satellite/Hawaii_IR_loop.gif',
+    file: 'hfo_ir.gif',
+    intervalMs: 32 * 60 * 1000,
   },
 ];
 
