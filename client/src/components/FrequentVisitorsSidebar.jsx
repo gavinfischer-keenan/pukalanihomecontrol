@@ -156,6 +156,157 @@ function EntityRow({ entity, apiBase, selected, onClick }) {
 // FrequentVisitorsSidebar
 // ---------------------------------------------------------------------------
 
+
+// ── EntityPhotoPanel ─────────────────────────────────────────────────────────
+// Shows photos (confirmed + potential) for the selected entity.
+// Potential photos have a warning banner + confirm/reject buttons.
+function EntityPhotoPanel({ entity, apiBase }) {
+  const [photos, setPhotos] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const loadPhotos = useCallback(async () => {
+    if (!entity) return;
+    setLoading(true);
+    try {
+      const r = await fetch(`${apiBase}/api/known-entities/${entity.entity_type}/${entity.identifier}/photos`);
+      const d = await r.json();
+      setPhotos(d.photos || []);
+    } catch(e) { /* silently ignore */ }
+    finally { setLoading(false); }
+  }, [entity, apiBase]);
+
+  useEffect(() => { loadPhotos(); }, [loadPhotos]);
+
+  const confirmPhoto = async (photoId) => {
+    await fetch(`${apiBase}/api/known-entities/${entity.entity_type}/${entity.identifier}/photos/${photoId}/confirm`, { method: 'PUT' });
+    setPhotos(p => p.map(ph => ph.id === photoId ? { ...ph, status: 'confirmed' } : ph));
+  };
+
+  const rejectPhoto = async (photoId) => {
+    await fetch(`${apiBase}/api/known-entities/${entity.entity_type}/${entity.identifier}/photos/${photoId}/reject`, { method: 'PUT' });
+    setPhotos(p => p.filter(ph => ph.id !== photoId));
+  };
+
+  if (!entity) return null;
+
+  const confirmed  = photos.filter(p => p.status === 'confirmed');
+  const potential  = photos.filter(p => p.status === 'potential');
+
+  return (
+    <div style={{ marginTop: '12px' }}>
+      {/* Confirmed photos */}
+      {confirmed.length > 0 && (
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+          {confirmed.map(photo => (
+            <img
+              key={photo.id}
+              src={`${apiBase}${photo.url}`}
+              alt={photo.caption || entity.name}
+              style={{
+                width: '80px', height: '60px', objectFit: 'cover',
+                borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)',
+              }}
+              title={photo.caption || ''}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Potential photos */}
+      {potential.length > 0 && (
+        <div>
+          <div style={{
+            fontSize: '10px', color: '#f97316', fontWeight: 700,
+            letterSpacing: '0.05em', marginBottom: '6px',
+            textTransform: 'uppercase',
+          }}>
+            ⚠️ Potential Pictures — Not Confirmed
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {potential.map(photo => (
+              <div key={photo.id} style={{
+                border: '1px solid rgba(249,115,22,0.4)',
+                borderRadius: '8px', overflow: 'hidden',
+                background: 'rgba(249,115,22,0.06)',
+              }}>
+                {/* Warning banner */}
+                <div style={{
+                  background: 'rgba(249,115,22,0.85)',
+                  color: '#fff', fontSize: '10px', fontWeight: 700,
+                  padding: '2px 8px', textAlign: 'center',
+                  letterSpacing: '0.08em',
+                }}>
+                  ⚠ AUTO-FOUND · NOT CONFIRMED
+                </div>
+                {/* Image */}
+                <img
+                  src={`${apiBase}${photo.url}`}
+                  alt={photo.caption || entity.name}
+                  style={{
+                    width: '100%', maxHeight: '120px', objectFit: 'cover',
+                    display: 'block',
+                  }}
+                />
+                {/* Caption */}
+                {photo.caption && (
+                  <div style={{
+                    fontSize: '10px', color: 'rgba(255,255,255,0.45)',
+                    padding: '3px 8px', lineHeight: 1.3,
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>
+                    {photo.caption}
+                  </div>
+                )}
+                {/* Confirm / Reject buttons */}
+                <div style={{ display: 'flex', gap: '6px', padding: '6px 8px' }}>
+                  <button
+                    onClick={() => confirmPhoto(photo.id)}
+                    style={{
+                      flex: 1, background: 'rgba(34,197,94,0.2)',
+                      border: '1px solid rgba(34,197,94,0.5)',
+                      borderRadius: '5px', color: '#22c55e',
+                      fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                      padding: '4px 0',
+                    }}
+                    title="This is the right vessel/aircraft — keep photo"
+                  >
+                    ✓ Confirm
+                  </button>
+                  <button
+                    onClick={() => rejectPhoto(photo.id)}
+                    style={{
+                      flex: 1, background: 'rgba(239,68,68,0.15)',
+                      border: '1px solid rgba(239,68,68,0.4)',
+                      borderRadius: '5px', color: '#ef4444',
+                      fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                      padding: '4px 0',
+                    }}
+                    title="Wrong picture — remove and never show again"
+                  >
+                    ✗ Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {loading && (
+        <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '11px', textAlign: 'center', padding: '8px' }}>
+          Loading photos…
+        </div>
+      )}
+
+      {!loading && photos.length === 0 && (
+        <div style={{ color: 'rgba(255,255,255,0.2)', fontSize: '11px', textAlign: 'center', padding: '8px' }}>
+          No photos yet — auto-search runs ~2 min after startup
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function FrequentVisitorsSidebar({ apiBase, onSelectEntity, visible, onClose }) {
   const [collapsed, setCollapsed] = useState(false);
   const [entities, setEntities] = useState([]);

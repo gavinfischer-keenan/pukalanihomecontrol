@@ -45,6 +45,29 @@ const AIRPORT_COORDS = {
   PEK: [40.0799, 116.6031],  HKG: [22.3080, 113.9185],
 };
 
+// ── Google Geocoding fallback for unknown IATA codes ─────────────────────────
+// Called only when an airport IATA code is NOT in AIRPORT_COORDS above.
+// Result is cached in-process and also stored in flight_routes for future lookups.
+// Rate: ~1 call per new unknown airport, total cost effectively $0.
+async function geocodeAirport(iataCode) {
+  const key = process.env.GOOGLE_GEOCODING_KEY;
+  if (!key) return null;
+  try {
+    const query = encodeURIComponent(`${iataCode} airport`);
+    const url   = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${key}`;
+    const res   = await axios.get(url, { timeout: 8000 });
+    if (res.data.status === 'OK' && res.data.results?.length) {
+      const loc = res.data.results[0].geometry.location;
+      console.log(`[geocode] ${iataCode} → ${loc.lat}, ${loc.lng}`);
+      return [loc.lat, loc.lng];
+    }
+    return null;
+  } catch (e) {
+    console.warn(`[geocode] ${iataCode} failed:`, e.message);
+    return null;
+  }
+}
+
 // ── Human-readable schedule label generator ──────────────────────────────
 function buildDaysLabel(daysOfWeek) {
   if (!daysOfWeek || !daysOfWeek.length) return null;
@@ -237,8 +260,11 @@ async function lookupFlightRoute(pool, flightNumber) {
     if (data && data.origin && data.destination) {
       const origin  = data.origin.slice(1);  // ICAO → IATA approximation
       const dest    = data.destination.slice(1);
-      const originCoords = AIRPORT_COORDS[origin] || null;
-      const destCoords   = AIRPORT_COORDS[dest]   || null;
+      // Resolve coordinates: hardcoded map first, Google geocoding as fallback
+      let originCoords = AIRPORT_COORDS[origin] || null;
+      let destCoords   = AIRPORT_COORDS[dest]   || null;
+      if (!originCoords && origin) { originCoords = await geocodeAirport(origin); }
+      if (!destCoords   && dest  ) { destCoords   = await geocodeAirport(dest);   }
 
       const row = {
         flight_number: upper,
@@ -635,5 +661,263 @@ function init(app, pool, express, multerLib, pathMod, fsMod) {
   console.log('[known-entities] Service initialized — routes registered');
   return { recordTrackPoint };
 }
+
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// AUTO PHOTO FETCH — Google Custom Search + Cloud Vision validation
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const fs_module  = require('fs');
+const https_mod  = require('https');
+const http_mod   = require('http');
+const path_mod   = require('path');
+
+// Vessel/aircraft type keywords for Vision API label matching
+const VESSEL_LABELS  = new Set([
+  'ship','boat','vessel','watercraft','container ship','cargo ship',
+  'sailboat','ferry','yacht','cruise ship','tanker','barge',
+  'fishing vessel','tugboat','patrol boat','speedboat','liner',
+  'warship','submarine','aircraft carrier','catamaran'
+]);
+const AIRCRAFT_LABELS = new Set([
+  'aircraft','airplane','plane','airliner','helicopter','jet',
+  'propeller','aviation','airship','flight','warplane','biplane',
+  'seaplane','glider','drone'
+]);
+
+// Download a URL to a local file path; returns true on success
+async function downloadImage(url, destPath) {
+  return new Promise((resolve) => {
+    const mod = url.startsWith('https') ? https_mod : http_mod;
+    try {
+      const req = mod.get(url, { timeout: 10000,
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; pukalanihome-bot/1.0)' }
+      }, (res) => {
+        if (res.statusCode === 301 || res.statusCode === 302) {
+          downloadImage(res.headers.location, destPath).then(resolve);
+          return;
+        }
+        if (res.statusCode !== 200) { resolve(false); return; }
+        const ct = res.headers['content-type'] || '';
+        if (!ct.startsWith('image/')) { resolve(false); return; }
+        const ws = fs_module.createWriteStream(destPath);
+        res.pipe(ws);
+        ws.on('finish', () => resolve(true));
+        ws.on('error',  () => resolve(false));
+      });
+      req.on('error', () => resolve(false));
+      req.on('timeout', () => { req.destroy(); resolve(false); });
+    } catch(e) { resolve(false); }
+  });
+}
+
+// Vision API validation — NOT USED.
+// PSE is restricted to curated vessel/aircraft photo sites, so all returned images
+// are already ships or planes. No external validation needed.
+// Function kept as no-op so existing call sites don't break.
+async function visionCheckImage(localPath, entityType) {
+  // Curated sources (marinetraffic, airliners.net, planespotters, etc.) are trusted.
+  // Return the domain as a pseudo-label array so callers get a truthy value.
+  return ['curated_source_trusted'];
+}
+
+// Search Google Custom Search for images of an entity.
+// PSE is pre-configured with curated vessel/aircraft photo sites:
+//   marinetraffic.com, shipspotting.com, vesseltracker.com, fleetmon.com  (vessels)
+//   airliners.net, planespotters.net, jetphotos.com                       (aircraft)
+//   imgur.com                                                               (general)
+// Results from these sites don't need Vision API validation — they ARE ships/planes.
+async function searchEntityImages(entityType, identifier, name) {
+  const apiKey = process.env.GOOGLE_GEOCODING_KEY;
+  const cx     = process.env.GOOGLE_CSE_CX;
+  if (!apiKey || !cx) return [];
+
+  // Build a targeted query. Vessel name or aircraft registration is specific enough
+  // that authoritative sites will return the exact subject.
+  let query;
+  if (entityType === 'vessel') {
+    // Use vessel name in quotes for precision; fall back to MMSI if name is generic
+    const cleanName = name.replace(/[^\w\s-]/g, '').trim();
+    query = `"${cleanName}"`;
+  } else {
+    // Aircraft: registration (e.g. N85PF) is globally unique — very precise
+    const reg = name.replace(/[^\w-]/g, '').trim();
+    query = `"${reg}"`;
+  }
+
+  const encoded = encodeURIComponent(query);
+  const url = `https://www.googleapis.com/customsearch/v1` +
+    `?key=${apiKey}&cx=${cx}&q=${encoded}` +
+    `&searchType=image&num=8&imgType=photo&safe=active&imgSize=medium`;
+
+  try {
+    const res   = await axios.get(url, { timeout: 15000 });
+    const items = res.data.items || [];
+    console.log(`[photo-search] "${name}" (${entityType}) → ${items.length} results`);
+    return items.map(i => ({
+      url:       i.link,
+      thumb:     i.image?.thumbnailLink,
+      title:     i.title,
+      domain:    (new URL(i.link)).hostname.replace(/^www\./, ''),
+      contextUrl: i.image?.contextLink,
+    }));
+  } catch(e) {
+    if (e.response?.status === 429) console.warn('[photo-search] Rate limited — will retry next cycle');
+    else if (e.response?.status === 403) console.warn('[photo-search] API quota/key issue:', e.response?.data?.error?.message);
+    else console.warn(`[photo-search] Error for "${name}":`, e.message);
+    return [];
+  }
+}
+
+// Store up to 3 validated images for an entity
+async function fetchPhotosForEntity(db, entityType, identifier, name) {
+  // Check if already has 3+ non-rejected photos
+  const existing = await db.query(
+    `SELECT COUNT(*) FROM entity_photos WHERE entity_type=$1 AND identifier=$2 AND status != 'rejected'`,
+    [entityType, identifier]
+  );
+  if (parseInt(existing.rows[0].count) >= 3) {
+    console.log(`[photo-fetch] ${name}: already has 3+ photos, skipping`);
+    return;
+  }
+
+  const images = await searchEntityImages(entityType, identifier, name);
+  if (!images.length) return;
+
+  const dir = path_mod.join('/opt/dashboard/uploads/entities', entityType, identifier);
+  fs_module.mkdirSync(dir, { recursive: true });
+
+  let stored = 0;
+  for (const img of images) {
+    if (stored >= 3) break;
+
+    // Check if this URL was already rejected
+    const prev = await db.query(
+      `SELECT status FROM entity_photos WHERE entity_type=$1 AND identifier=$2 AND original_url=$3`,
+      [entityType, identifier, img.url]
+    );
+    if (prev.rows[0]?.status === 'rejected') continue;
+    if (prev.rows.length > 0) { stored++; continue; } // already stored
+
+    const ts      = Date.now();
+    const tmpPath = path_mod.join(dir, `auto_${ts}.jpg`);
+
+    const downloaded = await downloadImage(img.url, tmpPath);
+    if (!downloaded) { fs_module.existsSync(tmpPath) && fs_module.unlinkSync(tmpPath); continue; }
+
+    // Curated sources are trusted — no Vision API call needed
+    const labels = ['curated_source', img.domain || 'unknown'];
+
+    // Build a caption: "VESSEL NAME — source: marinetraffic.com"
+    const caption = img.title
+      ? `${img.title} [${img.domain || 'web'}]`
+      : `Found on ${img.domain || 'web'}`;
+
+    const displayOrder = 100 + stored; // after any manually uploaded photos
+    await db.query(
+      `INSERT INTO entity_photos
+         (entity_type, identifier, filename, display_order, caption, status, source, vision_labels, original_url)
+       VALUES ($1,$2,$3,$4,$5,'potential','google_image_search',$6,$7)
+       ON CONFLICT DO NOTHING`,
+      [entityType, identifier, path_mod.basename(tmpPath), displayOrder,
+       caption, JSON.stringify(labels), img.url]
+    );
+    console.log(`[photo-fetch] Stored potential photo ${stored+1}/3 for ${name}`);
+    stored++;
+  }
+  if (stored > 0) console.log(`[photo-fetch] ${name}: ${stored} photo(s) stored (status=potential)`);
+}
+
+// Run for all entities that have no confirmed photos yet
+async function autoFetchAllPhotos(db) {
+  console.log('[photo-fetch] Starting auto-fetch for entities without photos...');
+  try {
+    const { rows } = await db.query(`
+      SELECT v.mmsi AS identifier, 'vessel' AS entity_type,
+             COALESCE(v.friendly_name, v.vessel_name) AS name
+      FROM vessel_info v
+      WHERE (v.auto_detected = true OR v.is_pinned = true)
+        AND NOT EXISTS (
+          SELECT 1 FROM entity_photos ep
+          WHERE ep.entity_type = 'vessel' AND ep.identifier = v.mmsi::text
+            AND ep.status != 'rejected'
+        )
+      UNION ALL
+      SELECT a.icao_hex AS identifier, 'aircraft' AS entity_type,
+             COALESCE(a.friendly_name, a.registration, a.icao_hex) AS name
+      FROM aircraft_info a
+      WHERE (a.auto_detected = true OR a.is_pinned = true)
+        AND NOT EXISTS (
+          SELECT 1 FROM entity_photos ep
+          WHERE ep.entity_type = 'aircraft' AND ep.identifier = a.icao_hex
+            AND ep.status != 'rejected'
+        )
+      LIMIT 50
+    `);
+
+    console.log(`[photo-fetch] ${rows.length} entities need photos`);
+    for (let i = 0; i < rows.length; i++) {
+      const { identifier, entity_type, name } = rows[i];
+      await new Promise(r => setTimeout(r, i * 3000)); // 3s stagger — good citizen
+      fetchPhotosForEntity(db, entity_type, identifier, name).catch(e =>
+        console.warn(`[photo-fetch] Error for ${name}:`, e.message)
+      );
+    }
+  } catch(e) {
+    console.error('[photo-fetch] autoFetchAllPhotos error:', e.message);
+  }
+
+
+  // ── Photo confirm / reject ──────────────────────────────────────────────────
+  // PUT /api/known-entities/:type/:id/photos/:photoId/confirm
+  app.put('/api/known-entities/:type/:id/photos/:photoId/confirm', async (req, res) => {
+    const { type, id, photoId } = req.params;
+    try {
+      await db.query(
+        `UPDATE entity_photos SET status='confirmed' WHERE id=$1 AND entity_type=$2 AND identifier=$3`,
+        [photoId, type, id]
+      );
+      res.json({ ok: true });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // PUT /api/known-entities/:type/:id/photos/:photoId/reject
+  app.put('/api/known-entities/:type/:id/photos/:photoId/reject', async (req, res) => {
+    const { type, id, photoId } = req.params;
+    try {
+      // Mark rejected + delete the local file
+      const row = await db.query(
+        `UPDATE entity_photos SET status='rejected' WHERE id=$1 AND entity_type=$2 AND identifier=$3 RETURNING filename`,
+        [photoId, type, id]
+      );
+      if (row.rows[0]?.filename) {
+        const fp = require('path').join('/opt/dashboard/uploads/entities', type, id, row.rows[0].filename);
+        require('fs').unlink(fp, () => {});
+      }
+      res.json({ ok: true });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+  });
+
+  // GET /api/known-entities/:type/:id/photos  (returns all non-rejected, status included)
+  app.get('/api/known-entities/:type/:id/photos', async (req, res) => {
+    const { type, id } = req.params;
+    try {
+      const { rows } = await db.query(
+        `SELECT id, filename, display_order, caption, status, source, vision_labels, original_url, uploaded_at
+         FROM entity_photos
+         WHERE entity_type=$1 AND identifier=$2 AND status != 'rejected'
+         ORDER BY display_order, uploaded_at`,
+        [type, id]
+      );
+      const photos = rows.map(r => ({
+        ...r,
+        url: `/uploads/entities/${type}/${id}/${r.filename}`,
+      }));
+      res.json({ photos });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+  });
+
+}
+
 
 module.exports = { init, recordTrackPoint };

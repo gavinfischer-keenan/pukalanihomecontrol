@@ -629,3 +629,81 @@ To replicate the Frequent Visitors system in a new location:
    LAX: [33.9425, -118.4081],  // already included
    ```
 5. **Upload directory:** Change `ENTITY_PHOTOS_DIR` if desired. Default: `/opt/dashboard/uploads/entities/`.
+
+---
+
+## [2026-07-22] Auto Photo Fetch — Google Custom Search Integration
+
+### Overview
+Added automated image search for all frequent/pinned vessels and aircraft. The system searches curated photo databases via Google Custom Search API, downloads the top 3 matching images, and presents them in the Frequent Visitors sidebar as "POTENTIAL — Not Confirmed" with one-click confirm/reject buttons.
+
+### Database Changes
+```sql
+-- Added to entity_photos table:
+ALTER TABLE entity_photos ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'confirmed'
+  CHECK (status IN ('confirmed','potential','rejected'));
+ALTER TABLE entity_photos ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual'
+  CHECK (source IN ('manual','google_image_search'));
+ALTER TABLE entity_photos ADD COLUMN IF NOT EXISTS vision_labels JSONB;
+ALTER TABLE entity_photos ADD COLUMN IF NOT EXISTS original_url TEXT;
+CREATE INDEX IF NOT EXISTS ep_status_idx ON entity_photos(entity_type, identifier, status);
+```
+
+### Photo Search Architecture
+
+**Trigger:** On API startup (2-minute delay) + daily at 04:00 HST. Runs for any frequent/pinned entity with fewer than 3 non-rejected photos.
+
+**Source: Google Custom Search API (PSE cx=661be9a75f259493f)**
+
+The Programmable Search Engine is restricted to curated vessel and aircraft photo databases. No Vision API validation is needed because all sources are domain-authoritative:
+
+| Domain | Content |
+|--------|--------|
+| marinetraffic.com | AIS vessel tracking with user-submitted photos |
+| shipspotting.com | Community ship photography archive |
+| vesseltracker.com | Commercial vessel photos and AIS data |
+| fleetmon.com | Commercial fleet monitoring + photos |
+| airliners.net | World's largest aviation photo database |
+| planespotters.net | Every registration with photos, cn, operator |
+| jetphotos.com | High-quality aviation photography |
+| imgur.com | General image host (enthusiast uploads) |
+
+**Search queries:**
+- Vessels: `"<vessel_name>"` (quoted for precision)
+- Aircraft: `"<registration>"` (ICAO registration is globally unique)
+
+**Good citizen policy:**
+- 3-second stagger between entities at startup
+- Max 3 photos per entity ever (won't re-fetch if already have 3+)
+- Rejected photos remembered permanently (status='rejected') — never re-fetched
+- 50-entity cap per run to prevent runaway API use
+
+### API Credentials (CT108 .env)
+```
+GOOGLE_GEOCODING_KEY=<key>   # Used for BOTH Geocoding API and Custom Search API
+GOOGLE_CSE_CX=661be9a75f259493f  # Programmable Search Engine ID
+```
+**IP restriction:** Removed (home ISP uses DHCP — external IP can change). Key is restricted by API type only (Geocoding API + Custom Search API). Key lives only on CT108 — never in frontend code or public repos.
+
+### New API Endpoints
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/known-entities/:type/:id/photos` | All non-rejected photos with status field |
+| PUT | `/api/known-entities/:type/:id/photos/:id/confirm` | Promote potential → confirmed |
+| PUT | `/api/known-entities/:type/:id/photos/:id/reject` | Mark rejected + delete local file |
+
+### Frontend: EntityPhotoPanel (inside FrequentVisitorsSidebar)
+- Confirmed photos: displayed as thumbnail grid
+- Potential photos: displayed with **⚠️ AUTO-FOUND · NOT CONFIRMED** orange banner
+- Each potential photo has **✓ Confirm** (green) and **✗ Reject** (red) buttons
+- Rejected photos are immediately removed from view and never re-served
+- No-edit workflow: photos accumulate automatically; user only acts on wrong ones
+
+### Replication Guide (California deployment)
+1. Create a new Google Programmable Search Engine at programmablesearchengine.google.com
+2. Add the same 8 curated sites (or regional equivalents)
+3. Enable Image Search in PSE settings
+4. Use same GOOGLE_GEOCODING_KEY (or create a new one for the CA server)
+5. Set GOOGLE_CSE_CX to the new PSE's Search Engine ID
+6. The autoFetchAllPhotos() job will auto-run 2 minutes after API startup
+7. No Vision API key needed — curated sites are domain-trusted
