@@ -9,10 +9,23 @@ const SECTIONS = [
     keys: ['aircraft', 'acTrails', 'metar'],
   },
   {
+    id: 'marine',
+    label: 'Marine',
+    icon: '⛵',
+    // 'harbor' removed: FAD locations belong in NWS/Water map, not here
+    keys: ['vessels', 'vesselTrails', 'surf', 'tides'],
+  },
+  {
+    id: 'weather',
+    label: 'Weather',
+    icon: '🌤️',
+    keys: ['radar', 'sunMoon', 'localWx', 'forecast', 'fishing'],
+  },
+  {
     id: 'map',
     label: 'Map',
     icon: '🗺️',
-    keys: ['homeBase', 'rangeRings', 'radar'],
+    keys: ['homeBase', 'rangeRings', 'reference'],
   },
   // NWS/NOAA is its own standalone app at /nws/ — not a layer in this map
   // HD Radio section — DISABLED for Hawaii. Re-enable for Berkeley CA.
