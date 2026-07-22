@@ -1028,14 +1028,10 @@ function init(app, express) {
   });
 
   console.log('[nws] NWS service initialised — good-citizen caching active');
-}
-
-
-  // ── Bathymetry / Depth Soundings ────────────────────────────────────────
-  // Serves NOAA ETOPO1 data from local file — zero external calls ever made.
-  // Data downloaded once: server/data/hawaii_depths.json (13MB, ~247k points)
-  // Update manually at most annually by re-running download_hawaii_depths.sh
-  {
+  // ── Bathymetry: local NOAA ETOPO1 depth soundings ──────────────────────
+  // Data loaded from server/data/hawaii_depths.json (one-time download, 13MB).
+  // Zero external network calls. Update manually at most annually.
+  (() => {
     const fs   = require('fs');
     const path = require('path');
     let _bathyCache = null;
@@ -1046,18 +1042,16 @@ function init(app, express) {
       if (!fs.existsSync(fp)) return null;
       try {
         _bathyCache = JSON.parse(fs.readFileSync(fp, 'utf8'));
-        console.log(`[BATHY] Loaded ${_bathyCache.total_ocean_points} ocean points (downloaded ${_bathyCache.downloaded})`);
+        console.log('[BATHY] Loaded ' + _bathyCache.total_ocean_points + ' ocean points, downloaded ' + _bathyCache.downloaded);
         return _bathyCache;
       } catch(e) { console.error('[BATHY] Load failed:', e.message); return null; }
     }
 
-    // Pre-load in background so first request is instant
-    setImmediate(() => loadBathyData());
+    setImmediate(() => loadBathyData()); // pre-load on startup
 
     app.get('/api/bathymetry', (req, res) => {
       const data = loadBathyData();
-      if (!data) return res.status(503).json({ error: 'Depth data not downloaded yet',
-        hint: 'Run /tmp/retry_etopo_download.sh on CT108 to perform one-time data pull' });
+      if (!data) return res.status(503).json({ error: 'Depth data not downloaded', hint: 'Run retry_etopo_download.sh' });
       if (!req.query.zoom) {
         return res.json({
           source: data.source, attribution: data.attribution,
@@ -1072,6 +1066,9 @@ function init(app, express) {
       res.json({ zoom: parseInt(zoomKey), count: points.length,
                  downloaded: data.downloaded, attribution: data.attribution, points });
     });
-  }
+  })();
+
+}
+
 
 module.exports = { init };
