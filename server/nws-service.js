@@ -1031,3 +1031,39 @@ function init(app, express) {
 }
 
 module.exports = { init };
+
+// ── Bathymetry / Depth Soundings ───────────────────────────────────────────
+// Serves NOAA ETOPO1 depth data downloaded ONCE to server/data/hawaii_depths.json
+// NO external network calls are made by this endpoint — reads local file only.
+// Good citizen: data updated manually at most annually by re-running download script.
+
+let _bathyCache = null;
+
+function loadBathyData() {
+  if (_bathyCache) return _bathyCache;
+  const filePath = require('path').join(__dirname, 'data', 'hawaii_depths.json');
+  if (!require('fs').existsSync(filePath)) return null;
+  try {
+    _bathyCache = JSON.parse(require('fs').readFileSync(filePath, 'utf8'));
+    console.log(`[BATHY] Loaded ${_bathyCache.total_ocean_points} ocean points (downloaded ${_bathyCache.downloaded})`);
+    return _bathyCache;
+  } catch(e) { console.error('[BATHY] Load failed:', e.message); return null; }
+}
+
+app.get('/api/bathymetry', (req, res) => {
+  const data = loadBathyData();
+  if (!data) return res.status(503).json({ error: 'Depth data not downloaded yet' });
+  if (!req.query.zoom) {
+    return res.json({
+      source: data.source, attribution: data.attribution,
+      downloaded: data.downloaded, bbox: data.bbox,
+      total: data.total_ocean_points,
+      availableZooms: Object.keys(data.by_zoom).map(Number).sort((a,b)=>a-b),
+    });
+  }
+  const zoomKey = String(Math.min(13, Math.max(7, parseInt(req.query.zoom,10))));
+  const points  = data.by_zoom[zoomKey] || data.by_zoom['7'];
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.json({ zoom: parseInt(zoomKey), count: points.length, downloaded: data.downloaded,
+             attribution: data.attribution, points });
+});

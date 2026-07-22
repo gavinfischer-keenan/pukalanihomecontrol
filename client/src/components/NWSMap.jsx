@@ -330,67 +330,117 @@ function WaveHeightLayer({ visible }) {
   return null;
 }
 
-// ── Ocean Depth / Bathymetry Overlay ──────────────────────────────────
-// Two-layer stack matching the look of official NOAA nautical charts:
-//
-//  Layer 1 — Esri World Ocean Reference
-//    Depth contours (isobaths: 200m, 1000m, 2000m …), labeled submarine features,
-//    and seafloor zone labels. Provides the structural bathymetric layout.
-//
-//  Layer 2 — OpenSeaMap seamark tiles
-//    Individual depth soundings (the scattered numbers across chart).
-//    Zoom-adaptive: low zoom = sparse major soundings, high zoom = dense chart-grade
-//    soundings at the density you'd see on a printed NOAA RNC.
-//    Also adds: rocks/wrecks, light stations, traffic lanes, anchorages.
-//
-// Combined: matches the visual density and information content of NOAA charts.
+// ── Ocean Depth / Bathymetry Overlay ──────────────────────────────────────
+// Layer 1: Esri Ocean Reference — depth contour lines (static CDN tiles, browser-cached)
+// Layer 2: Local NOAA ETOPO1 soundings from /api/bathymetry — zero ongoing external calls
+//          Zoom-adaptive density: stride 30 at zoom 7, all 247k points at zoom 12+
+//          Labels styled like official NOAA Raster Nautical Charts (blue italic)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const _bathyZoomCache = {};
+
+async function fetchBathyPoints(zoom) {
+  const key = String(Math.min(13, Math.max(7, Math.floor(zoom))));
+  if (_bathyZoomCache[key]) return _bathyZoomCache[key];
+  try {
+    const res  = await fetch(`/api/bathymetry?zoom=${key}`);
+    const data = await res.json();
+    if (data.points) {
+      _bathyZoomCache[key] = data.points;
+      console.log(`[BATHY] Cached zoom ${key}: ${data.points.length} points`);
+    }
+    return _bathyZoomCache[key] || [];
+  } catch(e) { console.warn('[BATHY] fetch failed:', e.message); return []; }
+}
+
 function DepthLayer({ visible }) {
-  const map = useMap();
-  const layerRef = useRef(null);
+  const map         = useMap();
+  const esriRef     = useRef(null);
+  const markersRef  = useRef([]);
+  const lastZoom    = useRef(null);
+  const renderingRef = useRef(false);
+
+  // Esri contour tile layer (isobaths, seafloor names)
+  useEffect(() => {
+    if (!map.getPane('depthPane')) {
+      const p = map.createPane('depthPane');
+      p.style.zIndex = 250;
+      p.style.pointerEvents = 'none';
+    }
+    if (!visible) { esriRef.current?.remove(); esriRef.current = null; return; }
+    if (!esriRef.current) {
+      esriRef.current = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Reference/MapServer/tile/{z}/{y}/{x}',
+        { pane: 'depthPane', opacity: 0.75, maxNativeZoom: 13, maxZoom: 18,
+          attribution: 'Depth contours &copy; Esri, GEBCO, NOAA' }
+      ).addTo(map);
+    }
+    return () => { esriRef.current?.remove(); esriRef.current = null; };
+  }, [visible, map]);
+
+  // Sounding labels from local ETOPO1 data
+  const renderSoundings = useCallback(async () => {
+    if (!visible || renderingRef.current) return;
+    renderingRef.current = true;
+
+    const zoom   = Math.floor(map.getZoom());
+    const bounds = map.getBounds();
+
+    // On pan (same zoom), just hide/show existing markers by bounds
+    if (zoom === lastZoom.current) {
+      markersRef.current.forEach(m => {
+        const ll = m.getLatLng();
+        const op = bounds.contains(ll) ? 1 : 0;
+        if (m.options.opacity !== op) m.setOpacity(op);
+      });
+      renderingRef.current = false;
+      return;
+    }
+    lastZoom.current = zoom;
+
+    // Remove all existing markers
+    markersRef.current.forEach(m => m.remove());
+    markersRef.current = [];
+
+    const points = await fetchBathyPoints(zoom);
+    if (!points?.length) { renderingRef.current = false; return; }
+
+    const inView = points.filter(([lat, lon]) => bounds.contains([lat, lon]));
+    const newMarkers = [];
+
+    for (const [lat, lon, depth] of inView) {
+      // Format: 1k for 1000m+, integer otherwise — matching NOAA chart convention
+      const label = depth >= 1000 ? (depth/1000).toFixed(1).replace(/\.0$/, '') + 'k' : String(depth);
+      const m = L.marker([lat, lon], {
+        pane: 'depthPane',
+        icon: L.divIcon({
+          className: 'depth-sounding-label',
+          html: `<span>${label}</span>`,
+          iconSize: null, iconAnchor: [0, 0],
+        }),
+        interactive: false,
+      }).addTo(map);
+      newMarkers.push(m);
+    }
+    markersRef.current = newMarkers;
+    renderingRef.current = false;
+  }, [visible, map]);
 
   useEffect(() => {
     if (!visible) {
-      layerRef.current?.remove();
-      layerRef.current = null;
+      markersRef.current.forEach(m => m.remove());
+      markersRef.current = [];
+      lastZoom.current = null;
       return;
     }
-
-    // Custom pane — above base tiles, below markers
-    if (!map.getPane('depthPane')) {
-      const pane = map.createPane('depthPane');
-      pane.style.zIndex = 250;
-      pane.style.pointerEvents = 'none';
-    }
-
-    // ── Layer 1: Esri Ocean Reference — contours, isobath labels, feature names ──
-    const esriContours = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Reference/MapServer/tile/{z}/{y}/{x}',
-      {
-        pane:        'depthPane',
-        opacity:     0.80,
-        maxZoom:     13,
-        attribution: 'Bathymetry &copy; Esri, GEBCO, NOAA',
-      }
-    );
-
-    // ── Layer 2: OpenSeaMap — zoom-adaptive depth soundings + nautical features ──
-    // Tiles are transparent PNG overlays; density automatically matches zoom level.
-    // At zoom 8-9: major soundings only (like a passage chart).
-    // At zoom 11-13: dense soundings matching a harbor/approach chart.
-    const openSeaMap = L.tileLayer(
-      'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',
-      {
-        pane:        'depthPane',
-        opacity:     0.90,
-        maxZoom:     18,
-        attribution: 'Nautical soundings &copy; OpenSeaMap contributors',
-      }
-    );
-
-    layerRef.current = L.layerGroup([esriContours, openSeaMap]).addTo(map);
-
-    return () => { layerRef.current?.remove(); layerRef.current = null; };
-  }, [visible, map]);
+    map.on('zoomend moveend', renderSoundings);
+    renderSoundings();
+    return () => {
+      map.off('zoomend moveend', renderSoundings);
+      markersRef.current.forEach(m => m.remove());
+      markersRef.current = [];
+    };
+  }, [visible, map, renderSoundings]);
 
   return null;
 }
