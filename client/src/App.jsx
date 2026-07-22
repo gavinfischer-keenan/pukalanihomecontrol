@@ -65,7 +65,7 @@ const DEFAULT_LAYERS = {
   // Home
   homeBase:      { label: '🏠 Home Base',           live: true,  enabled: true  },
   reference:     { label: '🧭 Reference Objects',   live: false, enabled: true  },
-  rangeRings:    { label: '⊙ Range Rings',          live: true,  enabled: false },
+  rangeRings:    { label: '⊙ Range Rings',          live: true,  enabled: true  },
   cameras:       { label: '📷 Cameras',             live: false, enabled: false },
   poi:           { label: '📍 POI',                 live: false, enabled: false },
   // HD Radio — DISABLED for Hawaii (no data services broadcast).
