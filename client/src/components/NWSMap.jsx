@@ -535,33 +535,51 @@ function CurrentsLayer({ visible }) {
     }
 
     // PacIOOS Near-Real-Time HF Radar Surface Currents
-    // Dataset: hfradar_ushi_2km — actual measured currents (not modeled)
-    // Coverage: Hawaiian Islands, 2km resolution
-    // Update: ~hourly  |  Good citizen: tiles served by PacIOOS CDN
+    // Dataset: hfradar_ushi_2km — measured currents (~2km resolution, ~hourly)
+    // Good citizen: tiles served via PacIOOS CDN, cached by browser
+    //
+    // WMS rendering fix: ERDDAP requires explicit STYLES and COLORSCALERANGE
+    // vendor parameters to render u/v velocity components with visible colours.
+    // 'boxfill/occam' is a diverging blue-red palette ideal for ±velocity data.
+    // COLORSCALERANGE '-0.8,0.8' covers typical nearshore current speeds (m/s).
     const HF_WMS = 'https://pae-paha.pacioos.hawaii.edu/erddap/wms/hfradar_ushi_2km/request';
-    layerRef.current = L.tileLayer.wms(HF_WMS, {
-      layers:      'hfradar_ushi_2km:u',
-      styles:      '',
-      format:      'image/png',
-      transparent: true,
-      opacity:     0.65,
-      attribution: 'PacIOOS HF Radar — Near Real-Time Surface Currents',
-      // Note: browser caches WMS tiles; PacIOOS CDN designed for this usage
-    }).addTo(map);
 
-    // Overlay speed as a separate layer (speed coloring on top)
-    const speedLayer = L.tileLayer.wms(HF_WMS, {
-      layers:      'hfradar_ushi_2km:v',
-      styles:      '',
-      format:      'image/png',
-      transparent: true,
-      opacity:     0.45,
-      attribution: '',
-    }).addTo(map);
+    // Build a tile URL with an hourly cache-bust so stale tiles refresh ~hourly
+    // (Rounds current time to the nearest hour so we don't hammer the server)
+    const hourKey = Math.floor(Date.now() / 3600000);
 
-    // Track speed layer for cleanup
-    const origRemove = layerRef.current.remove.bind(layerRef.current);
-    layerRef.current.remove = () => { origRemove(); speedLayer.remove(); };
+    const uLayer = L.tileLayer.wms(HF_WMS, {
+      layers:         'hfradar_ushi_2km:u',
+      styles:         'boxfill/occam',
+      format:         'image/png',
+      transparent:    true,
+      opacity:        0.80,
+      COLORSCALERANGE: '-0.8,0.8',
+      BELOWMINCOLOR:  'extend',
+      ABOVEMAXCOLOR:  'extend',
+      _cache:         hourKey,   // hourly tile cache-bust — not sent to WMS
+      attribution:    'PacIOOS HF Radar — Near Real-Time Surface Currents',
+    });
+
+    const vLayer = L.tileLayer.wms(HF_WMS, {
+      layers:         'hfradar_ushi_2km:v',
+      styles:         'boxfill/occam_r',   // reversed palette for N component
+      format:         'image/png',
+      transparent:    true,
+      opacity:        0.50,
+      COLORSCALERANGE: '-0.8,0.8',
+      BELOWMINCOLOR:  'extend',
+      ABOVEMAXCOLOR:  'extend',
+      _cache:         hourKey,
+      attribution:    '',
+    });
+
+    uLayer.addTo(map);
+    vLayer.addTo(map);
+
+    layerRef.current = uLayer;
+    const origRemove = uLayer.remove.bind(uLayer);
+    layerRef.current.remove = () => { origRemove(); vLayer.remove(); };
 
     return () => { layerRef.current?.remove(); layerRef.current = null; };
   }, [visible, map]);

@@ -15,11 +15,9 @@ import MetarLayer         from './components/MetarLayer';
 // HD_RADIO_DISABLED: import HDTrafficLayer      from './components/HDTrafficLayer';
 // HD_RADIO_DISABLED: import HDGasLayer          from './components/HDGasLayer';
 // HD_RADIO_DISABLED: import HDRadioStatusPanel  from './components/HDRadioStatusPanel';
-import WindsAloftPanel    from './components/WindsAloftPanel';
 import SunMoonPanel       from './components/SunMoonPanel';
 import TideChartModal     from './components/TideChartModal';
 import ATISBar            from './components/ATISBar';
-import AirportStatusBar   from './components/AirportStatusBar';
 import DetailPanel        from './components/DetailPanel';
 import LayerControl       from './components/LayerControl';
 import StatusBar          from './components/StatusBar';
@@ -45,15 +43,11 @@ const DEFAULT_LAYERS = {
   aircraft:      { label: '✈️ Aircraft',           live: true,  enabled: true  },
   acTrails:      { label: '〰️ A/C Trails',          live: true,  enabled: true  },
   metar:         { label: '🛬 ATIS / Airport Wx',  live: true,  enabled: false },
-  airportStatus: { label: '🏢 Airport Status',      live: true,  enabled: false },
-  windsAloft:    { label: '💨 Winds Aloft',         live: true,  enabled: false },
-  approaches:    { label: '📐 Approach Plates',     live: false, enabled: false },
   // Marine
   vessels:       { label: '⛵ Vessels',             live: true,  enabled: true  },
   vesselTrails:  { label: '〰️ Vessel Trails',       live: true,  enabled: true  },
   surf:          { label: '🏄 Wave Height / Surf',  live: true,  enabled: false },
   tides:         { label: '〰️ Tides',              live: true,  enabled: false },
-  harbor:        { label: '🚢 Harbor / FADS',       live: false, enabled: false },
   // Weather
   sunMoon:       { label: '☀️ Sun & Moon',           live: true,  enabled: false },
   radar:         { label: '🌧️ Radar',               live: true,  enabled: false },
@@ -73,13 +67,6 @@ const DEFAULT_LAYERS = {
   // hdTraffic:  { label: '🚗 HD Traffic',        live: true, enabled: true },
   // hdGas:      { label: '⛽ HD Gas Prices',      live: true, enabled: true },
   // hdRadio:    { label: '📻 HD Radio Status',    live: true, enabled: true },
-};
-
-// ── Default airport status settings ─────────────────────────
-const DEFAULT_AIRPORTS = {
-  KSFO: true,
-  KOAK: true,
-  KPDX: true,
 };
 
 // ── Basemaps ──────────────────────────────────────────────────
@@ -154,7 +141,6 @@ function App() {
   const [selected,       setSelected]       = useState(null);
   const [tideStation,    setTideStation]    = useState(null);
   const [layers, setLayers] = useState(DEFAULT_LAYERS);
-  const [airportSettings,setAirportSettings]= useState(DEFAULT_AIRPORTS);
   const [showLabels,     setShowLabels]     = useState(true);
   const [showLegend,     setShowLegend]     = useState(false);
   const [mapBounds,      setMapBounds]      = useState(null);
@@ -173,7 +159,6 @@ function App() {
   const buoys      = usePollWhenEnabled(`${API_BASE}/api/buoys`,       60000,  layers.surf?.enabled);
   const tides      = usePollWhenEnabled(`${API_BASE}/api/tides`,       120000, layers.tides.enabled);
   const metars     = usePollWhenEnabled(`${API_BASE}/api/metar`,       300000, layers.metar.enabled);
-  const windsAloft   = usePollWhenEnabled(`${API_BASE}/api/winds-aloft`, 600000, layers.windsAloft.enabled);
   // HD_RADIO_DISABLED: const hdRadarData   = usePollWhenEnabled(`${API_BASE}/api/hdradio/radar`,   300000, layers.hdRadar?.enabled);
   // HD_RADIO_DISABLED: const hdTrafficData = usePollWhenEnabled(`${API_BASE}/api/hdradio/traffic`, 120000, layers.hdTraffic?.enabled);
   // HD_RADIO_DISABLED: const hdGasData     = usePollWhenEnabled(`${API_BASE}/api/hdradio/gas`,     300000, layers.hdGas?.enabled);
@@ -256,8 +241,6 @@ function App() {
     });
   }, []);
 
-  const toggleAirport = useCallback((code) =>
-    setAirportSettings(prev => ({ ...prev, [code]: !prev[code] })), []);
 
   const handleSelectEntity = useCallback((e) => {
     if (e._type === 'tide') setTideStation(e);
@@ -290,6 +273,20 @@ function App() {
             subdomains="abcd"
             maxZoom={17}
             opacity={0.92}
+            attribution=""
+          />
+        )}
+
+        {/* Depth contours — always on with Ocean base map. Esri Ocean Reference
+            shows isobaths, seafloor feature names, and depth contour lines.
+            No toggle: depth context is always useful for marine operations. */}
+        {baseMap === 'ocean' && (
+          <TileLayer
+            key="ocean-depth-contours"
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Reference/MapServer/tile/{z}/{y}/{x}"
+            opacity={0.75}
+            maxNativeZoom={13}
+            maxZoom={17}
             attribution=""
           />
         )}
@@ -355,15 +352,8 @@ function App() {
       </MapContainer>
 
       {/* ── Floating panels ── */}
-      <WindsAloftPanel visible={layers.windsAloft.enabled} />
       <SunMoonPanel    visible={layers.sunMoon?.enabled} />
 
-      {/* Airport status cards — top center */}
-      <AirportStatusBar
-        extraAirports={airportSettings}
-        visible={layers.airportStatus?.enabled}
-        apiBase={API_BASE}
-      />
 
       {/* ATIS bottom bar */}
       <ATISBar metars={metars} visible={layers.metar.enabled} />
@@ -400,8 +390,6 @@ function App() {
         showLegend={showLegend}       onToggleLegend={() => setShowLegend(p => !p)}
         baseMap={baseMap}             onSetBaseMap={setBaseMap}
         baseMaps={BASE_MAPS}
-        airportSettings={airportSettings}
-        onToggleAirport={toggleAirport}
       />
 
 

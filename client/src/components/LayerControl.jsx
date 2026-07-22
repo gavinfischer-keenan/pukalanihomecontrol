@@ -6,13 +6,7 @@ const SECTIONS = [
     id: 'aviation',
     label: 'Aviation',
     icon: '✈️',
-    keys: ['aircraft', 'acTrails', 'airportStatus', 'metar', 'windsAloft', 'approaches'],
-  },
-  {
-    id: 'marine',
-    label: 'Integrated Vessel',
-    icon: '⚓',
-    keys: ['vessels', 'vesselTrails', 'surf', 'tides', 'harbor'],
+    keys: ['aircraft', 'acTrails', 'metar'],
   },
   {
     id: 'map',
@@ -77,58 +71,12 @@ function Section({ section, layers, onToggleLayer, defaultOpen }) {
   );
 }
 
-function SettingsSection({ airportSettings, onToggleAirport, defaultOpen }) {
-  const [open, setOpen] = useState(defaultOpen ?? false);
-  const activeCount = Object.values(airportSettings || {}).filter(Boolean).length;
-
-  return (
-    <div className={`layer-section ${open ? 'layer-section-open' : ''}`}>
-      <button className="layer-section-header" onClick={() => setOpen(o => !o)}>
-        <span className="layer-section-icon">⚙️</span>
-        <span className="layer-section-label">Settings</span>
-        {activeCount > 0 && <span className="layer-section-badge">{activeCount}</span>}
-        <span className="layer-section-chevron">{open ? '▾' : '▸'}</span>
-      </button>
-      {open && (
-        <div className="layer-section-items">
-          <div className="settings-group-label">AIRPORT STATUS — ADDITIONAL</div>
-
-          {/* KHNL — always on, not editable */}
-          <div className="settings-airport-row settings-apt-locked">
-            <span className="settings-check locked">✓</span>
-            <span className="settings-apt-code">HNL</span>
-            <span className="settings-apt-name">Honolulu — always on</span>
-          </div>
-
-          {EXTRA_AIRPORTS.map(({ code, name }) => {
-            const shortCode = code.replace(/^K/, '');
-            const checked = airportSettings?.[code] ?? false;
-            return (
-              <label key={code} className="settings-airport-row settings-apt-toggle">
-                <input
-                  type="checkbox"
-                  className="settings-checkbox"
-                  checked={checked}
-                  onChange={() => onToggleAirport(code)}
-                />
-                <span className="settings-apt-code">{shortCode}</span>
-                <span className="settings-apt-name">{name}</span>
-              </label>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function LayerControl({
   layers, onToggleLayer,
   showLabels, onToggleLabels,
   showLegend, onToggleLegend,
-  baseMap, onSetBaseMap, baseMaps,
-  airportSettings, onToggleAirport,
-}) {
+  baseMap, onSetBaseMap, baseMaps}) {
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -191,13 +139,6 @@ export default function LayerControl({
                 defaultOpen={i < 2}
               />
             ))}
-
-            {/* Settings section at bottom */}
-            <SettingsSection
-              airportSettings={airportSettings}
-              onToggleAirport={onToggleAirport}
-              defaultOpen={false}
-            />
           </div>
         </>
       )}
