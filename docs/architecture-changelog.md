@@ -1,4 +1,4 @@
-﻿# Pukalani Home Control â€” Architectural Change Log
+# Pukalani Home Control â€” Architectural Change Log
 
 > This document records significant architectural changes and the reasoning behind them.
 > Append-only â€” new entries are added at the bottom.
@@ -222,6 +222,239 @@
 
 ---
 
+### 2026-07-22: Hurricane Tracking + PacIOOS Ocean Data Expansion
+
+**Context:** User requested global tropical storm awareness (earliest possible detection), ocean current visualization, and PacIOOS water quality buoy integration. All governed by a "good citizen" caching policy.
+
+**Changes made:**
+
+1. **Hurricane Tracker Integration (HA VM100 — HAOS)**
+   - *What:* Installed `aaronmayeux/ha-hurricane-tracker` v0.2.7 via direct download to `/mnt/data/supervisor/homeassistant/custom_components/hurricane_tracker/`
+   - *Why:* Provides native HA entities (`sensor.hurricane_tracker_distance`, `sensor.hurricane_tracker_category`, `binary_sensor.hurricane_tracker_watch_or_warning`) backed by NHC GIS data including cone of uncertainty, past track, forecast polygons
+   - *Scope:* `global` — all basins (AL, EP, CP) from earliest formation (Tropical Depressions included)
+   - *Center:* Pukalani, Maui (20.8783°N, 156.6825°W)
+   - Files: 20 files + 8.7MB basemap binary + bundled `hurricane-card.js` Lovelace card
+   - `hurricane-card.js` copied to `/www/` for Lovelace resource registration
+
+2. **HA Hurricane Automations (3 added to `automations.yaml`)**
+   - `hurricane_1000mi_watch` — persistent notification + mobile push when storm < 1,000 mi
+   - `hurricane_500mi_warning` — urgent mobile push when storm < 500 mi  
+   - `hurricane_all_clear` — dismisses all notifications when storm retreats > 1,200 mi (buffer prevents oscillation)
+   - HA restart required after adding integration → configure via `Settings → Devices & Services → Hurricane Tracker`, scope = `global`
+
+3. **CT108 Dashboard — `/api/hurricanes` server route**
+   - *What:* New endpoint in `nws-service.js` polling `https://www.nhc.noaa.gov/CurrentStorms.json` every 30 minutes
+   - *Good citizen:* Uses `If-Modified-Since` header, `User-Agent` identifies as `pukalanihome-ct108/1.0`, max 2 polls/hour
+   - Returns: storm list sorted by distance from Pukalani, haversine distance (mi), compass bearing, threat level (`none` / `watch` / `warning` / `imminent`), NHC cone PNG URL, advisory link
+   - Serves stale data up to 2h with `isStale` flag; warns after upstream unreachable
+
+4. **CT108 Dashboard — `HurricanePanel.jsx` (NEW component)**
+   - Dedicated `🌀 Storms` tab added to NWS/NOAA section
+   - Two-pane layout: storm list sidebar (sorted by distance) + detail pane
+   - Shows: category badge, wind speed (kt + mph conversion), distance, bearing, movement, pressure, last advisory time
+   - Embeds NHC 5-day forecast cone PNG directly from `nhc.noaa.gov`
+   - Threat level color system: 🟢 > 1,500mi / 🟡 < 1,500mi / 🟠 < 500mi / 🔴 < 250mi
+   - Polls `/api/hurricanes` every 5 min (server caches at 30 min; good citizen)
+
+5. **CT108 Dashboard — `StormLayer` (new map layer, both Air + Water tabs)**
+   - Shows active storm markers on the Hawaii map (storms < 3,000 mi shown)
+   - Color: grey (TD), yellow (TS), orange-red (HU)
+   - Dashed bearing line from Pukalani to storm (< 2,000 mi)
+   - Clickable popup: name, category, winds, distance, bearing, movement, NHC advisory link
+   - Default: enabled (important always to see)
+
+6. **CT108 Dashboard — `CurrentsLayer` (new Water-only map layer)**
+   - *Source:* PacIOOS HF Radar (`hfradar_ushi_2km`) — **actual measured** near-real-time surface currents, not modeled
+   - *WMS:* `https://pae-paha.pacioos.hawaii.edu/erddap/wms/hfradar_ushi_2km/request`
+   - Layers: `hfradar_ushi_2km:u` (eastward, 0.55 opacity) + `hfradar_ushi_2km:v` (northward, 0.30 opacity)
+   - Coverage: Hawaiian Islands, 2km resolution, ~hourly update
+   - Default: disabled (user toggle)
+   - *Good citizen:* WMS tiles served directly from PacIOOS CDN — browser caches, no server-side proxying
+
+7. **CT108 Dashboard — `BuoyMarkerLayer` + `/api/pacioos/buoys` (new)**
+   - *Sources:* PacIOOS ERDDAP tabledap — water quality buoys (`wqb_04`, `wqb_05`) + nearshore sensors (`nss_cwb_001`, `nss_cwb_003`, `nss_cwb_004`)
+   - *Variables:* `temperature`, `salinity`, `turbidity`, `chlorophyll`, `oxygen`, `ph` (using actual ERDDAP field names)
+   - *Cache:* 6-hour server-side cache, 12-hour stale limit (shows with `isStale` warning in popup)
+   - *Good citizen:* ERDDAP is a shared public research server; 2-second stagger between station fetches, max 6h polling
+   - Clickable markers on Water map with all available readings per station
+   - Default: enabled
+
+**Caching Policy (from architecture.md good-citizen mandate):**
+
+| Source | Poll Rate | Stale Shown | Notes |
+|---|---|---|---|
+| NHC CurrentStorms.json | 30 min | Up to 2h | If-Modified-Since |
+| PacIOOS HF Radar WMS | N/A (tiles) | N/A | PacIOOS CDN |
+| PacIOOS ERDDAP Buoys | 6 hours | Up to 12h | Note shown in popup |
+| NHC Cone PNG | Direct embed | N/A | NHC CDN |
+
+**GitHub commit:** `75c052a` (feat) + `<fix commit>` (HF radar layer names)
+
+---
+
+### 2026-07-22: Bathymetry (ETOPO1), Vessel Map Cleanup, Currents Fix
+
+---
+
+#### A. NOAA ETOPO1 Depth Soundings — Full Methodology (Replication Guide)
+
+This section is written explicitly so that when the system is redeployed for California (or any other region), the same approach can be followed with minimal friction.
+
+##### Why ETOPO1?
+
+NOAA's **ETOPO1** dataset is the gold standard 1 arc-minute global bathymetric relief model. It synthesises every hydrographic survey conducted by NOAA, GEBCO, and international partners. The same data underlies NOAA's official Raster Nautical Charts (RNCs). It is public domain (CC0), machine-readable, and served for free by multiple NOAA-operated ERDDAP instances.
+
+##### Where the Data Lives
+
+| Server | URL | Notes |
+|---|---|---|
+| **Primary (used):** CoastWatch ERDDAP | `https://coastwatch.pfeg.noaa.gov/erddap/` | NOAA West Coast node, highly reliable |
+| NCEI ERDDAP | `https://www.ncei.noaa.gov/erddap/` | NOAA East Coast node, same data |
+| Local file (post-download) | `/opt/dashboard/server/data/hawaii_depths.json` | Permanent — no re-download until user runs script |
+
+##### Dataset ID and Variable
+
+```
+Dataset ID:  etopo180
+Variable:    altitude   (depth is negative altitude, e.g. -4200 = 4200m deep)
+Grid axes:   latitude, longitude  (1/60° = 1 arc-minute spacing)
+```
+
+##### How to Download for a New Region
+
+Run the following `curl` command (or the stored script `/opt/dashboard/server/data/download_hawaii_depths.sh`), substituting the bounding box for the target region:
+
+```bash
+# Hawaii: south=17, north=24, west=-163, east=-153
+# California: south=32, north=38, west=-122, east=-117  (adjust as needed)
+
+SOUTH=32; NORTH=38; WEST=-122; EAST=-117   # ← change for new region
+
+curl --max-time 300 --retry 2 \
+  -H "User-Agent: myhome-ct108/1.0 (one-time bathymetric data pull)" \
+  "https://coastwatch.pfeg.noaa.gov/erddap/griddap/etopo180.json?\
+altitude%5B(${SOUTH}.0):1:(${NORTH}.0)%5D%5B(${WEST}.0):1:(${EAST}.0)%5D" \
+  -o /opt/dashboard/server/data/hawaii_depths_raw.json
+```
+
+The URL structure follows ERDDAP griddap syntax:
+- `altitude[(south):stride:(north)][(west):stride:(east)]`
+- Stride of `1` = every grid point (1 arc-minute)
+
+##### How the Data is Processed
+
+After download, a Python script buckets the raw grid into zoom-level-indexed point sets. The logic in `/tmp/retry_etopo_download.sh`:
+
+```python
+# Filter ocean-only points (altitude < -5m eliminates land and coastal fuzz)
+ocean = [[lat, lon, int(abs(alt))] for lat, lon, alt in rows if alt < -5]
+
+# Pre-bucket by zoom level with stride (density) per zoom
+stride_map = {'7': 30, '8': 15, '9': 6, '10': 3, '11': 2, '12': 1, '13': 1}
+by_zoom = {}
+for zoom, stride in stride_map.items():
+    by_zoom[zoom] = [pt for pt in ocean
+                     if grid_i(pt[0]) % stride == 0 and grid_j(pt[1]) % stride == 0]
+```
+
+This produces a single JSON file. Hawaii result: **247,660 ocean points, 13MB** after zoom-bucketing.
+
+##### How It's Served (Zero External Calls)
+
+`/opt/dashboard/server/nws-service.js` — inside `init(app)`:
+
+```javascript
+// Loads once on startup, stays in memory for all subsequent requests
+function loadBathyData() { /* fs.readFileSync('hawaii_depths.json') */ }
+setImmediate(() => loadBathyData()); // pre-warm cache
+
+app.get('/api/bathymetry', (req, res) => {
+  const zoomKey = Math.min(13, Math.max(7, parseInt(req.query.zoom)));
+  const points  = data.by_zoom[zoomKey];
+  res.set('Cache-Control', 'public, max-age=86400'); // browser caches 24h
+  res.json({ zoom, count, points });
+});
+```
+
+**No external network call is ever made by this endpoint.** The ERDDAP download happens once, manually, by the operator.
+
+##### How It's Rendered (NWSMap.jsx — BathymetryLayer)
+
+```
+Browser fetches /api/bathymetry?zoom=N (24h browser cache)
+→ Returns array of [lat, lon, depth_metres]
+→ Each point rendered as L.divIcon with class .depth-sounding-label
+→ CSS: font-family Arial Narrow, italic, 10px, color #1a5fa0 (NOAA chart blue)
+→ text-shadow halo for legibility over any base map
+→ Pan events: only reshow in-bounds markers (no re-fetch)
+→ Zoom events: fetch new zoom bucket, replace all markers
+```
+
+Layer 2 (contour lines, not soundings): Esri Ocean Reference CDN tiles
+`https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Reference/MapServer/tile/{z}/{y}/{x}`
+These cache in the browser forever after first view — static tiles, no auth needed.
+
+##### Zoom Density Reference
+
+| Zoom | Stride | Points shown | Equivalent nautical chart |
+|---|---|---|---|
+| 7 | 30 | ~310 | Overview / Pacific Wide Area |
+| 8 | 15 | ~1,170 | Island chain overview |
+| 9 | 6 | ~7,015 | Inter-island channels |
+| 10 | 3 | ~27,742 | Island approach |
+| 11 | 2 | ~62,168 | Harbor approach / NOAA Chart 19347-grade |
+| 12 | 1 | ~247,660 | Nearshore / harbor detail |
+| 13+ | 1 | ~247,660 | Max native zoom |
+
+##### Update Procedure (Annual or As-Needed)
+
+```bash
+# On CT108:
+rm /opt/dashboard/server/data/hawaii_depths.json
+bash /tmp/retry_etopo_download.sh
+pm2 restart hawaii-api
+```
+
+---
+
+#### B. Ocean Currents WMS — Visibility Fix
+
+**Problem:** The `CurrentsLayer` in `NWSMap.jsx` added WMS tiles for `hfradar_ushi_2km:u` and `hfradar_ushi_2km:v` (eastward/northward velocity components from PacIOOS HF Radar) but used empty `styles: ''`. ERDDAP's default rendering for velocity components produces near-transparent colour output that is visually indistinguishable from no layer.
+
+**Fix:** Added ERDDAP-specific WMS vendor parameters:
+```javascript
+styles:          'boxfill/occam',      // diverging blue-white-red palette
+COLORSCALERANGE: '-0.8,0.8',           // ±0.8 m/s covers nearshore speeds
+BELOWMINCOLOR:   'extend',             // don't clip at extremes
+ABOVEMAXCOLOR:   'extend',
+```
+
+For the v-component (northward), `boxfill/occam_r` (reversed) is used so the colour convention is consistent (blue = negative/westward/southward, red = positive/eastward/northward).
+
+**Hourly cache-bust:** A `_cache: hourKey` parameter (hour-resolution epoch integer) is included. This is NOT sent to the WMS server (ERDDAP ignores unknown params). Its purpose is to cause Leaflet to request fresh tiles when the hour changes — currents update approximately hourly.
+
+---
+
+#### C. Vessel Map (App.jsx) — Cleanup
+
+The integrated vessel/aircraft tracking map (`/`) had several features that made sense during development but created visual clutter for the intended use case (maritime situational awareness + air traffic):
+
+| Removed | Reason |
+|---|---|
+| Airport Status bar (`AirportStatusBar` component) | California-centric (SFO/OAK/PDX defaults). Not meaningful in Hawaii maritime context. |
+| Winds Aloft panel (`WindsAloftPanel` component) | Winds aloft data exists for aviation planning. Out of scope for vessel map. |
+| Harbour / FADs layer toggle | FAD locations are on the NWS/Water map which is the correct context. |
+| Settings section in LayerControl | Only contained airport picker — removed with airport status. |
+| Associated imports, state, callbacks, polls | Full code removal (not just UI hide). `airportSettings`, `toggleAirport`, `windsAloft` poll all deleted. |
+
+**Added:** Esri Ocean Reference depth contour tile layer — always active when Ocean base map is selected. No toggle: depth context is universally useful for marine operations and does not clutter the aircraft tracking view.
+
+---
+
+**GitHub commits:** `3bf182a` (bathymetry route fix), `78926bc` (vessel map cleanup + currents fix)
+
+---
+
 *Part of: Pukalani Home Control Architecture Documentation Suite*
 *Repository: https://github.com/gavinfischer-keenan/pukalanihomecontrol*
-*Last updated: 2026-07-21 evening session*
+*Last updated: 2026-07-22 — Bathymetry + vessel map session*
