@@ -1030,40 +1030,48 @@ function init(app, express) {
   console.log('[nws] NWS service initialised — good-citizen caching active');
 }
 
-module.exports = { init };
 
-// ── Bathymetry / Depth Soundings ───────────────────────────────────────────
-// Serves NOAA ETOPO1 depth data downloaded ONCE to server/data/hawaii_depths.json
-// NO external network calls are made by this endpoint — reads local file only.
-// Good citizen: data updated manually at most annually by re-running download script.
+  // ── Bathymetry / Depth Soundings ────────────────────────────────────────
+  // Serves NOAA ETOPO1 data from local file — zero external calls ever made.
+  // Data downloaded once: server/data/hawaii_depths.json (13MB, ~247k points)
+  // Update manually at most annually by re-running download_hawaii_depths.sh
+  {
+    const fs   = require('fs');
+    const path = require('path');
+    let _bathyCache = null;
 
-let _bathyCache = null;
+    function loadBathyData() {
+      if (_bathyCache) return _bathyCache;
+      const fp = path.join(__dirname, 'data', 'hawaii_depths.json');
+      if (!fs.existsSync(fp)) return null;
+      try {
+        _bathyCache = JSON.parse(fs.readFileSync(fp, 'utf8'));
+        console.log(`[BATHY] Loaded ${_bathyCache.total_ocean_points} ocean points (downloaded ${_bathyCache.downloaded})`);
+        return _bathyCache;
+      } catch(e) { console.error('[BATHY] Load failed:', e.message); return null; }
+    }
 
-function loadBathyData() {
-  if (_bathyCache) return _bathyCache;
-  const filePath = require('path').join(__dirname, 'data', 'hawaii_depths.json');
-  if (!require('fs').existsSync(filePath)) return null;
-  try {
-    _bathyCache = JSON.parse(require('fs').readFileSync(filePath, 'utf8'));
-    console.log(`[BATHY] Loaded ${_bathyCache.total_ocean_points} ocean points (downloaded ${_bathyCache.downloaded})`);
-    return _bathyCache;
-  } catch(e) { console.error('[BATHY] Load failed:', e.message); return null; }
-}
+    // Pre-load in background so first request is instant
+    setImmediate(() => loadBathyData());
 
-app.get('/api/bathymetry', (req, res) => {
-  const data = loadBathyData();
-  if (!data) return res.status(503).json({ error: 'Depth data not downloaded yet' });
-  if (!req.query.zoom) {
-    return res.json({
-      source: data.source, attribution: data.attribution,
-      downloaded: data.downloaded, bbox: data.bbox,
-      total: data.total_ocean_points,
-      availableZooms: Object.keys(data.by_zoom).map(Number).sort((a,b)=>a-b),
+    app.get('/api/bathymetry', (req, res) => {
+      const data = loadBathyData();
+      if (!data) return res.status(503).json({ error: 'Depth data not downloaded yet',
+        hint: 'Run /tmp/retry_etopo_download.sh on CT108 to perform one-time data pull' });
+      if (!req.query.zoom) {
+        return res.json({
+          source: data.source, attribution: data.attribution,
+          downloaded: data.downloaded, bbox: data.bbox,
+          total: data.total_ocean_points,
+          availableZooms: Object.keys(data.by_zoom).map(Number).sort((a,b)=>a-b),
+        });
+      }
+      const zoomKey = String(Math.min(13, Math.max(7, parseInt(req.query.zoom, 10))));
+      const points  = data.by_zoom[zoomKey] || data.by_zoom['7'];
+      res.set('Cache-Control', 'public, max-age=86400');
+      res.json({ zoom: parseInt(zoomKey), count: points.length,
+                 downloaded: data.downloaded, attribution: data.attribution, points });
     });
   }
-  const zoomKey = String(Math.min(13, Math.max(7, parseInt(req.query.zoom,10))));
-  const points  = data.by_zoom[zoomKey] || data.by_zoom['7'];
-  res.set('Cache-Control', 'public, max-age=86400');
-  res.json({ zoom: parseInt(zoomKey), count: points.length, downloaded: data.downloaded,
-             attribution: data.attribution, points });
-});
+
+module.exports = { init };
