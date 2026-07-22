@@ -2328,7 +2328,381 @@ ssh root@192.168.1.100 "pct push <VMID> /tmp/myfile.py /opt/target/myfile.py"
 
 ---
 
-## 11. Architectural Change Log
+## 12. 3D Visualization and Spatial Mapping
+
+> 🔲 **PLANNED — NOT YET IMPLEMENTED**
+> All subsections below define the target architecture for 3D visualization features.
+> Implementation requires the user to provide the 3D model files described in the
+> File Requirements Appendix (Section 12.8).
+
+### 12.1 Overview
+
+The Pukalani system will use interactive 3D models to visualize the property and all sensor/alarm states
+in a spatial context. There are two distinct 3D model pipelines:
+
+| Pipeline | Model Type | Purpose | HA Card |
+|----------|-----------|---------|---------|
+| **Floor Plan** | Interior-only wireframe GLB (no exterior walls, no textures) | Sensor overlay — place all sensors, alarms, and cameras on a spatial map | `custom:3d-floorplan` (HACS) |
+| **Property Model** | Full exterior GLB from drone photogrammetry | Layered property overview with toggleable visibility layers | `custom:3d-floorplan` (HACS) |
+
+Both will be displayed in the **Command Center** dashboard as dedicated views.
+
+### 12.2 Technology Stack
+
+| Component | Technology | Notes |
+|-----------|-----------|-------|
+| 3D Renderer | Three.js (WebGL) | Runs client-side in the browser |
+| HA Integration | HACS Custom Card: `Hollako/Home-Assistant-3D-Floorplan` | Preferred. Drag-and-drop marker placement editor, GLB loading, entity bindings |
+| Fallback | HACS Custom Card: `adizanni/floor3d-card` | Alternative if Hollako doesn't meet needs |
+| File Format | `.glb` (glTF 2.0 Binary) | Single self-contained binary — mesh, materials, textures, UV maps |
+| File Storage | `/config/www/3d/` inside HAOS | Served at `/local/3d/<filename>.glb` in Lovelace cards |
+| Model Optimization | Blender (Decimate modifier) | Target: **<50k triangles** per model for smooth rendering |
+
+### 12.3 Floor Plan Sensor Overlay
+
+#### 12.3.1 Model Requirements
+
+The floor plan model is a **pure wireframe/architectural model** with:
+- No exterior walls or roof
+- No color or texture — white/grey material only
+- Each room as a **named mesh object** in Blender (e.g., `master_bedroom`, `kitchen`, `laundry_room`, `utility_room`)
+- Doors and windows as **separate named mesh objects** (e.g., `front_door`, `kitchen_window_1`)
+- Floor, walls, and ceiling as separate layers that can be toggled
+
+**File:** `/config/www/3d/floorplan.glb`
+**Blender Source:** User provides, exported as GLB.
+
+#### 12.3.2 Sensor Overlay Definitions
+
+Each sensor type has a defined visual representation bound to HA entity states:
+
+##### Leak Sensors (Water)
+| State | Visual | Icon | Animation |
+|-------|--------|------|-----------|
+| `off` (dry) | Green droplet | `mdi:water-check` | Static |
+| `on` (wet) | Red droplet, larger | `mdi:water-alert` | Pulsing scale 1.0→1.5x, 0.5s period |
+
+**Entity pattern:** `binary_sensor.leak_*`
+**Placement:** On floor mesh at sensor physical location.
+
+##### Fire/Smoke Alarms
+| State | Visual | Icon | Animation |
+|-------|--------|------|-----------|
+| `off` (clear) | Green fire icon | `mdi:fire-alert` | Static |
+| `on` (alarm) | Red fire icon | `mdi:fire` | Animated flame + red pulse |
+
+**Entity pattern:** `binary_sensor.smoke_*`, `binary_sensor.fire_*`
+**Trigger action:** 🔲 FUTURE — alarm notification (speakers, push, etc.) to be defined.
+
+##### Presence Sensors (Room Occupancy)
+| State | Visual | Animation |
+|-------|--------|-----------|
+| `off` (empty) | Room mesh shaded green (emissive green, low opacity) | Static |
+| `on` (occupied) | Room mesh shaded warm amber | Static |
+
+**Entity pattern:** `binary_sensor.occupancy_*`, `binary_sensor.motion_*`
+**Implementation:** Bind entity to room mesh object name. Change material `emissiveColor`.
+
+##### Temperature & Humidity Sensors
+| State | Visual | Icon | Animation |
+|-------|--------|------|-----------|
+| In range | Green thermometer/humidity icon | `mdi:thermometer-check` / `mdi:water-percent` | Static |
+| Out of range | Red thermometer/humidity icon | `mdi:thermometer-alert` / `mdi:water-percent-alert` | Pulsing red |
+
+**Entity pattern:** `sensor.temperature_*`, `sensor.humidity_*`
+
+**Acceptable ranges are PER-ROOM** (configured in the card YAML):
+
+| Room Category | Temp Range (°F) | Humidity Range (%) | Rationale |
+|--------------|-----------------|-------------------|-----------|
+| Occupied Interior | 68–82 | 40–65 | Air-conditioned living spaces |
+| Laundry Room | 55–95 | 20–90 | Open to environment, wide tolerance |
+| Utility Room (Underhouse) | 60–90 | 30–80 | Heated/enclosed, moderate tolerance |
+| Garage / Carport | 55–100 | 20–95 | Fully open, very wide tolerance |
+| Bathroom | 65–85 | 40–80 | Shower humidity spikes expected |
+
+These ranges are stored in the Lovelace card configuration, not in HA entities.
+Example YAML:
+```yaml
+rooms:
+  master_bedroom:
+    temp_entity: sensor.temperature_master_bedroom
+    humidity_entity: sensor.humidity_master_bedroom
+    temp_range: [68, 82]
+    humidity_range: [40, 65]
+  laundry_room:
+    temp_entity: sensor.temperature_laundry
+    humidity_entity: sensor.humidity_laundry
+    temp_range: [55, 95]
+    humidity_range: [20, 90]
+```
+
+##### Door & Window Sensors
+| State | Visual | Icon | Animation |
+|-------|--------|------|-----------|
+| `off` (closed) | Green outline on door/window mesh | `mdi:door-closed` / `mdi:window-closed` | Static |
+| `on` (open) | Red outline on door/window mesh | `mdi:door-open` / `mdi:window-open` | Gentle pulse |
+
+**Entity pattern:** `binary_sensor.door_*`, `binary_sensor.window_*`
+**Security tie-in:** Camera coverage zones will be defined per-camera (see Section 12.3.3).
+
+##### Air Quality Sensors
+| State | Visual | Icon | Animation |
+|-------|--------|------|-----------|
+| Good (AQI < 50) | Green cloud icon | `mdi:air-filter` | Static |
+| Moderate (AQI 50–100) | Yellow cloud icon | `mdi:air-filter` | Static |
+| Poor (AQI > 100) | Red cloud icon | `mdi:weather-dust` | Pulsing red |
+
+**Entity pattern:** `sensor.air_quality_*`, `sensor.pm25_*`, `sensor.voc_*`
+
+#### 12.3.3 Camera Security Overlay
+
+Each camera is placed on the 3D model at its physical mount location with a **visibility cone** showing its
+field of view. The cone is color-coded:
+
+| State | Cone Color | Meaning |
+|-------|-----------|---------|
+| Recording + detecting | Green semi-transparent | Active surveillance |
+| Recording only | Blue semi-transparent | Recording but no object detection |
+| Offline | Red semi-transparent | Camera unreachable |
+
+Camera-to-space mapping defines which rooms/doors/windows each camera can see:
+```yaml
+cameras:
+  aqara_g4_front_door:
+    entity: camera.aqara_g4_front_door
+    position: [x, y, z]  # 3D coordinates on model
+    fov: 170  # degrees
+    direction: [0, 0, -1]  # facing vector
+    covers:
+      - front_door
+      - front_porch
+      - driveway_south
+```
+
+### 12.4 Property Exterior Model (Drone Photogrammetry)
+
+The full property 3D model is generated from drone photography via photogrammetry software.
+
+#### 12.4.1 Model Pipeline
+
+```
+Drone Photos (200+ images, 70-80% overlap, nadir + 45° oblique)
+    ↓
+Photogrammetry Software (WebODM / RealityCapture / Meshroom)
+    ↓
+Raw mesh (.obj / .ply, typically 1M+ triangles)
+    ↓
+Blender Optimization:
+  - Decimate modifier → target 30k-50k triangles
+  - Texture baking → single 4096×4096 texture atlas
+  - Normal recalculation
+  - Named layer separation (see 12.4.2)
+    ↓
+Export as .glb → /config/www/3d/property_exterior.glb
+```
+
+#### 12.4.2 Layer System
+
+The property model supports toggleable visibility layers, each a **named mesh group** in Blender:
+
+| Layer Name | Contents | Default Visible |
+|-----------|---------|----------------|
+| `terrain` | Ground, driveway, landscaping | Yes |
+| `structure_exterior` | House exterior walls, roof | Yes |
+| `structure_interior` | Interior walls (cross-section view) | No |
+| `vegetation` | Trees, hedges, gardens | Yes |
+| `outbuildings` | Garage, shed, utility structures | Yes |
+| `infrastructure` | Solar panels, antennas, utility boxes | No |
+| `sensor_overlay` | Sensor markers (shared with floor plan) | No |
+
+Users toggle layers via checkboxes in the Lovelace card UI.
+All layers share the **same mesh origin/coordinate system** so they overlay correctly.
+
+#### 12.4.3 HA Dashboard View
+
+```yaml
+type: custom:3d-floorplan
+name: Property Overview
+model: /local/3d/property_exterior.glb
+camera:
+  position: [0, 15, 25]
+  target: [0, 0, 0]
+layers:
+  - name: terrain
+    visible: true
+  - name: structure_exterior
+    visible: true
+  - name: vegetation
+    visible: true
+  - name: outbuildings
+    visible: true
+  - name: infrastructure
+    visible: false
+  - name: sensor_overlay
+    visible: false
+```
+
+### 12.5 Roof Panorama Views ("View From the Property")
+
+#### 12.5.1 Concept
+
+A series of 360° panoramic photos taken from fixed vantage points on the roof.
+Each panorama is a spherical image viewable in an interactive web viewer
+(click-and-drag to look around). 5–6 panoramas from different roof positions
+provide complete property coverage.
+
+#### 12.5.2 Photo Capture Requirements
+
+For **each** vantage point, capture one of:
+
+| Method | What to Provide | Output Format | Notes |
+|--------|----------------|---------------|-------|
+| **360° camera** (Insta360, Ricoh Theta, etc.) | Single equirectangular image | `.jpg` (equirectangular projection) | Easiest method. One shot per position. |
+| **Manual panorama** (phone/camera) | 20–30 overlapping photos from one spot | Individual `.jpg` files | Must be stitched (Hugin, PTGui, or Google Photos) |
+| **Drone orbit** | 12–24 photos in a circle, camera aimed outward | Individual `.jpg` files | Can be stitched into equirectangular panorama |
+
+**Preferred output format:** Single equirectangular `.jpg` per vantage point, minimum 8000×4000 pixels.
+
+**File naming convention:**
+```
+/config/www/3d/panoramas/roof_position_1.jpg
+/config/www/3d/panoramas/roof_position_2.jpg
+...
+/config/www/3d/panoramas/roof_position_6.jpg
+```
+
+#### 12.5.3 Viewer Implementation
+
+The panorama viewer will be a **custom HA panel** (panel_iframe pointing to a self-hosted page on CT114)
+using **Pannellum** (open-source, zero-dependency, WebGL panorama viewer):
+
+```
+CT114 serves: http://192.168.1.114:3114/panorama/
+```
+
+The viewer page:
+- Loads equirectangular images from HAOS `/local/3d/panoramas/` (or CT114 static files)
+- Provides a dropdown or thumbnail strip to switch between vantage points
+- Supports click-and-drag rotation, scroll zoom, fullscreen
+- Optionally supports hotspots (clickable points linking to other panoramas or camera feeds)
+
+#### 12.5.4 HA Dashboard Integration
+
+A new tab in the Command Center dashboard:
+
+```yaml
+- title: "Property Views"
+  path: "property-views"
+  icon: "mdi:panorama"
+  type: panel
+  cards:
+    - type: iframe
+      url: "http://192.168.1.114:3114/panorama/"
+      aspect_ratio: "100%"
+```
+
+### 12.6 SSH Access to HAOS
+
+#### Current State
+
+| Add-on | Status | Port 22 Exposed | Access Method |
+|--------|--------|----------------|---------------|
+| Terminal & SSH (`core_ssh`) | ✅ Running (v10.3.0) | ❌ Not mapped to LAN | Ingress only (web terminal in HA UI) |
+| Advanced SSH (`a0d7b954_ssh`) | ❌ Not installed | N/A | N/A |
+
+**Current access:** `qm guest exec 100` from Proxmox host (works, but limited — no stdin piping, requires base64 for file transfer).
+
+#### Recommended: Expose SSH Port 22
+
+To enable direct SSH from the dev laptop to HAOS (faster file transfers, real-time logs, easier debugging):
+
+1. In HA UI → Settings → Apps → Terminal & SSH → Configuration:
+   - Set a password or add authorized_keys (from Proxmox host's `~/.ssh/id_rsa.pub`)
+   - Under Network: map port `22/tcp` → `22`
+2. Restart the add-on
+
+After configuration:
+```bash
+# Direct SSH to HAOS (from Proxmox host or dev laptop):
+ssh hassio@192.168.1.19
+
+# Direct SCP to upload files:
+scp floorplan.glb hassio@192.168.1.19:/config/www/3d/floorplan.glb
+```
+
+This is **strongly recommended** for the 3D model upload workflow, as GLB files can be large (5–50MB)
+and base64 encoding via `qm guest exec` is fragile.
+
+### 12.7 HACS Card Installation Plan
+
+| Card | HACS Repository | Install Method | Purpose |
+|------|----------------|---------------|---------|
+| 3D Floorplan | `Hollako/Home-Assistant-3D-Floorplan` | HACS → Frontend → Custom Repositories | Primary 3D sensor overlay viewer |
+| Pannellum Panorama | Custom panel_iframe to CT114 | Deploy Pannellum.js to CT114 | Roof panorama viewer |
+
+Installation steps (to be executed during implementation):
+```bash
+# 1. Install HACS card via HA API
+# POST /api/config/config_entries/flow with handler "hacs"
+# Or: manually add via HACS UI → Frontend → + → Custom Repository
+
+# 2. Create 3D file directory in HAOS
+ssh hassio@192.168.1.19 "mkdir -p /config/www/3d/panoramas"
+
+# 3. Upload GLB files
+scp floorplan.glb hassio@192.168.1.19:/config/www/3d/floorplan.glb
+scp property_exterior.glb hassio@192.168.1.19:/config/www/3d/property_exterior.glb
+
+# 4. Upload panorama images
+scp roof_position_*.jpg hassio@192.168.1.19:/config/www/3d/panoramas/
+```
+
+### 12.8 File Requirements Appendix — "GIVE ME THESE FILES"
+
+> **Action Required:** The following files must be provided by the property owner.
+> All 3D models must be in `.glb` (glTF 2.0 Binary) format.
+> See column "How to Create" for tools and workflow.
+
+#### Required Files
+
+| # | File | Format | Max Size | Purpose | How to Create |
+|---|------|--------|----------|---------|---------------|
+| 1 | `floorplan.glb` | GLB | 10 MB | Interior floor plan for sensor overlay | Create in **Sweet Home 3D**, **SketchUp**, or **Blender**. Export all rooms as named mesh objects. No textures. No exterior. See 12.3.1. |
+| 2 | `property_exterior.glb` | GLB | 50 MB | Full property drone model with layer groups | Drone photogrammetry → **WebODM** or **RealityCapture** → Blender optimization → GLB export. See 12.4.1. |
+| 3–8 | `roof_position_N.jpg` (×5–6) | JPEG (equirectangular) | 30 MB each | 360° panoramas from roof vantage points | 360° camera (Insta360/Theta) **or** manual photo stitch. Min 8000×4000px. See 12.5.2. |
+
+#### Optional / Future Files
+
+| # | File | Format | Purpose | When Needed |
+|---|------|--------|---------|-------------|
+| 9 | `solar_array.glb` | GLB | Solar panel layout overlay layer | When solar is installed |
+| 10 | `landscape_plan.glb` | GLB | Planned landscaping overlay | When landscape design is finalized |
+
+#### Blender Export Checklist (for all GLB files)
+
+1. **Coordinate system:** Y-up (glTF default)
+2. **Triangle count:** <50,000 triangles (use Decimate modifier if needed)
+3. **Textures:** Embedded in GLB (check "Pack Resources" in Blender)
+4. **Named objects:** Every room, door, window, and structural element must be a **named mesh object**
+5. **Origin:** Model origin at ground-level center of property
+6. **Scale:** 1 Blender unit = 1 meter (real-world scale)
+7. **Layers:** Use Blender Collections named exactly as listed in Section 12.4.2
+
+#### Quick Start — Minimum Viable 3D
+
+To get started with just the floor plan overlay (minimum effort):
+
+1. Install **Sweet Home 3D** (free, https://sweethome3d.com)
+2. Draw the floor plan using the actual room dimensions
+3. Name each room in the software
+4. Export → OBJ format
+5. Open in **Blender** → rename mesh objects to match sensor entity names → Export → GLB
+6. Upload `floorplan.glb` — implementation can begin
+
+---
+
+## 13. Architectural Change Log
 
 This section documents significant architectural changes and the reasoning behind them.
 
