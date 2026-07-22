@@ -1,3 +1,8 @@
 node_modules/
 dist/
 .env
+public/nws-cache/data/*.geojson
+public/nws-cache/data/*.json
+public/nws-cache/loops/*.gif
+public/nws-cache/text/*.json
+*.bak

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import NWSLoopsGrid      from './NWSLoopsGrid';
 import NWSForecastPanel  from './NWSForecastPanel';
 import NWSMap            from './NWSMap';
+import HurricanePanel    from './HurricanePanel';
 import './NWSApp.css';
 
 const API_BASE = `http://${window.location.hostname}:3001`;
@@ -11,6 +12,7 @@ const TABS = [
   { key: 'loops',     label: '🛰️ Loops',    desc: 'Satellite & radar loop imagery' },
   { key: 'air',       label: '🌬️ Air',      desc: 'Winds, temps, radar, alerts'    },
   { key: 'water',     label: '🌊 Water',    desc: 'SST, waves, FADs, tides'        },
+  { key: 'storms',    label: '🌀 Storms',   desc: 'Tropical storm & hurricane tracker' },
   { key: 'forecasts', label: '📅 Forecasts', desc: 'NWS text products & outlooks'  },
 ];
 
@@ -85,6 +87,13 @@ export default function NWSApp() {
         {tab === 'water' && (
           <div className="nwsapp-content nwsapp-content-map">
             <NWSMap apiBase={API_BASE} subtab="water" />
+          </div>
+        )}
+
+        {/* STORMS */}
+        {tab === 'storms' && (
+          <div className="nwsapp-content">
+            <HurricanePanel apiBase={API_BASE} />
           </div>
         )}
 

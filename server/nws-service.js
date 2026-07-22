@@ -801,6 +801,171 @@ function registerRoutes(app, express) {
   console.log('[nws] routes registered');
 }
 
+// ── Pukalani, Maui — center of all distance calculations ─────────────────
+const PUKALANI_LAT = 20.8783;
+const PUKALANI_LON = -156.6825;
+
+// Haversine great-circle distance in miles
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 3958.8;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 +
+    Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// True compass bearing (degrees) from Pukalani to storm
+function compassBearing(lat1, lon1, lat2, lon2) {
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const y = Math.sin(dLon) * Math.cos(lat2 * Math.PI/180);
+  const x = Math.cos(lat1 * Math.PI/180) * Math.sin(lat2 * Math.PI/180) -
+             Math.sin(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.cos(dLon);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+function threatLevel(distMi) {
+  if (distMi < 250)  return 'imminent'; // 🔴
+  if (distMi < 500)  return 'warning';  // 🟠
+  if (distMi < 1500) return 'watch';    // 🟡
+  return 'none';                          // 🟢
+}
+
+// ── Hurricane / Tropical Storm Cache ─────────────────────────────────────
+// Good-citizen policy: poll NHC at most once per 30 minutes.
+// NHC CurrentStorms.json updates ~every 2 min, but for our use case
+// 30-min polling is more than adequate and responsible.
+const hurricaneCache = {
+  storms: [],
+  fetchedAt: 0,
+  lastModified: null,
+  error: null,
+};
+
+const NHC_URL  = 'https://www.nhc.noaa.gov/CurrentStorms.json';
+const HU_POLL  = 30 * 60 * 1000; // 30 minutes
+
+async function fetchHurricaneData() {
+  try {
+    const headers = { 'User-Agent': 'pukalanihome-ct108/1.0 (private home monitor; not-for-redistribution)' };
+    if (hurricaneCache.lastModified) headers['If-Modified-Since'] = hurricaneCache.lastModified;
+
+    const res = await axios.get(NHC_URL, { headers, timeout: 15000 });
+    if (res.status === 304) {
+      hurricaneCache.fetchedAt = Date.now();
+      console.log('[nhc] no change (304)');
+      return;
+    }
+    if (res.headers['last-modified']) hurricaneCache.lastModified = res.headers['last-modified'];
+
+    const storms = (res.data.activeStorms || []).map(s => {
+      const lat = s.latitudeNumeric;
+      const lon = s.longitudeNumeric;
+      const distMi = (lat && lon) ? haversineDistance(PUKALANI_LAT, PUKALANI_LON, lat, lon) : null;
+      const bearing = (lat && lon) ? compassBearing(PUKALANI_LAT, PUKALANI_LON, lat, lon) : null;
+      const stormIdUp = s.id.toUpperCase();
+      return {
+        id:           s.id,
+        name:         s.name || s.id,
+        classification: s.classification, // HU, TS, TD
+        intensity:    parseInt(s.intensity) || 0,  // kt
+        pressure:     parseInt(s.pressure) || null, // mb
+        lat, lon,
+        movementDir:  s.movementDir,
+        movementSpeed: s.movementSpeed,
+        lastUpdate:   s.lastUpdate,
+        distanceMi:   distMi ? Math.round(distMi) : null,
+        bearingDeg:   bearing ? Math.round(bearing) : null,
+        threatLevel:  distMi ? threatLevel(distMi) : 'unknown',
+        advisoryUrl:  s.publicAdvisory?.url || null,
+        graphicsUrl:  s.forecastGraphics?.url || null,
+        // NHC public cone PNG (5-day graphic)
+        conePng: `https://www.nhc.noaa.gov/storm_graphics/${stormIdUp}_5day_cone_no_line_and_wind.png`,
+        trackKmz:     s.forecastTrack?.kmzFile || null,
+      };
+    });
+
+    // Sort by distance from Pukalani (closest first; null last)
+    storms.sort((a, b) => {
+      if (a.distanceMi == null) return 1;
+      if (b.distanceMi == null) return -1;
+      return a.distanceMi - b.distanceMi;
+    });
+
+    hurricaneCache.storms    = storms;
+    hurricaneCache.fetchedAt = Date.now();
+    hurricaneCache.error     = null;
+    console.log(`[nhc] fetched ${storms.length} active storms`);
+  } catch (e) {
+    hurricaneCache.error = e.message;
+    console.error('[nhc] fetch failed:', e.message);
+  }
+}
+
+// ── PacIOOS Water Quality + Wave Buoys ───────────────────────────────────
+// Good-citizen policy: ERDDAP is a shared public research server.
+// Cache buoy readings for 6 hours; show up to 12-hour stale data with note.
+const ERDDAP = 'https://pae-paha.pacioos.hawaii.edu/erddap/tabledap';
+const BUOY_POLL_MS  = 6 * 60 * 60 * 1000;   // 6 hours
+const BUOY_STALE_MS = 12 * 60 * 60 * 1000;  // 12 hours — show stale with note
+
+const BUOY_STATIONS = [
+  // ── Water Quality Buoys (PacIOOS ERDDAP: wqb_*) ──────────────────────────
+  // Variables confirmed via /erddap/info/wqb_04/index.json
+  { id: 'wqb_04', name: 'Hilo Bay',     island: 'Big Island',
+    lat: 19.727, lon: -155.058, type: 'wq',
+    vars: 'temperature,salinity,turbidity,chlorophyll,oxygen,ph,time' },
+  { id: 'wqb_05', name: 'Pelekane Bay', island: 'Big Island',
+    lat: 20.040, lon: -155.820, type: 'wq',
+    vars: 'temperature,salinity,turbidity,chlorophyll,oxygen,ph,time' },
+
+  // ── Nearshore Clean Water Branch sensors (NSS CWB) ───────────────────────
+  // Broader Hawaii coverage — check variables per station
+  { id: 'nss_cwb_001', name: 'Waikiki',          island: 'Oahu',
+    lat: 21.274, lon: -157.833, type: 'wq',
+    vars: 'temperature,salinity,turbidity,chlorophyll,time' },
+  { id: 'nss_cwb_003', name: 'Hilo Nearshore',   island: 'Big Island',
+    lat: 19.730, lon: -155.065, type: 'wq',
+    vars: 'temperature,salinity,turbidity,chlorophyll,time' },
+  { id: 'nss_cwb_004', name: 'Kaneohe Bay',       island: 'Oahu',
+    lat: 21.444, lon: -157.805, type: 'wq',
+    vars: 'temperature,salinity,turbidity,chlorophyll,time' },
+];
+
+const buoyCache = {}; // keyed by station id
+
+async function fetchBuoy(station) {
+  try {
+    const url = `${ERDDAP}/${station.id}.json?${station.vars}&time>now-2hours&orderBy(%22time%22)`;
+    const res = await axios.get(url, { timeout: 20000,
+      headers: { 'User-Agent': 'pukalanihome-ct108/1.0 (private home monitor)' } });
+    const { columnNames, rows } = res.data.table;
+    if (!rows || rows.length === 0) throw new Error('no rows');
+    const latest = rows[rows.length - 1];
+    const reading = {};
+    columnNames.forEach((col, i) => { reading[col] = latest[i]; });
+    buoyCache[station.id] = {
+      ...station,
+      reading,
+      fetchedAt: Date.now(),
+      error: null,
+    };
+    console.log(`[buoy] fetched ${station.id} (${station.name})`);
+  } catch (e) {
+    // Keep stale data but mark error
+    if (!buoyCache[station.id]) buoyCache[station.id] = { ...station, reading: null, fetchedAt: 0 };
+    buoyCache[station.id].error = e.message;
+    console.warn(`[buoy] fetch failed: ${station.id} — ${e.message}`);
+  }
+}
+
+async function fetchAllBuoys() {
+  for (let i = 0; i < BUOY_STATIONS.length; i++) {
+    await new Promise(r => setTimeout(r, i * 2000)); // 2s stagger
+    fetchBuoy(BUOY_STATIONS[i]);
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // INIT — call this once from server.js
 // ═══════════════════════════════════════════════════════════════════════════
@@ -814,6 +979,54 @@ function init(app, express) {
   initENSOFetcher();
   initFADFetcher();
   registerRoutes(app, express);
+
+  // ── Hurricane data ────────────────────────────────────────────────
+  fetchHurricaneData();
+  setInterval(fetchHurricaneData, HU_POLL);
+
+  // ── PacIOOS buoys ─────────────────────────────────────────────────
+  fetchAllBuoys();
+  setInterval(fetchAllBuoys, BUOY_POLL_MS);
+
+  // ── GET /api/hurricanes ──────────────────────────────────────────
+  // Returns all active NHC storms with distance/bearing from Pukalani.
+  // Cached 30 min — good citizen policy: do not poll NHC faster than this.
+  app.get('/api/hurricanes', (req, res) => {
+    const staleMs = Date.now() - hurricaneCache.fetchedAt;
+    res.json({
+      storms:     hurricaneCache.storms,
+      fetchedAt:  hurricaneCache.fetchedAt ? new Date(hurricaneCache.fetchedAt).toISOString() : null,
+      staleMinutes: Math.round(staleMs / 60000),
+      isStale:    staleMs > 2 * 60 * 60 * 1000,  // warn after 2h
+      error:      hurricaneCache.error,
+      home:       { lat: PUKALANI_LAT, lon: PUKALANI_LON, name: 'Pukalani, Maui' },
+    });
+  });
+
+  // ── GET /api/pacioos/buoys ───────────────────────────────────────
+  // Returns latest readings from PacIOOS water quality + wave buoys.
+  // Cached 6 hours. Stale data shown up to 12 hours with isStale flag.
+  app.get('/api/pacioos/buoys', (req, res) => {
+    const now = Date.now();
+    const buoys = BUOY_STATIONS.map(station => {
+      const cached = buoyCache[station.id];
+      if (!cached || !cached.fetchedAt) {
+        return { ...station, reading: null, fetchedAt: null, isStale: false, error: 'not yet fetched' };
+      }
+      const ageMs  = now - cached.fetchedAt;
+      const isStale = ageMs > BUOY_STALE_MS;
+      return {
+        ...station,
+        reading:     isStale ? null : cached.reading,  // don't serve data older than 12h
+        fetchedAt:   new Date(cached.fetchedAt).toISOString(),
+        ageMinutes:  Math.round(ageMs / 60000),
+        isStale,
+        error:       cached.error || null,
+      };
+    });
+    res.json({ buoys, servedAt: new Date().toISOString() });
+  });
+
   console.log('[nws] NWS service initialised — good-citizen caching active');
 }
 

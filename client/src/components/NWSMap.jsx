@@ -367,6 +367,218 @@ function DepthLayer({ visible }) {
   return null;
 }
 
+// ── Tropical Storm / Hurricane Layer ─────────────────────────────────────
+// Shows markers for all active NHC storms on both Air and Water maps.
+// Only displays storms within 3000 miles of Hawaii (avoids Atlantic clutter at default zoom).
+function StormLayer({ apiBase, visible }) {
+  const map = useMap();
+  const layerRef = useRef(null);
+
+  useEffect(() => {
+    if (!visible) {
+      layerRef.current?.remove();
+      layerRef.current = null;
+      return;
+    }
+
+    const PUKALANI = [20.8783, -156.6825];
+
+    fetch(`${apiBase}/api/hurricanes`)
+      .then(r => r.json())
+      .then(data => {
+        if (layerRef.current) { layerRef.current.remove(); layerRef.current = null; }
+        layerRef.current = L.layerGroup();
+
+        (data.storms || []).forEach(storm => {
+          if (!storm.lat || !storm.lon) return;
+          if (storm.distanceMi && storm.distanceMi > 3000) return; // skip far Atlantic storms
+
+          const color = storm.intensity >= 64 ? '#ff4500' :
+                        storm.intensity >= 34 ? '#ffd700' : '#87ceeb';
+
+          // Draw line from Pukalani to storm
+          if (storm.distanceMi && storm.distanceMi < 2000) {
+            L.polyline([PUKALANI, [storm.lat, storm.lon]], {
+              color: color, opacity: 0.3, weight: 1, dashArray: '4,6'
+            }).addTo(layerRef.current);
+          }
+
+          // Storm marker
+          const icon = L.divIcon({
+            className: '',
+            html: `<div style="
+              width:36px;height:36px;border-radius:50%;
+              background:${color}22;border:2px solid ${color};
+              display:flex;align-items:center;justify-content:center;
+              font-size:16px;cursor:pointer;
+              box-shadow:0 0 12px ${color}66;
+            ">🌀</div>`,
+            iconSize: [36,36], iconAnchor: [18,18]
+          });
+
+          L.marker([storm.lat, storm.lon], { icon })
+            .bindPopup(`
+              <div style="min-width:200px;font-family:sans-serif">
+                <b style="font-size:15px">🌀 ${storm.name}</b>
+                <div style="color:${color};font-weight:600">${storm.classification} · ${storm.intensity} kt winds</div>
+                <hr style="margin:6px 0;opacity:0.3">
+                <div>📍 Distance: <b>${storm.distanceMi ? storm.distanceMi.toLocaleString() + ' mi' : 'unknown'}</b></div>
+                <div>🧭 Bearing: <b>${storm.bearingDeg ?? '?'}°</b> from Pukalani</div>
+                <div>➡ Moving: <b>${storm.movementSpeed} kt ${storm.movementDir ?? ''}°</b></div>
+                ${storm.advisoryUrl ? `<div style="margin-top:8px"><a href="${storm.advisoryUrl}" target="_blank">📋 Read Advisory ↗</a></div>` : ''}
+              </div>
+            `)
+            .addTo(layerRef.current);
+        });
+
+        layerRef.current.addTo(map);
+      })
+      .catch(e => console.warn('StormLayer fetch error:', e));
+
+    return () => { layerRef.current?.remove(); layerRef.current = null; };
+  }, [visible, apiBase, map]);
+
+  return null;
+}
+
+// ── Ocean Currents Layer (PacIOOS ROMS Hawaii) ────────────────────────────
+// WMS tile overlay showing surface current speed/direction.
+// Source: ROMS Hawaii Island Grid (roms_hiig) via PacIOOS THREDDS.
+// Coverage: 163.8°W–152.5°W, 17°N–24°N (all main Hawaiian islands)
+function CurrentsLayer({ visible }) {
+  const map = useMap();
+  const layerRef = useRef(null);
+
+  useEffect(() => {
+    if (!visible) {
+      layerRef.current?.remove();
+      layerRef.current = null;
+      return;
+    }
+
+    // PacIOOS Near-Real-Time HF Radar Surface Currents
+    // Dataset: hfradar_ushi_2km — actual measured currents (not modeled)
+    // Coverage: Hawaiian Islands, 2km resolution
+    // Update: ~hourly  |  Good citizen: tiles served by PacIOOS CDN
+    const HF_WMS = 'https://pae-paha.pacioos.hawaii.edu/erddap/wms/hfradar_ushi_2km/request';
+    layerRef.current = L.tileLayer.wms(HF_WMS, {
+      layers:      'hfradar_ushi_2km:direction',
+      styles:      '',
+      format:      'image/png',
+      transparent: true,
+      opacity:     0.65,
+      attribution: 'PacIOOS HF Radar — Near Real-Time Surface Currents',
+      // Note: browser caches WMS tiles; PacIOOS CDN designed for this usage
+    }).addTo(map);
+
+    // Overlay speed as a separate layer (speed coloring on top)
+    const speedLayer = L.tileLayer.wms(HF_WMS, {
+      layers:      'hfradar_ushi_2km:speed',
+      styles:      '',
+      format:      'image/png',
+      transparent: true,
+      opacity:     0.45,
+      attribution: '',
+    }).addTo(map);
+
+    // Track speed layer for cleanup
+    const origRemove = layerRef.current.remove.bind(layerRef.current);
+    layerRef.current.remove = () => { origRemove(); speedLayer.remove(); };
+
+    return () => { layerRef.current?.remove(); layerRef.current = null; };
+  }, [visible, map]);
+
+  return null;
+}
+
+// ── PacIOOS Buoy Marker Layer ─────────────────────────────────────────────
+// Shows water quality and wave buoys as clickable map markers.
+// Data sourced from PacIOOS ERDDAP, cached 6h server-side.
+function BuoyMarkerLayer({ apiBase, visible }) {
+  const map = useMap();
+  const layerRef = useRef(null);
+
+  useEffect(() => {
+    if (!visible) {
+      layerRef.current?.remove();
+      layerRef.current = null;
+      return;
+    }
+
+    fetch(`${apiBase}/api/pacioos/buoys`)
+      .then(r => r.json())
+      .then(data => {
+        if (layerRef.current) { layerRef.current.remove(); layerRef.current = null; }
+        layerRef.current = L.layerGroup();
+
+        (data.buoys || []).forEach(buoy => {
+          if (!buoy.lat || !buoy.lon) return;
+
+          const isWave = buoy.type === 'wave';
+          const emoji  = isWave ? '🌊' : '💧';
+          const color  = isWave ? '#38bdf8' : '#34d399';
+          const reading = buoy.reading || {};
+
+          // Reading summary line
+          let readingHtml = '';
+          if (isWave) {
+            const ht  = reading.sea_surface_wave_significant_height;
+            const per = reading.sea_surface_wave_peak_period;
+            const dir = reading.sea_surface_wave_from_direction;
+            const sst = reading.sea_surface_temperature;
+            if (ht != null)  readingHtml += `<div>Wave height: <b>${ht.toFixed(1)} m</b></div>`;
+            if (per != null) readingHtml += `<div>Wave period: <b>${per.toFixed(0)} s</b></div>`;
+            if (dir != null) readingHtml += `<div>Wave direction: <b>${Math.round(dir)}°</b></div>`;
+            if (sst != null) readingHtml += `<div>SST: <b>${sst.toFixed(1)}°C</b></div>`;
+          } else {
+            const temp = reading.sea_water_temperature;
+            const sal  = reading.sea_water_practical_salinity;
+            const turb = reading.turbidity;
+            const chl  = reading.mass_concentration_of_chlorophyll_in_sea_water;
+            if (temp != null) readingHtml += `<div>Temperature: <b>${temp.toFixed(1)}°C</b></div>`;
+            if (sal != null)  readingHtml += `<div>Salinity: <b>${sal.toFixed(1)} PSU</b></div>`;
+            if (turb != null) readingHtml += `<div>Turbidity: <b>${turb.toFixed(1)} NTU</b></div>`;
+            if (chl != null)  readingHtml += `<div>Chlorophyll: <b>${chl.toFixed(2)} µg/L</b></div>`;
+          }
+
+          const staleNote = buoy.isStale ? '<div style="color:#f97316;margin-top:6px">⚠ Data may be stale</div>' : '';
+          const ageNote   = buoy.ageMinutes ? `<div style="color:#888;font-size:11px">Updated ${buoy.ageMinutes}m ago</div>` : '';
+
+          const icon = L.divIcon({
+            className: '',
+            html: `<div style="
+              width:28px;height:28px;border-radius:50%;
+              background:${color}22;border:2px solid ${color};
+              display:flex;align-items:center;justify-content:center;
+              font-size:13px;cursor:pointer;
+            ">${emoji}</div>`,
+            iconSize: [28,28], iconAnchor: [14,14]
+          });
+
+          L.marker([buoy.lat, buoy.lon], { icon })
+            .bindPopup(`
+              <div style="min-width:180px;font-family:sans-serif">
+                <b>${emoji} ${buoy.name}</b>
+                <div style="color:#888;font-size:12px">${buoy.island} · ${isWave ? 'Wave Buoy' : 'Water Quality Buoy'}</div>
+                <hr style="margin:6px 0;opacity:0.3">
+                ${readingHtml || '<div style="color:#888">No data available</div>'}
+                ${ageNote}${staleNote}
+                <div style="margin-top:8px;font-size:11px;color:#888">PacIOOS / ${buoy.id}</div>
+              </div>
+            `)
+            .addTo(layerRef.current);
+        });
+
+        layerRef.current.addTo(map);
+      })
+      .catch(e => console.warn('BuoyMarkerLayer error:', e));
+
+    return () => { layerRef.current?.remove(); layerRef.current = null; };
+  }, [visible, apiBase, map]);
+
+  return null;
+}
+
 // ── Sidebar helpers ────────────────────────────────────────────────────
 function LayerGroup({ label, children }) {
   return (
@@ -402,6 +614,12 @@ export default function NWSMap({ apiBase, subtab = 'air' }) {
   const [showSST,     setShowSST]     = useState(false);
   const [showWaves,   setShowWaves]   = useState(false);
 
+  // Shared layers (visible on both Air and Water)
+  const [showStorms,   setShowStorms]   = useState(true);   // show by default — always good to know
+
+  // New Water-only layers
+  const [showCurrents, setShowCurrents] = useState(false);
+  const [showBuoys,    setShowBuoys]    = useState(true);   // buoys default on
 
 
   return (
@@ -412,6 +630,9 @@ export default function NWSMap({ apiBase, subtab = 'air' }) {
         <div className="nws-map-sidebar">
           {subtab === 'air' && (
             <>
+              <LayerGroup label="Weather Systems">
+                <LayerToggle id="nws-storms" label="🌀 Tropical Storms" checked={showStorms} onChange={e => setShowStorms(e.target.checked)} />
+              </LayerGroup>
               <LayerGroup label="Observations">
                 <LayerToggle id="nws-obs"    label="NWS Station Obs"  checked={showObs}    onChange={e => setShowObs(e.target.checked)} />
                 <LayerToggle id="nws-alerts" label="Active Alerts"    checked={showAlerts} onChange={e => setShowAlerts(e.target.checked)} />
@@ -423,10 +644,17 @@ export default function NWSMap({ apiBase, subtab = 'air' }) {
           )}
           {subtab === 'water' && (
             <>
+              <LayerGroup label="Weather Systems">
+                <LayerToggle id="nws-storms-water" label="🌀 Tropical Storms" checked={showStorms} onChange={e => setShowStorms(e.target.checked)} />
+              </LayerGroup>
               <LayerGroup label="Fishing">
                 <LayerToggle id="nws-fads"    label="FAD Locations"    checked={showFADs}   onChange={e => setShowFADs(e.target.checked)} />
               </LayerGroup>
               <LayerGroup label="Navigation">
+              </LayerGroup>
+              <LayerGroup label="Currents &amp; Buoys">
+                <LayerToggle id="nws-currents" label="🌊 Ocean Currents" checked={showCurrents} onChange={e => setShowCurrents(e.target.checked)} />
+                <LayerToggle id="nws-buoys"    label="💧 Water Quality Buoys" checked={showBuoys} onChange={e => setShowBuoys(e.target.checked)} />
               </LayerGroup>
               <LayerGroup label="Ocean Data">
                 <LayerToggle id="nws-depth" label="Depth (GEBCO)"     checked={showDepth}  onChange={e => setShowDepth(e.target.checked)} />
@@ -456,6 +684,9 @@ export default function NWSMap({ apiBase, subtab = 'air' }) {
             maxZoom={19}
           />
 
+          {/* ── Shared layers (both Air & Water) ── */}
+          <StormLayer apiBase={apiBase} visible={showStorms} />
+
           {/* ── AIR layers ── */}
           <NWSObsLayer   apiBase={apiBase} visible={subtab === 'air' && showObs} />
           <AlertsLayer   apiBase={apiBase} visible={subtab === 'air' && showAlerts} />
@@ -466,6 +697,10 @@ export default function NWSMap({ apiBase, subtab = 'air' }) {
           <DepthLayer      visible={subtab === 'water' && showDepth} />
           <SSTLayer        visible={subtab === 'water' && showSST} />
           <WaveHeightLayer visible={subtab === 'water' && showWaves} />
+
+          {/* ── Additional WATER layers ── */}
+          <CurrentsLayer visible={subtab === 'water' && showCurrents} />
+          <BuoyMarkerLayer apiBase={apiBase} visible={subtab === 'water' && showBuoys} />
         </MapContainer>
       </div>
     </div>
