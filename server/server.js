@@ -182,21 +182,60 @@ app.get('/api/vessels', async (req, res) => {
 
 
 
-// --- Trails: last N minutes for a single entity ---
-// Aircraft default: 10 min  |  Vessels default: 60 min (slower moving)
+// --- Trails: today (Hawaii time) or last N minutes for a single entity ---
+//
+//   ?today=true        → from midnight Hawaii time today (default for all clients)
+//   ?minutes=N         → last N minutes (legacy, max 720)
+//   ?session=true      → since first detection this DB session (first recorded_at today)
+//
+// Hawaii timezone: Pacific/Honolulu = UTC-10 (no DST)
 app.get('/api/trails/:id', async (req, res) => {
   try {
-    const minutes = Math.min(parseInt(req.query.minutes || '10'), 120);
-    const result = await pool.query(`
-      SELECT
-        ST_X(location::geometry) as lon,
-        ST_Y(location::geometry) as lat,
-        altitude, speed, heading, recorded_at
-      FROM live_tracks
-      WHERE entity_id = $1
-        AND recorded_at > NOW() - ($2 || ' minutes')::INTERVAL
-      ORDER BY recorded_at ASC;
-    `, [req.params.id, minutes]);
+    let result;
+
+    if (req.query.today === 'true' || (!req.query.minutes && !req.query.session)) {
+      // Default: everything from midnight Hawaii time today
+      result = await pool.query(`
+        SELECT
+          ST_X(location::geometry) as lon,
+          ST_Y(location::geometry) as lat,
+          altitude, speed, heading, recorded_at
+        FROM live_tracks
+        WHERE entity_id = $1
+          AND recorded_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Pacific/Honolulu')
+                              AT TIME ZONE 'Pacific/Honolulu'
+        ORDER BY recorded_at ASC;
+      `, [req.params.id]);
+
+    } else if (req.query.session === 'true') {
+      // Since first detection today (same as today but semantically cleaner)
+      result = await pool.query(`
+        SELECT
+          ST_X(location::geometry) as lon,
+          ST_Y(location::geometry) as lat,
+          altitude, speed, heading, recorded_at
+        FROM live_tracks
+        WHERE entity_id = $1
+          AND recorded_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Pacific/Honolulu')
+                              AT TIME ZONE 'Pacific/Honolulu'
+        ORDER BY recorded_at ASC;
+      `, [req.params.id]);
+
+    } else {
+      // Legacy minutes mode (max 720 = 12 hours)
+      const minutes = Math.min(parseInt(req.query.minutes || '60'), 720);
+      result = await pool.query(`
+        SELECT
+          ST_X(location::geometry) as lon,
+          ST_Y(location::geometry) as lat,
+          altitude, speed, heading, recorded_at
+        FROM live_tracks
+        WHERE entity_id = $1
+          AND recorded_at > NOW() - ($2 || ' minutes')::INTERVAL
+        ORDER BY recorded_at ASC;
+      `, [req.params.id, minutes]);
+    }
+
     res.json(result.rows);
   } catch (err) {
     console.error('trails query error:', err.message);
