@@ -3,6 +3,7 @@ const nwsService = require('./nws-service');
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
+const knownEntities = require('./known-entities-service');
 const axios = require('axios');
 
 const app = express();
@@ -170,7 +171,10 @@ app.get('/api/vessels', async (req, res) => {
       ORDER BY lt.entity_id, lt.recorded_at DESC;
     `, [HOME_LON, HOME_LAT, RANGE_M]);
     // Record sightings for all active vessels
-    result.rows.forEach(v => recordVesselSighting(String(v.entity_id), v.vessel_name).catch(()=>{}));
+    result.rows.forEach(v => {
+      recordVesselSighting(String(v.entity_id), v.vessel_name).catch(()=>{});
+      if (v.lat && v.lon) recordVesselTrackPoint(String(v.entity_id), v.lat, v.lon, v.speed, v.heading).catch(()=>{});
+    });
     res.json(result.rows);
   } catch (err) {
     console.error('vessels query error:', err.message);
@@ -764,6 +768,19 @@ async function recordVesselSighting(mmsi, vesselName) {
   }
 }
 
+async function recordVesselTrackPoint(mmsi, lat, lon, speed, heading) {
+  if (!mmsi || lat == null || lon == null) return;
+  if (typeof recordTrackPoint !== 'function') return;
+  try {
+    const { rows } = await pool.query(
+      `SELECT 1 FROM vessel_info WHERE mmsi=$1 AND (auto_detected OR is_pinned) LIMIT 1`, [mmsi]
+    );
+    if (rows.length) {
+      await recordTrackPoint(pool, 'vessel', String(mmsi), lat, lon, null, speed, heading);
+    }
+  } catch {}
+}
+
 // ── GET vessel local knowledge ────────────────────────────────────────────
 app.get('/api/vessel-info/:mmsi', async (req, res) => {
   try {
@@ -889,7 +906,8 @@ async function recordAircraftSighting(icaoHex, registration, aircraftType) {
       // Update seen_days count
       await pool.query(`
         UPDATE aircraft_info SET
-          seen_days = (SELECT COUNT(DISTINCT seen_day) FROM aircraft_sightings WHERE icao_hex = $1)
+          seen_days = (SELECT COUNT(DISTINCT seen_day) FROM aircraft_sightings WHERE icao_hex = $1),
+          auto_detected = ((SELECT COUNT(DISTINCT seen_day) FROM aircraft_sightings WHERE icao_hex = $1) >= 3)
         WHERE icao_hex = $1
       `, [icaoHex]);
     }
@@ -982,6 +1000,16 @@ app.get('/api/aircraft-info/:icao/seen-days', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// Known Entities / Frequent Visitors service
+const multer_ke = require('multer');
+const path_ke   = require('path');
+const fs_ke     = require('fs');
+let recordTrackPoint = null;
+try {
+  const ke = knownEntities.init(app, pool, express, multer_ke, path_ke, fs_ke);
+  recordTrackPoint = ke.recordTrackPoint;
+} catch(e) { console.error('[known-entities] init error:', e.message); }
 
 // NWS/NOAA caching service
 nwsService.init(app, express);

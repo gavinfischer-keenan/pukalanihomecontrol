@@ -32,6 +32,9 @@ import MapEventTracker    from './components/MapEventTracker';
 import Legend             from './components/Legend';
 import ErrorBoundary      from './components/ErrorBoundary';
 // NWS/NOAA is a fully separate app at /nws/ — no imports here
+import FrequentVisitorsSidebar from './components/FrequentVisitorsSidebar';
+import RouteCorridorLayer from './components/RouteCorridorLayer';
+import FlightRouteLayer from './components/FlightRouteLayer';
 
 const OAHU_CENTER = [21.3069, -157.8583];
 const HOME_BASE   = { lat: 21.2861516, lon: -157.7935187, label: '3786 Pukalani Pl' };
@@ -155,6 +158,8 @@ function App() {
   const [radarFrameIdx,  setRadarFrameIdx]  = useState(0);
   const [radarAnimating, setRadarAnimating] = useState(false);
   const [radarHost,      setRadarHost]      = useState('');
+  const [showFrequentSidebar,    setShowFrequentSidebar]    = useState(false);
+  const [selectedFrequentEntity, setSelectedFrequentEntity] = useState(null);
 
   const buoys      = usePollWhenEnabled(`${API_BASE}/api/buoys`,       60000,  layers.surf?.enabled);
   const tides      = usePollWhenEnabled(`${API_BASE}/api/tides`,       120000, layers.tides.enabled);
@@ -350,6 +355,34 @@ function App() {
           </ErrorBoundary>
         )}
       </MapContainer>
+
+      {/* ── Frequent Visitors sidebar ── */}
+      <FrequentVisitorsSidebar
+        apiBase={API_BASE}
+        visible={showFrequentSidebar}
+        onClose={() => setShowFrequentSidebar(false)}
+        onSelectEntity={setSelectedFrequentEntity}
+      />
+
+      {/* ── Frequent Visitors toggle button ── */}
+      <button
+        onClick={() => setShowFrequentSidebar(v => !v)}
+        title="Frequent Visitors"
+        style={{
+          position: 'fixed', bottom: '120px', right: '12px', zIndex: 2000,
+          background: showFrequentSidebar ? 'rgba(139,92,246,0.85)' : 'rgba(10,10,20,0.80)',
+          border: '1px solid rgba(139,92,246,0.5)',
+          borderRadius: '8px', color: '#fff',
+          padding: '8px 12px', cursor: 'pointer',
+          fontSize: '13px', fontWeight: 600,
+          backdropFilter: 'blur(8px)',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+          transition: 'all 0.2s',
+          display: 'flex', alignItems: 'center', gap: '6px',
+        }}
+      >
+        👥 <span style={{fontSize:'11px'}}>Frequent<br/>Visitors</span>
+      </button>
 
       {/* ── Floating panels ── */}
       <SunMoonPanel    visible={layers.sunMoon?.enabled} />

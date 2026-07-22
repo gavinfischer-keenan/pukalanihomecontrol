@@ -458,3 +458,174 @@ The integrated vessel/aircraft tracking map (`/`) had several features that made
 *Part of: Pukalani Home Control Architecture Documentation Suite*
 *Repository: https://github.com/gavinfischer-keenan/pukalanihomecontrol*
 *Last updated: 2026-07-22 — Bathymetry + vessel map session*
+
+---
+
+## [2026-07-22] Frequent Visitors System — Phase 1 Complete
+
+### Overview
+Added a persistent "Frequent Visitors" tracking system for both vessels and aircraft. The system auto-detects entities seen on 3+ distinct calendar days and surfaces them in a collapsible right-side panel on the main map. Users can also manually pin any vessel or aircraft.
+
+### Database Changes (CT104 — tracking_db)
+
+**Extended existing tables:**
+```sql
+-- vessel_info additions
+ALTER TABLE vessel_info ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT false;
+ALTER TABLE vessel_info ADD COLUMN IF NOT EXISTS friendly_name TEXT;
+ALTER TABLE vessel_info ADD COLUMN IF NOT EXISTS auto_detected BOOLEAN DEFAULT false;
+
+-- aircraft_info additions  
+ALTER TABLE aircraft_info ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN DEFAULT false;
+ALTER TABLE aircraft_info ADD COLUMN IF NOT EXISTS friendly_name TEXT;
+ALTER TABLE aircraft_info ADD COLUMN IF NOT EXISTS auto_detected BOOLEAN DEFAULT false;
+ALTER TABLE aircraft_info ADD COLUMN IF NOT EXISTS description TEXT;
+```
+
+**New tables:**
+```sql
+-- entity_schedule: Auto-detected OR manually set schedule patterns
+CREATE TABLE entity_schedule (
+  entity_type TEXT NOT NULL CHECK (entity_type IN ('vessel','aircraft')),
+  identifier  TEXT NOT NULL,        -- MMSI for vessels, ICAO hex for aircraft
+  source      TEXT DEFAULT 'auto',  -- 'auto' or 'manual' (manual wins in updates)
+  days_of_week INTEGER[],           -- e.g. [0,6] = weekends
+  days_label  TEXT,                 -- e.g. 'Weekends only'
+  arrival_hour SMALLINT,
+  depart_hour  SMALLINT,
+  time_label  TEXT,                 -- e.g. 'morning arrival, evening departure'
+  confidence  REAL DEFAULT 0,
+  obs_count   INTEGER DEFAULT 0,
+  updated_at  TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(entity_type, identifier)
+);
+
+-- entity_photos: Multiple photos per vessel/aircraft (replaces single photo_url string)
+CREATE TABLE entity_photos (
+  id            SERIAL PRIMARY KEY,
+  entity_type   TEXT NOT NULL,
+  identifier    TEXT NOT NULL,
+  filename      TEXT NOT NULL,
+  display_order INTEGER DEFAULT 0,
+  caption       TEXT,
+  uploaded_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- entity_track_history: GPS track history for corridor overlay display
+-- Only stored for auto_detected or is_pinned entities
+-- Retention: unlimited for pinned, 90 days for auto-detected, 7 days for unknown
+CREATE TABLE entity_track_history (
+  id           BIGSERIAL PRIMARY KEY,
+  entity_type  TEXT NOT NULL,
+  identifier   TEXT NOT NULL,
+  track_session UUID NOT NULL,  -- groups a single trip together
+  lat          DOUBLE PRECISION NOT NULL,
+  lon          DOUBLE PRECISION NOT NULL,
+  altitude     INTEGER,         -- feet for aircraft, NULL for vessels
+  speed        REAL,
+  heading      SMALLINT,
+  recorded_at  TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX eth_lookup ON entity_track_history(entity_type, identifier, recorded_at DESC);
+CREATE INDEX eth_session ON entity_track_history(track_session, recorded_at);
+
+-- flight_routes: Cache of commercial flight number -> origin/destination
+-- Fetched once from OpenSky Network and stored forever. Only fetched when a
+-- new, never-seen-before flight number appears on a selected aircraft.
+CREATE TABLE flight_routes (
+  flight_number TEXT NOT NULL UNIQUE,
+  airline_name  TEXT,
+  origin_iata   TEXT,        -- e.g. 'HNL'
+  dest_iata     TEXT,
+  origin_lat    DOUBLE PRECISION,
+  origin_lon    DOUBLE PRECISION,
+  dest_lat      DOUBLE PRECISION,
+  dest_lon      DOUBLE PRECISION,
+  fetched_at    TIMESTAMPTZ DEFAULT NOW(),
+  source        TEXT         -- 'opensky' | 'manual'
+);
+```
+
+### Existing Tables Used (confirmed working before this change)
+- `vessel_sightings (mmsi, seen_day)` — day-level vessel sighting calendar
+- `vessel_info (mmsi PK, vessel_name, ..., seen_days)` — persistent vessel knowledge
+- `aircraft_sightings (icao_hex, seen_day)` — day-level aircraft sighting calendar
+- `aircraft_sighting_counts (icao_hex, sighting_count, ...)` — raw count tracker
+- `aircraft_info (icao_hex PK, registration, aircraft_type, ..., seen_days)` — persistent aircraft knowledge
+- Both `recordVesselSighting()` and `recordAircraftSighting()` were already running in production
+
+**Initial data counts at migration time:** 24 known vessels (auto_detected), 0 aircraft (sightings not yet meeting 3-day threshold in current schema)
+
+### Backend: known-entities-service.js (CT108)
+
+New service module at `/opt/dashboard/server/known-entities-service.js`.
+
+**API endpoints added:**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/known-entities` | Unified list of all frequent/pinned vessels + aircraft |
+| GET | `/api/known-entities/:type/:id` | Single entity detail with photos and schedule |
+| GET | `/api/known-entities/:type/:id/track-history` | Historical GPS sessions for corridor overlay |
+| POST | `/api/known-entities/:type/:id/photos` | Upload photo (multipart) |
+| DELETE | `/api/known-entities/:type/:id/photos/:photoId` | Delete photo |
+| PUT | `/api/known-entities/:type/:id/photos/reorder` | Reorder photos |
+| PUT | `/api/vessel-info/:mmsi` | Update vessel metadata, pin, friendly name |
+| PUT | `/api/aircraft-info/:icao` | Update aircraft metadata, pin, friendly name |
+| PUT | `/api/entity-schedule/:type/:id` | Manual schedule override |
+| GET | `/api/flight-route/:flightNumber` | Cached commercial route lookup |
+| POST | `/api/flight-route` | Manual route entry |
+
+**Background jobs:**
+- Every 4 hours: promote vessels/aircraft with seen_days >= 3 to `auto_detected = true`
+- Daily at 03:00 HST: run schedule pattern analysis + track history prune
+- Track history retention enforced by nightly prune:
+  - Pinned entities: unlimited retention
+  - Auto-detected (not pinned): 90 days
+  - Unknown: 7 days
+
+**Good citizen policy:** Flight routes fetched from OpenSky Network once per flight number, cached forever. Never polled repeatedly.
+
+**Track sessions:** In-memory Map tracks `{entityType}:{identifier}` -> `{sessionId UUID, lastAt}`. Session UUID resets after 30-minute position gap, allowing distinct trip sessions to be stored separately.
+
+**Photo uploads:** Multi-photo support via `entity_photos` table. Files stored at `/opt/dashboard/uploads/entities/{type}/{identifier}/{timestamp}.jpg`.
+
+### Frontend Components (CT108)
+
+**FrequentVisitorsSidebar.jsx** — Collapsible right-side panel:
+- Fetches `/api/known-entities` every 5 minutes
+- Filter tabs: All / Aircraft / Vessels
+- Search by name or friendly_name
+- Sort: pinned ⭐ first, then auto-detected 🤖, then by last_seen
+- Each row: emoji icon, badges, seen_days count, schedule pattern labels, relative last_seen time, thumbnail
+- Bottom: PinForm to manually pin any MMSI/ICAO hex
+- Collapse/expand via chevron button
+- Toggle via floating "👥 Frequent Visitors" button (bottom-right of map)
+
+**RouteCorridorLayer.jsx** — Historical GPS track overlay:
+- When an entity is selected from the sidebar, fetches all 90-day GPS session history
+- Renders each session as a translucent polyline (green for vessels, blue for aircraft)
+- Custom Leaflet pane `routeCorridorPane` at z-index 350 (below markers)
+- Shows "📍 Route history: N tracks" info control
+- Capped at 150 sessions for performance
+
+**FlightRouteLayer.jsx** — Commercial flight route arc:
+- When a commercial aircraft (with flight number in callsign) is selected, fetches cached route
+- Draws 60-point great-circle arc between origin and destination airports
+- Dashed amber polyline (`#ff9f1c`) with IATA code labels at endpoints
+- Route data cached in component memory to avoid repeat API calls
+
+### Replication Guide (for California deployment)
+
+To replicate the Frequent Visitors system in a new location:
+
+1. **Run the same DB migration** — the schema is location-independent. Tables are already defined above.
+2. **Populate flight_routes manually** for local commercial flights, OR let OpenSky Network auto-populate on first selection of each flight number.
+3. **Aircraft threshold:** The 3-day threshold for `auto_detected` fires automatically once the aircraft sightings calendar fills. No location-specific configuration needed.
+4. **Airport coordinates:** Add any California-area airports to the `AIRPORT_COORDS` map in `known-entities-service.js` for flight route arc display:
+   ```javascript
+   SFO: [37.6213, -122.3790], OAK: [37.7213, -122.2208],
+   SJC: [37.3626, -121.9290], SMF: [38.6954, -121.5908],
+   LAX: [33.9425, -118.4081],  // already included
+   ```
+5. **Upload directory:** Change `ENTITY_PHOTOS_DIR` if desired. Default: `/opt/dashboard/uploads/entities/`.
