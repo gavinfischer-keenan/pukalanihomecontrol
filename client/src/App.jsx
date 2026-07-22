@@ -32,7 +32,6 @@ import ForecastPanel      from './components/ForecastPanel';
 import EcowittLayer, { EcowittFloatingPanel } from './components/EcowittLayer';
 import MapEventTracker    from './components/MapEventTracker';
 import Legend             from './components/Legend';
-import AlertsPage         from './components/AlertsPage';
 import ErrorBoundary      from './components/ErrorBoundary';
 // NWS/NOAA is a fully separate app at /nws/ — no imports here
 
@@ -156,7 +155,6 @@ function App() {
   const [tideStation,    setTideStation]    = useState(null);
   const [layers, setLayers] = useState(DEFAULT_LAYERS);
   const [airportSettings,setAirportSettings]= useState(DEFAULT_AIRPORTS);
-  const [showAlerts,     setShowAlerts]     = useState(false);
   const [showLabels,     setShowLabels]     = useState(true);
   const [showLegend,     setShowLegend]     = useState(false);
   const [mapBounds,      setMapBounds]      = useState(null);
@@ -406,39 +404,7 @@ function App() {
         onToggleAirport={toggleAirport}
       />
 
-      {/* Alerts overlay */}
 
-      {showAlerts && <AlertsPage onClose={() => setShowAlerts(false)} />}
-
-      {/* Alerts trigger button — fixed bottom-left */}
-      {!showAlerts && (
-        <button
-          onClick={() => setShowAlerts(true)}
-          style={{
-            position: 'fixed',
-            bottom: '36px',
-            left: '12px',
-            zIndex: 1500,
-            background: 'rgba(0,15,35,0.92)',
-            border: '1px solid rgba(244,67,54,0.5)',
-            borderRadius: '10px',
-            color: '#ef5350',
-            cursor: 'pointer',
-            fontSize: '13px',
-            fontWeight: '700',
-            padding: '8px 16px',
-            letterSpacing: '1px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            transition: 'all 0.15s',
-            fontFamily: 'inherit',
-          }}
-          title="Open Alerts &amp; Advisories"
-        >
-          🚨 ALERTS
-        </button>
-      )}
 
       <Legend 
         aircraft={layers.aircraft.enabled ? aircraft : []} 
