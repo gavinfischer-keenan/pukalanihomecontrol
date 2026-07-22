@@ -260,108 +260,7 @@ function FADLayer({ apiBase, visible }) {
   return null;
 }
 
-// ── Harbor Approaches Layer ───────────────────────────────────────────
-function HarborLayer({ apiBase, visible }) {
-  const map = useMap();
-  const layerRef = useRef(null);
 
-  useEffect(() => {
-    if (!visible) {
-      layerRef.current?.remove();
-      layerRef.current = null;
-      return;
-    }
-
-    fetch(`${apiBase}/static/harbor_approaches.geojson`)
-      .then(r => r.json())
-      .then(data => {
-        layerRef.current?.remove();
-        layerRef.current = L.geoJSON(data, {
-          style: f => ({
-            color:   f.properties?.color || '#0077ff',
-            weight:  3,
-            opacity: 0.85,
-            dashArray: f.properties?.type === 'restricted' ? '6,4' : null,
-          }),
-          onEachFeature: (f, l) => {
-            const p = f.properties || {};
-            l.bindPopup(`
-              <div class="nws-popup">
-                <div class="nws-popup-title">⚓ ${p.name || 'Harbor'}</div>
-                <div class="nws-popup-row"><span class="nws-popup-label">Island</span><span class="nws-popup-value">${p.island || ''}</span></div>
-                <div class="nws-popup-row"><span class="nws-popup-label">Type</span><span class="nws-popup-value">${p.type || ''}</span></div>
-                ${p.note ? `<div class="nws-popup-desc">${p.note}</div>` : ''}
-              </div>
-            `);
-          },
-        }).addTo(map);
-      })
-      .catch(e => console.warn('HarborLayer error:', e));
-
-    return () => { layerRef.current?.remove(); layerRef.current = null; };
-  }, [visible, apiBase, map]);
-
-  return null;
-}
-
-// ── Trade Routes Layer ────────────────────────────────────────────────
-function TradeRouteLayer({ apiBase, visible, enabledRoutes, setEnabledRoutes, onRoutesLoaded }) {
-  const map = useMap();
-  const layerRef = useRef({});
-  const [allRoutes, setAllRoutes] = useState([]);
-
-  useEffect(() => {
-    fetch(`${apiBase}/static/trade_routes.geojson`)
-      .then(r => r.json())
-      .then(data => {
-        const features = data?.features || [];
-        setAllRoutes(features);
-        onRoutesLoaded?.(features);
-        const init = {};
-        features.forEach((f, i) => {
-          const id = f.properties?.id || String(i);
-          init[id] = true;
-        });
-        setEnabledRoutes(prev => ({ ...init, ...prev }));
-      })
-      .catch(e => console.warn('TradeRouteLayer load error:', e));
-  }, [apiBase, onRoutesLoaded, setEnabledRoutes]);
-
-  useEffect(() => {
-    // Remove all existing route layers
-    Object.values(layerRef.current).forEach(l => l.remove());
-    layerRef.current = {};
-
-    if (!visible || !allRoutes.length) return;
-
-    allRoutes.forEach((feature, i) => {
-      const p     = feature.properties || {};
-      const id    = p.id || String(i);
-      const color = p.color || '#2196F3';
-      const weight = p.weight || 2;
-
-      if (enabledRoutes[id] === false) return;
-
-      const layer = L.geoJSON(feature, {
-        style: { color, weight, opacity: 0.75 },
-        onEachFeature: (f, l) => {
-          const fp = f.properties || {};
-          l.bindPopup(`
-            <div class="nws-popup">
-              <div class="nws-popup-title">🚢 ${fp.name || 'Trade Route'}</div>
-              ${fp.operators    ? `<div class="nws-popup-row"><span class="nws-popup-label">Operators</span><span class="nws-popup-value">${fp.operators}</span></div>` : ''}
-              ${fp.vessel_types ? `<div class="nws-popup-row"><span class="nws-popup-label">Vessels</span><span class="nws-popup-value">${fp.vessel_types}</span></div>` : ''}
-            </div>
-          `);
-        },
-      }).addTo(map);
-      layerRef.current[id] = layer;
-    });
-  }, [visible, allRoutes, enabledRoutes, map]);
-
-  useEffect(() => () => { Object.values(layerRef.current).forEach(l => l.remove()); }, []);
-  return null;
-}
 
 // ── PacIOOS ROMS Sea Surface Temperature ─────────────────────────────
 // Source: gavinfischer-keenan/Hawaii repo — roms_hiig, layer 'temp', colorscalerange 24-28°C
@@ -431,8 +330,9 @@ function WaveHeightLayer({ visible }) {
   return null;
 }
 
-// ── GEBCO Bathymetry Depth Tiles ──────────────────────────────────────
-// GEBCO is a free, global ocean depth tileserver — works reliably
+// ── Ocean Depth / Bathymetry Overlay ──────────────────────────────────
+// Uses Esri Ocean Reference (depth contours, labels, seafloor features)
+// rendered in a custom pane above the base map tiles
 function DepthLayer({ visible }) {
   const map = useMap();
   const layerRef = useRef(null);
@@ -444,12 +344,20 @@ function DepthLayer({ visible }) {
       return;
     }
 
+    // Create a custom pane above tilePane (z-index 200) but below overlayPane (400)
+    if (!map.getPane('depthPane')) {
+      const pane = map.createPane('depthPane');
+      pane.style.zIndex = 250;
+      pane.style.pointerEvents = 'none';
+    }
+
     layerRef.current = L.tileLayer(
-      'https://tiles.gebco.net/tiles/gebco_latest/{z}/{x}/{y}.png',
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Reference/MapServer/tile/{z}/{y}/{x}',
       {
-        opacity:     0.55,
-        attribution: '<a href="https://www.gebco.net/">GEBCO</a>',
-        maxZoom:     10,
+        pane:        'depthPane',
+        opacity:     0.85,
+        attribution: 'Depth contours &copy; Esri',
+        maxZoom:     13,
       }
     ).addTo(map);
 
@@ -490,16 +398,11 @@ export default function NWSMap({ apiBase, subtab = 'air' }) {
 
   // WATER layer toggles
   const [showFADs,    setShowFADs]    = useState(true);
-  const [showHarbor,  setShowHarbor]  = useState(true);
-  const [showRoutes,  setShowRoutes]  = useState(true);
   const [showDepth,   setShowDepth]   = useState(false);
   const [showSST,     setShowSST]     = useState(false);
   const [showWaves,   setShowWaves]   = useState(false);
 
-  const [enabledRoutes, setEnabledRoutes] = useState({});
-  const [routeFeatures, setRouteFeatures] = useState([]);
 
-  const handleRoutesLoaded = useCallback((features) => setRouteFeatures(features), []);
 
   return (
     <div className="nws-map-container">
@@ -524,8 +427,6 @@ export default function NWSMap({ apiBase, subtab = 'air' }) {
                 <LayerToggle id="nws-fads"    label="FAD Locations"    checked={showFADs}   onChange={e => setShowFADs(e.target.checked)} />
               </LayerGroup>
               <LayerGroup label="Navigation">
-                <LayerToggle id="nws-harbor" label="Harbor Approaches" checked={showHarbor} onChange={e => setShowHarbor(e.target.checked)} />
-                <LayerToggle id="nws-routes" label="Trade Routes"      checked={showRoutes} onChange={e => setShowRoutes(e.target.checked)} />
               </LayerGroup>
               <LayerGroup label="Ocean Data">
                 <LayerToggle id="nws-depth" label="Depth (GEBCO)"     checked={showDepth}  onChange={e => setShowDepth(e.target.checked)} />
@@ -562,43 +463,10 @@ export default function NWSMap({ apiBase, subtab = 'air' }) {
 
           {/* ── WATER layers ── */}
           <FADLayer    apiBase={apiBase} visible={subtab === 'water' && showFADs} />
-          <HarborLayer apiBase={apiBase} visible={subtab === 'water' && showHarbor} />
-          <TradeRouteLayer
-            apiBase={apiBase}
-            visible={subtab === 'water' && showRoutes}
-            enabledRoutes={enabledRoutes}
-            setEnabledRoutes={setEnabledRoutes}
-            onRoutesLoaded={handleRoutesLoaded}
-          />
           <DepthLayer      visible={subtab === 'water' && showDepth} />
           <SSTLayer        visible={subtab === 'water' && showSST} />
           <WaveHeightLayer visible={subtab === 'water' && showWaves} />
         </MapContainer>
-
-        {/* Right panel: per-route toggles */}
-        {subtab === 'water' && showRoutes && routeFeatures.length > 0 && (
-          <div className="nws-route-panel">
-            <div className="nws-route-panel-label">Routes</div>
-            {routeFeatures.map((f, i) => {
-              const p     = f.properties || {};
-              const id    = p.id || String(i);
-              const name  = p.name || `Route ${i + 1}`;
-              const color = p.color || '#29b6f6';
-              const checked = enabledRoutes[id] !== false;
-              return (
-                <label key={id} className="nws-route-item">
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={e => setEnabledRoutes(prev => ({ ...prev, [id]: e.target.checked }))}
-                  />
-                  <div className="nws-route-swatch" style={{ background: color }} />
-                  <span className="nws-route-name">{name}</span>
-                </label>
-              );
-            })}
-          </div>
-        )}
       </div>
     </div>
   );

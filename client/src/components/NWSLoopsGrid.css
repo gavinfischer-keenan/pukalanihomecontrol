@@ -1,0 +1,186 @@
+/* ═══════════════════════════════════════════════════════════
+   NWS Loops Grid — Sidebar + Viewer Layout
+   ═══════════════════════════════════════════════════════════ */
+
+.nlg-root {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+  gap: 1px;
+  background: rgba(255,255,255,0.04);
+}
+
+/* ── Status (loading/error) ────────────────────────────── */
+.nlg-status {
+  padding: 2rem;
+  text-align: center;
+  color: rgba(255,255,255,0.5);
+  font-size: 0.85rem;
+}
+.nlg-error {
+  color: #ef5350;
+}
+
+/* ── Sidebar ───────────────────────────────────────────── */
+.nlg-sidebar {
+  width: 340px;
+  min-width: 280px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(0,0,0,0.2);
+  overflow: hidden;
+}
+.nlg-sidebar-title {
+  padding: 0.75rem 1rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.35);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+.nlg-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+/* ── Loop item (button) ────────────────────────────────── */
+.nlg-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+}
+.nlg-item:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.12);
+}
+.nlg-item.active {
+  background: linear-gradient(135deg, rgba(41,182,246,0.12), rgba(41,182,246,0.04));
+  border-color: rgba(41,182,246,0.35);
+  box-shadow: 0 0 12px rgba(41,182,246,0.08);
+}
+.nlg-item-top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.nlg-item-icon {
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+.nlg-item-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.9);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nlg-item.active .nlg-item-name {
+  color: #29b6f6;
+}
+.nlg-item-time {
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.3);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.nlg-item-desc {
+  font-size: 0.73rem;
+  line-height: 1.45;
+  color: rgba(255,255,255,0.45);
+  padding-left: 1.65rem;
+}
+.nlg-item.active .nlg-item-desc {
+  color: rgba(255,255,255,0.55);
+}
+.nlg-item-tip {
+  font-size: 0.68rem;
+  color: rgba(41,182,246,0.6);
+  padding-left: 1.65rem;
+  margin-top: 0.1rem;
+}
+
+/* ── Viewer ────────────────────────────────────────────── */
+.nlg-viewer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: rgba(0,0,0,0.15);
+  overflow: hidden;
+}
+.nlg-viewer-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+.nlg-viewer-icon {
+  font-size: 1.1rem;
+}
+.nlg-viewer-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.85);
+  flex: 1;
+}
+.nlg-viewer-time {
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.35);
+}
+.nlg-viewer-img-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0.5rem;
+}
+.nlg-viewer-img-wrap img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.nlg-viewer-placeholder {
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.35);
+}
+
+/* ── Scrollbar ─────────────────────────────────────────── */
+.nlg-list::-webkit-scrollbar { width: 5px; }
+.nlg-list::-webkit-scrollbar-track { background: transparent; }
+.nlg-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+/* ── Responsive ────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .nlg-root {
+    flex-direction: column;
+  }
+  .nlg-sidebar {
+    width: 100%;
+    min-width: 0;
+    max-height: 220px;
+  }
+  .nlg-viewer-img-wrap {
+    min-height: 250px;
+  }
+}

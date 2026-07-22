@@ -280,61 +280,91 @@ function initAlertsFetcher() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function fetchObsKML() {
-  const kmlSources = [
-    { name: 'obs',    url: 'https://www.weather.gov/hfo/obs.kml',    key: 'obs' },
-    { name: 'wind',   url: 'https://www.weather.gov/hfo/wind.kml',   key: 'wind' },
-    { name: 'rain24', url: 'https://www.weather.gov/hfo/RRA24.kml',  key: 'rain24' },
-    { name: 'rain6',  url: 'https://www.weather.gov/hfo/RRA6.kml',   key: 'rain6' },
+  // NWS API v2 — fetch latest observations for Hawaii stations
+  const HI_STATIONS = [
+    'PHNL', 'PHOG', 'PHTO', 'PHLI', 'PHKO', 'PHJR', 'PHJH',
+    'PHNG', 'PHMK', 'PHMU', 'PHBK',
+    // Additional METAR stations
+    'PHHI', 'PHSF',
   ];
 
-  for (const src of kmlSources) {
-    try {
-      const res = await conditionalFetchText(src.url, cache[`kml_${src.key}`]);
-      if (!res.updated) continue;
-
-      // Simple KML → GeoJSON extraction (Placemark/Point features)
-      const kmlText = typeof res.data === 'string' ? res.data : res.data.toString();
-      const features = parseKMLToGeoJSON(kmlText, src.key);
-
-      const out = { type: 'FeatureCollection', features, updatedAt: new Date().toISOString() };
-      fs.writeFileSync(path.join(DATA_DIR, `${src.key}.geojson`), JSON.stringify(out));
-
-      cache[`kml_${src.key}`] = {
-        etag: res.etag,
-        lastModified: res.lastModified,
-        updatedAt: new Date().toISOString(),
-        count: features.length,
-      };
-      console.log(`[nws] obs KML updated: ${src.key} (${features.length} features)`);
-    } catch (err) {
-      console.warn(`[nws] obs KML failed: ${src.key} — ${err.message}`);
-    }
-  }
-}
-
-// Minimal KML parser — extracts Placemarks with name, description, coordinates
-function parseKMLToGeoJSON(kml, key) {
+  const UA = 'HawaiiDashboard/1.0 (contact@example.com)';
   const features = [];
-  const placemarkRx = /<Placemark>([\s\S]*?)<\/Placemark>/g;
-  let m;
-  while ((m = placemarkRx.exec(kml)) !== null) {
-    const block = m[1];
-    const nameM  = block.match(/<name><!\[CDATA\[(.*?)\]\]><\/name>/) || block.match(/<name>(.*?)<\/name>/);
-    const coordM = block.match(/<coordinates>\s*([-\d.]+),([-\d.]+)/);
-    const descM  = block.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/) || block.match(/<description>([\s\S]*?)<\/description>/);
-    if (!coordM) continue;
+
+  // Fetch observations for each station (parallel, with error tolerance)
+  const results = await Promise.allSettled(
+    HI_STATIONS.map(async (stationId) => {
+      const url = `https://api.weather.gov/stations/${stationId}/observations/latest`;
+      const res = await axios.get(url, {
+        headers: { 'User-Agent': UA, Accept: 'application/geo+json' },
+        timeout: 8000,
+      });
+      return { stationId, data: res.data };
+    })
+  );
+
+  for (const result of results) {
+    if (result.status !== 'fulfilled') continue;
+    const { stationId, data } = result.value;
+    const props = data?.properties || {};
+    const geom = data?.geometry;
+
+    if (!geom || !geom.coordinates) continue;
+
+    // Convert metric to imperial for display
+    const tempC = props.temperature?.value;
+    const tempF = tempC != null ? (tempC * 9/5 + 32) : null;
+    const windKph = props.windSpeed?.value;
+    const windMph = windKph != null ? (windKph * 0.621371) : null;
+    const windDir = props.windDirection?.value;
+    const humidity = props.relativeHumidity?.value;
+    const desc = props.textDescription || '';
+    const pressure = props.barometricPressure?.value;
+    const pressureInHg = pressure != null ? (pressure / 3386.39).toFixed(2) : null;
+
+    // Build description string matching old KML format for frontend compatibility
+    const descParts = [];
+    if (tempF != null) descParts.push(`Temperature: ${tempF.toFixed(0)}°F (${tempC.toFixed(1)}°C)`);
+    if (windMph != null) {
+      const dirStr = windDir != null ? degToCompass(windDir) + ' ' : '';
+      descParts.push(`Wind: ${dirStr}${windMph.toFixed(0)} mph`);
+    }
+    if (humidity != null) descParts.push(`Humidity: ${humidity.toFixed(0)}%`);
+    if (pressureInHg) descParts.push(`Pressure: ${pressureInHg} inHg`);
+    if (desc) descParts.push(desc);
+
     features.push({
       type: 'Feature',
-      geometry: { type: 'Point', coordinates: [parseFloat(coordM[1]), parseFloat(coordM[2])] },
+      geometry: geom,
       properties: {
-        name:        nameM?.[1]?.trim() || 'Unknown',
-        description: descM?.[1]?.replace(/<[^>]+>/g,'').trim() || '',
-        source:      key,
+        name: props.station?.name || stationId,
+        stationIdentifier: stationId,
+        description: descParts.join('\n'),
+        temperature_f: tempF,
+        temperature_c: tempC,
+        wind_mph: windMph,
+        wind_dir: windDir,
+        humidity: humidity,
+        textDescription: desc,
+        timestamp: props.timestamp,
       },
     });
   }
-  return features;
+
+  // Write GeoJSON file
+  const out = { type: 'FeatureCollection', features, updatedAt: new Date().toISOString() };
+  fs.writeFileSync(path.join(DATA_DIR, 'obs.geojson'), JSON.stringify(out));
+  cache.obs = { updatedAt: new Date().toISOString(), count: features.length };
+  console.log(`[nws] observations updated via NWS API v2: ${features.length} stations`);
 }
+
+function degToCompass(deg) {
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round(deg / 22.5) % 16] || '';
+}
+
+
+
 
 function initObsFetcher() {
   setTimeout(() => {
