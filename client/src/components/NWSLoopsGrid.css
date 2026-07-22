@@ -238,3 +238,43 @@
   font-weight: 400;
   margin-left: 4px;
 }
+
+/* ── Day/night badge ────────────────────────────────────────────────────── */
+.nlg-day-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: rgba(255, 200, 50, 0.15);
+  color: rgba(255, 200, 50, 0.85);
+  border: 1px solid rgba(255, 200, 50, 0.25);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.nlg-day-badge--night {
+  background: rgba(100, 130, 255, 0.15);
+  color: rgba(150, 180, 255, 0.85);
+  border-color: rgba(100, 130, 255, 0.25);
+}
+
+/* ── Night overlay on viewer image ─────────────────────────────────────── */
+.nlg-viewer-img-wrap {
+  position: relative;
+}
+.nlg-night-overlay {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(0, 5, 20, 0.82);
+  backdrop-filter: blur(4px);
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(150, 180, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.nlg-night-overlay span {
+  font-size: 11px;
+  font-weight: 400;
+  color: rgba(150, 180, 255, 0.6);
+}

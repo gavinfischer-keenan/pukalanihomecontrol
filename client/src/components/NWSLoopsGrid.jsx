@@ -4,6 +4,9 @@ import './NWSLoopsGrid.css';
 const LIVE_POLL_MS  = 60 * 1000;
 const QUIET_POLL_MS = 10 * 60 * 1000;
 
+/* ── Day-only loops (visible band — white at night) ─────────────────────── */
+const DAY_ONLY = new Set(['hfo_state_vis', 'hfo_oahu_vis', 'hfo_hi_vis', 'hfo_kauai_vis']);
+
 /* ── Descriptions ────────────────────────────────────────────────────────── */
 const DESCRIPTIONS = {
   geocolor:      'True-color daytime / infrared night composite. Best general-purpose loop — shows clouds as they appear to the eye during the day.',
@@ -26,6 +29,12 @@ const TIPS = {
   hfo_kauai_vis: 'Best for: Kauai north shore conditions',
   hfo_ir:        'Best for: Nighttime cloud tracking, rain band identification',
 };
+
+/* Returns true if it is currently night in Hawaii (UTC-10) */
+function isNightHST() {
+  const hstHour = (new Date().getUTCHours() - 10 + 24) % 24;
+  return hstHour >= 20 || hstHour < 6; // 8pm – 6am HST
+}
 
 function timeSince(isoStr) {
   if (!isoStr) return null;
@@ -138,6 +147,11 @@ export default function NWSLoopsGrid({ apiBase }) {
                     <div className="nlg-item-top">
                       <span className="nlg-item-icon">{loop.icon || '🌐'}</span>
                       <span className="nlg-item-name">{loop.name}</span>
+                      {DAY_ONLY.has(loop.id) && (
+                        <span className={`nlg-day-badge${isNightHST() ? ' nlg-day-badge--night' : ''}`}>
+                          {isNightHST() ? '🌙 night' : '☀️ day'}
+                        </span>
+                      )}
                       {timeLabel && <span className="nlg-item-time">{timeLabel}</span>}
                     </div>
                     {DESCRIPTIONS[loop.id] && (
@@ -175,6 +189,12 @@ export default function NWSLoopsGrid({ apiBase }) {
             />
           ) : (
             <div className="nlg-viewer-placeholder">⏳ Caching imagery…</div>
+          )}
+          {DAY_ONLY.has(activeLoop.id) && isNightHST() && (
+            <div className="nlg-night-overlay">
+              🌙 Visible satellite requires sunlight
+              <span>White frames are normal at night · Switch to Infrared or Water Vapor for 24/7 coverage</span>
+            </div>
           )}
         </div>
 
