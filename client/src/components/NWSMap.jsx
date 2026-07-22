@@ -462,7 +462,7 @@ function CurrentsLayer({ visible }) {
     // Update: ~hourly  |  Good citizen: tiles served by PacIOOS CDN
     const HF_WMS = 'https://pae-paha.pacioos.hawaii.edu/erddap/wms/hfradar_ushi_2km/request';
     layerRef.current = L.tileLayer.wms(HF_WMS, {
-      layers:      'hfradar_ushi_2km:direction',
+      layers:      'hfradar_ushi_2km:u',
       styles:      '',
       format:      'image/png',
       transparent: true,
@@ -473,7 +473,7 @@ function CurrentsLayer({ visible }) {
 
     // Overlay speed as a separate layer (speed coloring on top)
     const speedLayer = L.tileLayer.wms(HF_WMS, {
-      layers:      'hfradar_ushi_2km:speed',
+      layers:      'hfradar_ushi_2km:v',
       styles:      '',
       format:      'image/png',
       transparent: true,
