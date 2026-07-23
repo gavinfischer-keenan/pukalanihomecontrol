@@ -56,7 +56,7 @@ const DEFAULT_LAYERS = {
   radar:         { label: '🌧️ Radar',               live: true,  enabled: false },
   forecast:      { label: '📅 7-Day Forecast',        live: true,  enabled: false },
   fishing:       { label: '🎣 Fishing Index',         live: true,  enabled: false },
-  localWx:       { label: '🌡️ Local Weather / PWS',  live: true,  enabled: false },
+  localWx:       { label: '🌡️ Local Weather / PWS',  live: true,  enabled: true  },
   // NWS/NOAA lives at /nws/ — fully separate app, no layer keys here
   // Home
   homeBase:      { label: '🏠 Home Base',           live: true,  enabled: true  },

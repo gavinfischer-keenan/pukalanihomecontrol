@@ -6,7 +6,7 @@
 >
 > **Repository:** https://github.com/gavinfischer-keenan/pukalanihomecontrol
 > **Location:** Pukalani, Maui, Hawaii — 21.2855°N, 157.7969°W
-> **Last updated:** 2026-07-22 (updated: Google API removal, vessel trails, photo pipeline, Photo Chronologizer planned)
+> **Last updated:** 2026-07-23 (updated: Photo Chronologizer live + own repo, CT108 service architecture, trail behavior, layer defaults)
 >
 > **Architecture Documentation Suite** (3 files):
 > - **architecture.md** — This file (hardware, VMs, data flows, network, 3D)
@@ -585,9 +585,10 @@ ais-catcher.service ExecStart:
 | OS | Debian (unprivileged) |
 | RAM | 512 MB |
 | Disk | local-lvm:vm-108-disk-0 — 8 GB |
-| API | Express/Node.js port 3001, managed by PM2 |
-| Web | nginx port 80 -> serves /opt/dashboard/client/dist/ + proxies /api/ -> :3001 |
+| API | dashboard-server.service — Node.js on port 3001 |
+| Web | vessel-map.service — `serve` on port 8080, serves /opt/dashboard/client/dist/ |
 | Code | /opt/dashboard/server/ (API), /opt/dashboard/client/ (React/Vite) |
+| Build | `cd /opt/dashboard/client && npm run build` (Vite, outputs to dist/) |
 
 Server environment (/opt/dashboard/server/.env):
 
@@ -648,9 +649,13 @@ React client components (/opt/dashboard/client/src/components/):
 Map layers:
   VesselLayer.jsx     — AIS vessels, dead-reckoning animation (great-circle, rAF)
   AircraftLayer.jsx   — ADS-B aircraft with type icons and altitude colouring
-  TrailLayer.jsx      — Position trail polyline for selected entity
+  TrailLayer.jsx      — Position trail polyline for all entities
+                        Trail data: DB historical (?today=true) + live ring buffer (90s), merged
+                        Trail refresh: every 5 minutes from DB (TRAIL_REFRESH_MS)
                         Vessel trails: #000000 black (weight 2.5, opacity 0.80) — changed 2026-07-22
                         Aircraft trails: altitude-gradient color (unchanged)
+                        Selection behavior: when entity selected, all OTHER trails hidden
+                        via syncTrailVisibility() (addLayer/removeLayer). Deselect restores all.
   BuoyLayer.jsx       — NDBC buoy markers
   MetarLayer.jsx      — METAR station circles
   EcowittLayer.jsx    — Home weather station marker
@@ -661,8 +666,11 @@ Map layers:
   HDTrafficLayer.jsx  — HD Radio traffic (future)
   HDGasLayer.jsx      — HD Radio gas prices (future)
   HomeBase.jsx        — Home location pin
-  RangeRings.jsx      — Configurable distance rings
+  RangeRings.jsx      — Configurable distance rings (default ON)
   ReferenceObjects.jsx — Static reference markers
+
+Default-enabled layers (App.jsx DEFAULT_LAYERS):
+  aircraft, acTrails, vessels, vesselTrails, homeBase, reference, rangeRings, localWx
 
 Panels and UI:
   App.jsx              — Root: layer state, polling timers, map init
@@ -676,7 +684,7 @@ Panels and UI:
   ForecastPanel.jsx    — Marine/aviation forecast
   WindsAloftPanel.jsx  — Winds aloft visualisation
   SunMoonPanel.jsx     — Sun/moon rise/set
-  AlertsPage.jsx       — Full-screen NWS active alerts overlay
+  AlertsPage.jsx       — Full-screen NWS active alerts overlay (removed from main dashboard 2026-07-23)
   TideChartModal.jsx   — Tide chart popup
   HDRadioStatusPanel.jsx — HD Radio status
   AltLegend.jsx        — Altitude colour legend
@@ -1063,11 +1071,11 @@ AI-assisted timeline shows exactly when motion/objects were detected with confid
 | RAM | 4096 MB |
 | Disk | local-lvm:vm-114-disk-0 — 8 GB |
 | Features | nesting=1 |
-| Port | 3114 (existing utilities), 7777 (photo-chrono FastAPI — planned) |
-| App root | /opt/utilities/ (existing), /app/photo-chrono/ (planned) |
-| venv | /opt/utilities/venv (Python 3.13) |
-| Service | utilities.service (systemd, auto-start on boot) |
-| GitHub | utilities/ subfolder in pukalanihomecontrol repo |
+| Port | 3114 (existing utilities), 7777 (photo-chrono FastAPI — ✅ LIVE) |
+| App root | /opt/utilities/ (existing), /app/photo-chrono/ (live) |
+| venv | /opt/utilities/venv (Python 3.13), /app/photo-chrono/venv |
+| Service | utilities.service (port 3114), photo-chrono.service (port 7777) |
+| GitHub | https://github.com/gavinfischer-keenan/PicFolderChronologizer |
 
 **Tools served:**
 
@@ -1996,6 +2004,7 @@ Launch two separate Chromium windows via Openbox autostart:
     └── README.md
 
     Related repositories (same GitHub account):
+      gavinfischer-keenan/PicFolderChronologizer — Photo Chronologizer (CT114, port 7777)
       gavinfischer-keenan/ProjectManagement    — Project Manager (CT110)
       gavinfischer-keenan/Alux2Win             — LUX game (CT114)
       gavinfischer-keenan/TrishsGame           — Trish's Games (CT114)
