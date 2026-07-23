@@ -6,7 +6,14 @@
 >
 > **Repository:** https://github.com/gavinfischer-keenan/pukalanihomecontrol
 > **Location:** Pukalani, Maui, Hawaii — 21.2855°N, 157.7969°W
-> **Last updated:** 2026-07-21 (generated from live system state)
+> **Last updated:** 2026-07-22 (updated: Google API removal, vessel trails, photo pipeline, Photo Chronologizer planned)
+>
+> **Architecture Documentation Suite** (3 files):
+> - **architecture.md** — This file (hardware, VMs, data flows, network, 3D)
+> - [architecture-credentials.md](architecture-credentials.md) — Credentials, tokens, SSH access, API endpoints
+> - [architecture-changelog.md](architecture-changelog.md) — Change log (append-only history)
+>
+> All three files are tracked in the GitHub repository.
 
 ---
 
@@ -245,7 +252,7 @@ bypassing all iframe limitations.
 **Custom panel features:**
 - Real-time detection feed (via SSE subscription)
 - Detection list with audio playback, spectrogram thumbnail
-- ✅ Agree / ❌ Disagree buttons (POST /api/v2/detections/:id/review)
+- ✅ Agree / âŒ Disagree buttons (POST /api/v2/detections/:id/review)
 - 🔒 Lock button (POST /api/v2/detections/:id/lock)
 - Species statistics dashboard (daily/weekly/monthly charts)
 - Filter by species, confidence threshold, verified status
@@ -595,6 +602,8 @@ Server environment (/opt/dashboard/server/.env):
     ALERTS_ENGINE_URL=http://192.168.1.109:3009
     HA_WEBHOOK_URL=http://192.168.1.19:8123/api/webhook/5de76fbee15b641d309d042238b47326
     PORT=3001
+    # GOOGLE_GEOCODING_KEY — REMOVED 2026-07-22 (geocodeAirport() deleted; AIRPORT_COORDS map used exclusively)
+    # GOOGLE_CSE_CX       — REMOVED 2026-07-22 (CSE replaced by direct MarineTraffic + planespotters.net sources)
 
 All API routes (GET unless noted):
 
@@ -640,6 +649,8 @@ Map layers:
   VesselLayer.jsx     — AIS vessels, dead-reckoning animation (great-circle, rAF)
   AircraftLayer.jsx   — ADS-B aircraft with type icons and altitude colouring
   TrailLayer.jsx      — Position trail polyline for selected entity
+                        Vessel trails: #000000 black (weight 2.5, opacity 0.80) — changed 2026-07-22
+                        Aircraft trails: altitude-gradient color (unchanged)
   BuoyLayer.jsx       — NDBC buoy markers
   MetarLayer.jsx      — METAR station circles
   EcowittLayer.jsx    — Home weather station marker
@@ -657,6 +668,8 @@ Panels and UI:
   App.jsx              — Root: layer state, polling timers, map init
   LayerControl.jsx     — Layer toggle sidebar (Airspace / Integrated Vessel / Weather / Map / NWS/NOAA)
   DetailPanel.jsx      — Entity detail, seen-days badge, edit form, photo upload
+  FrequentVisitorsSidebar.jsx — Known-entity sidebar: vessels + aircraft with auto-fetched photos,
+                                seen-days, schedule, POTENTIAL/CONFIRMED/REJECTED photo approval
   StatusBar.jsx        — Top status strip
   ATISBar.jsx          — Airport ATIS bar
   AirportStatusBar.jsx — Airport status
@@ -671,13 +684,36 @@ Panels and UI:
   MapEventTracker.jsx  — Map click/hover handler
   ErrorBoundary.jsx    — React error boundary (silent fail for map layers)
 
+Server-side services (/opt/dashboard/server/):
+  known-entities-service.js — Entity management: vessel_info, aircraft_info, entity_photos,
+                              entity_track_history, entity_schedule tables.
+                              Photo auto-fetch pipeline (2026-07-22):
+                                - Aircraft: planespotters.net API by ICAO hex (no key required)
+                                - Vessels:  MarineTraffic showphoto.aspx by MMSI (no key required)
+                                - Runs: 2 min after startup + every 6 hours (setInterval)
+                                - Status: stored as 'potential' in entity_photos, user approves in sidebar
+                                - Source value: 'google_image_search' (DB check constraint value)
+                              Google APIs REMOVED 2026-07-22:
+                                - geocodeAirport() deleted (was: Google Maps Geocoding API)
+                                - Airport coords: AIRPORT_COORDS hardcoded map only
+                                - Google CSE: replaced by direct scraping/API sources
+  nws-service.js            — NWS/NOAA data caching (good-citizen, avoids API hammering)
+
 NWS/NOAA panel suite:
-  NWSPanel.jsx + .css    — Full-screen overlay, tab router (Loops / Maps / Forecasts)
-  NWSLoopsGrid.jsx       — Animated GIF grid from /api/nws/loops, 5min auto-refresh
-  NWSForecastPanel.jsx   — Collapsible NWS text products + ENSO tracker + CPC outlook images
-  NWSMap.jsx + .css      — Leaflet map with air/water sub-tabs, FADs, harbor approaches,
-                           trade routes, fishing zones, ETOPO depth, SST, PacIOOS WMS
-  NWSApp.jsx + .css      — Standalone NWS app entry point
+  NWSApp.jsx + .css      — Standalone NWS app entry point, tab router (Loops / Air / Water / Forecasts)
+  NWSLoopsGrid.jsx + .css — Sidebar+viewer layout: clickable loop list with descriptions
+                            & tips on left, selected loop imagery viewer on right.
+                            4 loops: GeoColor, Infrared, Water Vapor, N. Pacific Wide-Area.
+                            5min auto-refresh.
+  NWSForecastPanel.jsx + .css — Category-tabbed forecast panel:
+                            Tabs: ðŸ „ Surf, ðŸŒ¤ï¸  Weather, ⛵ Marine, 📊 Climate.
+                            Jump links within multi-product categories.
+                            Accordion cards with product ID badge, description, issue time.
+                            Climate tab: ENSO/RONI tracker + CPC 90-day outlook images.
+  NWSMap.jsx + .css      — Leaflet map with air/water sub-tabs:
+                            Air: NWS Station Obs (NWS API v2), Active Alerts, NEXRAD Radar.
+                            Water: FAD Locations, Depth (Esri Ocean Reference), SST, Wave Height.
+                            (Harbor Approaches and Trade Routes REMOVED — data to be revamped later)
 
 Hooks and utilities:
   useDraggable.js        — Drag behaviour for floating panels
@@ -1010,25 +1046,25 @@ Provides: camera entities, event sensors, media browser, notification blueprints
               image: "/api/frigate/notifications/{{ trigger.payload_json['after']['id'] }}/thumbnail.jpg"
 
 **Event review interface:**
-Frigate provides a built-in review UI at http://192.168.1.113:5000.
+Frigate provides a built-in review UI at 192.168.1.113:5000.
 The HA Frigate integration adds a media browser panel for reviewing events.
 Events are organized by: camera, detected object, time range.
 AI-assisted timeline shows exactly when motion/objects were detected with confidence scores.
 
 ---
 
-### CT114 — utilities (PDF Maker + PDF Shrinker + Games + Health Converter)
+### CT114 — utilities (PDF Maker + PDF Shrinker + Games + Health Converter + Photo Chronologizer)
 
 | Setting | Value |
 |---------|-------|
 | IP | 192.168.1.114 (static) |
 | OS | Debian 13 (unprivileged LXC) |
-| CPU | 2 cores |
-| RAM | 1024 MB |
+| CPU | 4 cores |
+| RAM | 4096 MB |
 | Disk | local-lvm:vm-114-disk-0 — 8 GB |
 | Features | nesting=1 |
-| Port | 3114 |
-| App root | /opt/utilities/ |
+| Port | 3114 (existing utilities), 7777 (photo-chrono FastAPI — planned) |
+| App root | /opt/utilities/ (existing), /app/photo-chrono/ (planned) |
 | venv | /opt/utilities/venv (Python 3.13) |
 | Service | utilities.service (systemd, auto-start on boot) |
 | GitHub | utilities/ subfolder in pukalanihomecontrol repo |
@@ -1038,18 +1074,72 @@ AI-assisted timeline shows exactly when motion/objects were detected with confid
 | Tool | URL | Status | Description |
 |------|-----|--------|-------------|
 | Landing page | http://192.168.1.114:3114/tools/ | ✅ LIVE | Tools dashboard with card links |
+| Landing page | http://192.168.1.114:3114/tools/ | ✅ LIVE | Tools dashboard with card links |
 | PDF Maker | http://192.168.1.114:3114/tools/pdfmaker | ✅ LIVE | Merge images, docs & PDFs into one file |
 | PDF Shrinker | http://192.168.1.114:3114/tools/shrinker | ✅ LIVE | Compress existing PDFs at 4 quality levels |
-| Games Landing | http://192.168.1.114:3114/games/ | 🔲 NOT YET IMPLEMENTED | Entertaining Diversions portal |
-| LUX | http://192.168.1.114:3114/games/lux/ | 🔲 NOT YET IMPLEMENTED | Strategy game (TypeScript/Pixi.js) |
-| Trish's Games | http://192.168.1.114:3114/games/trishsgames/ | 🔲 NOT YET IMPLEMENTED | 7 casual web games (React 19) |
-| Apple Health Converter | http://192.168.1.114:3114/tools/healthconverter | 🔲 NOT YET IMPLEMENTED | Apple Health XML → CSV converter |
+| Games Landing | http://192.168.1.114:3114/games/ | ▢ NOT YET IMPLEMENTED | Entertaining Diversions portal |
+| LUX | http://192.168.1.114:3114/games/lux/ | ▢ NOT YET IMPLEMENTED | Strategy game (TypeScript/Pixi.js) |
+| Trish's Games | http://192.168.1.114:3114/games/trishsgames/ | ▢ NOT YET IMPLEMENTED | 7 casual web games (React 19) |
+| Apple Health Converter | http://192.168.1.114:3114/tools/healthconverter | 📲 NOT YET IMPLEMENTED | Apple Health XML → CSV converter |
+| **Photo Chronologizer** | **http://192.168.1.114:7777** | **✅ LIVE v2** | **Sort scanned photos chronologically by face recognition + age estimation** |
+
+**Photo Chronologizer (✅ LIVE v3 — /app/photo-chrono/):**
+- ML stack: InsightFace `buffalo_sc` (ArcFace recognition + age estimation). No API keys. Fully local.
+- Backend: FastAPI + SQLite on port 7777. Sources: rclone Google Drive, local computer (via bridge agent), or server paths.
+- Frontend: Vite + React — 5-phase flow: setup → enrollment → processing → review → export.
+- rclone: installed on CT114 with FUSE enabled; 100% in-app interactive setup & drive mounting via web UI (no terminal required).
+- Output format: `025_~1962_name.jpg` (age zero-padded). `~` = AI est., `=` = user-locked (immutable). Alphabetical = chronological.
+- Service: `/etc/systemd/system/photo-chrono.service` — enabled, auto-starts on boot.
+- **v2 Features (2026-07-23):** enrollment face crop confirm modal (cancel available); collapsible strip viewer
+  (±10 window, slider, lazy thumbnails); annotation panel with date lock; re-run auto-detection by filename
+  pattern + confirm prompt; validated photos = 2× weighted model anchors on re-run; user-triggered model
+  rebuild only (`POST /update-model`); session linking imports prior validated embeddings; age-bucketed
+  calibration questions (0-15, 15-25, 25-40, 40-65) on re-run.
+- **v3 Features (2026-07-23):**
+  - **Portable metadata (`.photo-chrono.db`):** SQLite database written to the output folder on export.
+    Contains: collection info, per-photo metadata (age, date, sort order, match scores), enrolled reference
+    faces (embeddings), known people registry, and run history. Survives server wipes. Enables cross-run
+    persistence — re-runs import prior enrollments and dates automatically.
+    Tables: `collection`, `photos`, `photo_people`, `known_people`, `reference_faces`, `run_history`.
+  - **Bridge agent (`/app/photo-chrono/bridge/photo_chrono_bridge.py`):** Portable Python HTTP server
+    that runs on the user's local computer. User double-clicks, picks a folder, and it serves all photos
+    over HTTP on the LAN (port 9777). Photo Chronologizer connects to it as a source — no uploading needed.
+    Supports thumbnail generation, CORS, and auto-detects LAN IP. Build to `.exe` via PyInstaller.
+    `source_path` stored as `bridge://<ip>:9777` in session DB.
+  - **Photo exclusion:** "Not [Name]" button on enrollment cards. Marks photos as `status='excluded'` in DB.
+    Excluded photos are skipped during processing. Red ✕ badge on excluded cards.
+  - **Face detection caching:** Results stored in `faces_cache` column as JSON. First detection is slow (~3s),
+    subsequent loads are instant.
+  - **Auto-enrollment queue:** Single-face photos auto-pop the confirm modal for rapid enrollment.
+  - **Session setup source picker:** Three-tab UI (Google Drive / Local Computer / Server Path).
+  - **Read-only filmstrip view:** Horizontal scrolling chronological strip of photo thumbnails.
+    Data model includes `sort_order REAL` for future drag-to-reorder capability.
+  - **Planned: Scan for Friends** — DBSCAN clustering of non-subject faces, ranked by year-range breadth.
+    Full secondary enrollment workflow with person naming, per-face confirm/reject, and dropdown assignment.
+
+> **🚨 CRITICAL SECURITY ISSUE — MUST FIX (flagged 2026-07-22):**
+>
+> **Problem:** rclone currently uses a SINGLE shared Google Drive credential stored in
+> `/root/.config/rclone/rclone.conf`. This means ALL users of Photo Chronologizer see
+> the SAME Google Drive — whichever account was last authenticated. User A can browse,
+> read, and potentially modify User B's entire Google Drive contents. This is a
+> **massive privacy/security violation** in a multi-user household.
+>
+> **Required Fix:** Per-user Google Drive isolation. Each user must authenticate with
+> their OWN Google account and only see their own Drive. Options:
+> 1. Per-session rclone configs (`rclone.conf` per session/user, stored alongside session DB)
+> 2. User login system (lightweight — username picker, no passwords needed on LAN)
+> 3. OAuth tokens stored per-user in SQLite, mounted to per-user mount points
+>    (e.g., `/mnt/gdrive-gavin/`, `/mnt/gdrive-trish/`)
+>
+> **Priority:** BLOCKING — must be resolved before any further multi-user usage.
+> **Status:** NOT STARTED — flagged for implementation 2026-07-23.
 
 **Architecture (existing):**
 
 ```
 Browser (client)                    CT114 (server)
-────────────────                    ──────────────────────────────────
+————————————————                    ——————————————————————————————————
 React 18 SPA                        FastAPI + uvicorn (2 workers)
   - Session ID in localStorage  →     POST /api/pdfmaker/session
   - File picked locally         →     POST /api/pdfmaker/import  (multipart upload)
@@ -1148,7 +1238,7 @@ Browser                              CT114 (FastAPI)
                                      3. Stream-parse XML using iterparse (existing logic)
                                      4. Write CSV files to session temp dir
                                      5. Zip all CSVs → stream as response
-2. Browser receives .zip        ←    Content-Type: application/zip
+2. Browser receives .zip        â†    Content-Type: application/zip
    and triggers download             Content-Disposition: attachment; filename="health_export.zip"
                                      6. Delete temp session dir
 ```
@@ -1511,7 +1601,7 @@ Launch two separate Chromium windows via Openbox autostart:
       Protocol:  Ecowitt  (application/x-www-form-urlencoded)
       Server:    192.168.1.108
       Path:      /api/ecowitt
-      Port:      3001        ← IMPORTANT: use 3001 (direct to Node API), NOT 4003 or 80
+      Port:      3001        â† IMPORTANT: use 3001 (direct to Node API), NOT 4003 or 80
       Interval:  60 seconds
 
     NOTE: Port 4003 was the legacy port (incorrect). Port 3001 is the correct
@@ -1592,16 +1682,52 @@ Launch two separate Chromium windows via Openbox autostart:
 
 ### 4.8 NWS/NOAA Products (nws-service.js, CT108)
 
-    weather.gov/hfo + NOAA image servers + CPC -> disk cache
-    /api/nws/loops -> NWSLoopsGrid.jsx (animated GIFs, 5min refresh)
-    /api/nws/text/SRF|AFD|RWR|CWF|HSF -> NWSForecastPanel.jsx
-    /api/nws/enso -> ENSO phase + history
-    /api/nws/obs|alerts|fads|harbor-approaches|trade-routes|fishing-areas -> NWSMap.jsx
+    Data Sources & Flows:
+
+    Station Observations (NWS API v2 — REPLACES deprecated weather.gov/hfo KML feeds):
+      https://api.weather.gov/stations/{id}/observations/latest
+      → fetchObsKML() fetches 12 HI stations in parallel:
+        PHNL, PHOG, PHTO, PHLI, PHKO, PHJR, PHJH, PHNG, PHMK, PHMU, PHBK, PHHI, PHSF
+      → Converts metric to imperial, builds description string
+      → Writes /opt/dashboard/public/nws-cache/data/obs.geojson
+      → /api/nws/obs → NWSMap.jsx (circle markers color-coded by temp)
+      → Refresh: every 32 min
+
+    Active Alerts (NWS API v2):
+      https://api.weather.gov/alerts/active?area=HI
+      → /api/nws/alerts → NWSMap.jsx (alert polygons)
+      → Refresh: every 5 min
+
+    Text Products (NWS API v2):
+      /api/nws/text/SRF|AFD|RWR|CWF|HSF → NWSForecastPanel.jsx
+      → Displayed in category-tabbed accordion cards:
+        Surf: SRF | Weather: AFD, RWR | Marine: CWF, HSF | Climate: ENSO + CPC
+
+    ENSO Data:
+      CPC origin.cpc.ncep.noaa.gov → /api/nws/enso → Climate tab
+
+    FAD Locations:
+      /api/nws/fads → NWSMap.jsx (Water sub-tab)
+
+    Satellite/Radar Loops:
+      /api/nws/loops → NWSLoopsGrid.jsx
+      4 loops: geocolor, infrared, watervapor, npac
+      Displayed in sidebar+viewer layout with per-loop descriptions and tips
+
+    REMOVED (data to be revamped in future):
+      ✗ /api/nws/harbor-approaches — route exists but data removed from UI
+      ✗ /api/nws/trade-routes — route exists but data removed from UI
+      ✗ GEBCO tile server (tiles.gebco.net) — unreachable/down
+      ✗ weather.gov/hfo/*.kml — all return 404 (deprecated by NWS)
 
     External WMS/tile overlays:
-      ETOPO depth:    gis.ngdc.noaa.gov arcgis tiles
+      Depth:          Esri Ocean Reference tiles (depth contours, labels, seafloor features)
+                      https://server.arcgisonline.com/ArcGIS/rest/services/Ocean/World_Ocean_Reference/MapServer
+                      Rendered in custom Leaflet pane (z-index 250, above base map at 200)
+      Base map:       Esri World Ocean Base (already includes GEBCO bathymetry shading)
       SST:            MODIS/CoastWatch ERDDAP PNG (bounds 17-23N, 165-152W)
       Wave height:    pae-paha.pacioos.hawaii.edu/erddap/wms/ww3_hi
+      NEXRAD Radar:   RainViewer API tile overlay (Air sub-tab)
 
 ### 4.9 BirdNET
 
@@ -1826,7 +1952,7 @@ Launch two separate Chromium windows via Openbox autostart:
     https://github.com/gavinfischer-keenan/pukalanihomecontrol  (branch: main)
 
     pukalanihomecontrol/
-    ├── architecture.md             ← THIS DOCUMENT
+    ├── architecture.md             â† THIS DOCUMENT
     ├── dashboard/
     │   ├── server/
     │   │   ├── server.js           Express API (all routes documented in s2 CT108)
@@ -2103,231 +2229,18 @@ For an AI agent rebuilding on new hardware. Follow in order, verify each step.
 
 ---
 
-## 10. Credentials, Tokens, and Connection Methods
-
-> **CONTROLLED DOCUMENT** — contains live credentials.
-> Rotate ALL secrets before sharing publicly.
-
-### 10.1 Database Credentials (CT104 — PostgreSQL)
-
-| Database | User | Password | Port | Used By |
-|----------|------|----------|------|---------|
-| `tracking_db` | `tracker` | `pukalani` | 5432 | CT105 (tracker_engine, collectors), CT108 (dashboard server) |
-| `project_mgr` | `pm_user` | `pukalani_pm` | 5432 | CT110 (hawaii-pm Express API), HAOS (pukalani_pm HACS integration) |
-
-**Connection string pattern:**
-```
-postgresql://tracker:pukalani@192.168.1.104:5432/tracking_db
-postgresql://pm_user:pukalani_pm@192.168.1.104:5432/project_mgr
-```
-
-**PostgreSQL `pg_hba.conf` on CT104** allows connections from 192.168.1.0/24 via md5.
-
-### 10.2 Home Assistant Access
-
-#### HA Users
-
-| User | Role | Purpose |
-|------|------|---------|
-| 3786Pukalani | Owner | Primary admin account |
-| Gavin | User | Personal access |
-| Trish | User | Personal access |
-
-#### Long-Lived Access Tokens (HA API)
-
-| Token Name | Token ID | User | Purpose |
-|------------|----------|------|---------|
-| Antigravity july21 ClaudeOpus | `9cfbabcc65ee4d45b2e537b7ff4b7352` | 3786Pukalani | **Active** AI agent API access (Antigravity). Created 2026-07-21. |
-| Antigravity Laptop | `169aad44a6ee4b74b952fd4aab90a0b5` | 3786Pukalani | Legacy — returns 401 (invalidated). Keep for reference. |
-| Alerts long lived token | `950598726d4a4335b80805da730efffd` | 3786Pukalani | Alert system webhooks |
-| HA dashboards longlived | `c179e26b62e34d38a84ed0a809774987` | 3786Pukalani | Dashboard API access |
-| GE smart stove | `e7bcc9451db949918709465b7378148e` | 3786Pukalani | GE Appliance integration |
-
-> **Active API Token (Antigravity july21 ClaudeOpus):**
-> ```
-> eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI5Y2ZiYWJjYzY1ZWU0ZDQ1YjJlNTM3YjdmZjRiNzM1MiIsImlhdCI6MTc4NDY3OTQ0MSwiZXhwIjoyMTAwMDM5NDQxfQ.--1D08UijvGCtN1FkFtxXk2JvwayuLvHbteB3lRSOH8
-> ```
-> Expires: ~2036. Created 2026-07-21.
->
-> **If this token stops working (401):** HA Profile → Security → Delete token → Create new one → update this document.
-
-#### Preferred HA Access Methods (in order of preference)
-
-1. **HA REST API** (preferred for all programmatic access):
-   ```bash
-   # Pattern:
-   curl -s -H "Authorization: Bearer <TOKEN>" \
-     -H "Content-Type: application/json" \
-     http://192.168.1.19:8123/api/<endpoint>
-
-   # Examples:
-   # Get config
-   curl -s -H "Authorization: Bearer $HA_TOKEN" http://192.168.1.19:8123/api/config
-
-   # Get entity state
-   curl -s -H "Authorization: Bearer $HA_TOKEN" http://192.168.1.19:8123/api/states/sensor.pm_total_tasks
-
-   # Call a service
-   curl -s -X POST -H "Authorization: Bearer $HA_TOKEN" \
-     -H "Content-Type: application/json" \
-     -d '{"entity_id": "light.living_room"}' \
-     http://192.168.1.19:8123/api/services/light/turn_on
-
-   # Create/update config entries (integrations)
-   # Use POST to /api/config/config_entries/flow to start a config flow
-   curl -s -X POST -H "Authorization: Bearer $HA_TOKEN" \
-     -H "Content-Type: application/json" \
-     -d '{"handler": "pukalani_birdnet", "show_advanced_options": false}' \
-     http://192.168.1.19:8123/api/config/config_entries/flow
-
-   # Restart HA
-   curl -s -X POST -H "Authorization: Bearer $HA_TOKEN" \
-     http://192.168.1.19:8123/api/services/homeassistant/restart
-   ```
-
-2. **File-level access via `qm guest exec`** (fallback when API is unavailable):
-   ```bash
-   # From Proxmox host (192.168.1.100):
-   qm guest exec 100 -- cat /mnt/data/supervisor/homeassistant/configuration.yaml
-   qm guest exec 100 -- ha core restart
-
-   # For binary files, use base64 encoding:
-   B64=$(base64 -w0 /tmp/myfile.py)
-   qm guest exec 100 -- sh -c "echo '${B64}' | base64 -d > /mnt/data/supervisor/homeassistant/custom_components/my_comp/myfile.py"
-   ```
-   > **WARNING:** Do NOT inject entries directly into `.storage/core.config_entries` — malformed entries
-   > can prevent HA from starting. Use the REST API config flow endpoints instead.
-
-3. **HA CLI** (from inside HAOS VM):
-   ```bash
-   qm guest exec 100 -- ha core restart
-   qm guest exec 100 -- ha core info
-   qm guest exec 100 -- ha core stats
-   ```
-
-#### HA Webhook Token
-
-| Webhook | Token | Used By |
-|---------|-------|---------|
-| Ecowitt weather push | `5de76fbee15b641d309d042238b47326` | CT108 dashboard → /api/ecowitt endpoint |
-
-Full URL: `http://192.168.1.19:8123/api/webhook/5de76fbee15b641d309d042238b47326`
-
-### 10.3 InfluxDB (HA Add-on)
-
-| Setting | Value |
-|---------|-------|
-| Host | `a0d7b954-influxdb` (internal add-on hostname) |
-| Port | 8086 |
-| Database | `homeassistant` |
-| Username | `hauser` |
-| Password | `hapassword123` |
-
-Configured in `configuration.yaml` under `influxdb:`.
-
-### 10.4 MQTT (Mosquitto on HA)
-
-| Setting | Value | Status |
-|---------|-------|--------|
-| Broker IP | 192.168.1.19 | Installed as HA add-on |
-| Port | 1883 | LAN-accessible |
-| User (Frigate) | `frigate` | **PENDING** — create in Mosquitto config |
-| User (HA internal) | `ha_internal` | **PENDING** — create in Mosquitto config |
-
-### 10.5 Frigate / Camera Credentials
-
-| Secret | Value | Where Used |
-|--------|-------|------------|
-| Frigate RTSP password | `frigate_internal` | CT113 docker-compose.yml (FRIGATE_RTSP_PASSWORD env var) |
-| Aqara G4 camera RTSP | User: `772` / Pass: `885` | Frigate config.yml RTSP URLs |
-| Additional cameras | **PENDING** | Add credentials here as cameras are installed |
-
-RTSP URL pattern for Aqara cameras:
-```
-rtsp://772:885@<camera-ip>:8554/live
-```
-
-### 10.6 Service Environment Files
-
-**CT105 — Tracker Engine** (`/opt/tracker_engine.py` hardcoded):
-```
-DB_HOST = "192.168.1.104"
-DB_NAME = "tracking_db"
-DB_USER = "tracker"
-DB_PASS = "pukalani"
-```
-
-**CT108 — Dashboard Server** (`/opt/dashboard/server/.env`):
-```
-DB_USER=tracker
-DB_HOST=192.168.1.104
-DB_NAME=tracking_db
-DB_PASS=pukalani
-DB_PORT=5432
-HOME_LAT=21.2855
-HOME_LON=-157.7969
-TAR1090_URL=http://192.168.1.102/tar1090/data/aircraft.json
-ALERTS_ENGINE_URL=http://192.168.1.109:3009
-HA_WEBHOOK_URL=http://192.168.1.19:8123/api/webhook/5de76fbee15b641d309d042238b47326
-PORT=3001
-```
-
-**CT110 — Project Manager** (`/opt/hawaii-pm/.env`):
-```
-PORT=3001
-DB_USER=pm_user
-DB_HOST=192.168.1.104
-DB_NAME=project_mgr
-DB_PASSWORD=pukalani_pm
-DB_PORT=5432
-```
-> PM2 must be started with `NODE_ENV=production` to serve the Vite build.
-> Command: `NODE_ENV=production pm2 start server/index.js --name hawaii-pm`
-
-### 10.7 SSH and Infrastructure Access
-
-| Target | Method | Notes |
-|--------|--------|-------|
-| Proxmox host | `ssh root@192.168.1.100` | Key-based auth from dev laptop |
-| Any CT | `pct exec <VMID> -- <command>` | From Proxmox host |
-| HAOS VM | `qm guest exec 100 -- <command>` | From Proxmox host; no SSH inside HAOS |
-| GitHub push | From CT108 | `~/.git-credentials` contains PAT |
-
-**Preferred remote access pattern from a dev machine:**
-```bash
-# Run a command in a container:
-ssh root@192.168.1.100 "pct exec 110 -- cat /opt/hawaii-pm/.env"
-
-# Run a command in HAOS VM:
-ssh root@192.168.1.100 "qm guest exec 100 -- ha core info"
-
-# Deploy a file to HAOS (via base64 due to no stdin piping):
-scp myfile.py root@192.168.1.100:/tmp/myfile.py
-ssh root@192.168.1.100 'B64=$(base64 -w0 /tmp/myfile.py); qm guest exec 100 -- sh -c "echo ${B64} | base64 -d > /target/path/myfile.py"'
-
-# Deploy a file to a container:
-scp myfile.py root@192.168.1.100:/tmp/myfile.py
-ssh root@192.168.1.100 "pct push <VMID> /tmp/myfile.py /opt/target/myfile.py"
-```
-
-### 10.8 API Endpoints Reference
-
-| Service | URL | Auth | Purpose |
-|---------|-----|------|---------|
-| HA REST API | `http://192.168.1.19:8123/api/` | Bearer token | All HA operations |
-| PM API | `http://192.168.1.110:3001/api/` | None (LAN-only) | Tasks, vendors, owners, assets, warranties |
-| PM Web UI | `http://192.168.1.110:3001/` | None | Full React SPA |
-| BirdNET-Go API | `http://192.168.1.25:8080/api/v2/` | None (LAN-only) | Detections, species, analytics |
-| BirdNET-Go UI | `http://192.168.1.25:8080/` | None | BirdNET web interface |
-| Dashboard | `http://192.168.1.108:8080/` | None | Vessel/weather dashboard |
-| Dashboard API | `http://192.168.1.108:3001/api/` | None | Tracking data API |
-| ADS-B (tar1090) | `http://192.168.1.102/tar1090/` | None | Aircraft tracking |
-| Utilities (CT114) | `http://192.168.1.114:3114/` | None | PDF tools, games, health converter |
-| Frigate NVR | `http://192.168.1.113:5000/` | None | Camera NVR |
-| Alerts Engine | `http://192.168.1.109:3009/` | None | Maritime/weather alerts |
-
 ---
 
+## 10. Credentials, Tokens, and Connection Methods
+
+> **Moved to separate file for security isolation and independent access.**
+> See: [architecture-credentials.md](architecture-credentials.md)
+>
+> Contains: Database credentials, HA access tokens, MQTT credentials,
+> Frigate/camera credentials, service .env files, SSH access patterns,
+> API endpoint reference.
+
+---
 ## 12. 3D Visualization and Spatial Mapping
 
 > 🔲 **PLANNED — NOT YET IMPLEMENTED**
@@ -2608,8 +2521,8 @@ A new tab in the Command Center dashboard:
 
 | Add-on | Status | Port 22 Exposed | Access Method |
 |--------|--------|----------------|---------------|
-| Terminal & SSH (`core_ssh`) | ✅ Running (v10.3.0) | ❌ Not mapped to LAN | Ingress only (web terminal in HA UI) |
-| Advanced SSH (`a0d7b954_ssh`) | ❌ Not installed | N/A | N/A |
+| Terminal & SSH (`core_ssh`) | ✅ Running (v10.3.0) | âŒ Not mapped to LAN | Ingress only (web terminal in HA UI) |
+| Advanced SSH (`a0d7b954_ssh`) | âŒ Not installed | N/A | N/A |
 
 **Current access:** `qm guest exec 100` from Proxmox host (works, but limited — no stdin piping, requires base64 for file transfer).
 
@@ -2664,20 +2577,36 @@ scp roof_position_*.jpg hassio@192.168.1.19:/config/www/3d/panoramas/
 > All 3D models must be in `.glb` (glTF 2.0 Binary) format.
 > See column "How to Create" for tools and workflow.
 
-#### Required Files
+#### Required Files — Upload Status
 
-| # | File | Format | Max Size | Purpose | How to Create |
-|---|------|--------|----------|---------|---------------|
-| 1 | `floorplan.glb` | GLB | 10 MB | Interior floor plan for sensor overlay | Create in **Sweet Home 3D**, **SketchUp**, or **Blender**. Export all rooms as named mesh objects. No textures. No exterior. See 12.3.1. |
-| 2 | `property_exterior.glb` | GLB | 50 MB | Full property drone model with layer groups | Drone photogrammetry → **WebODM** or **RealityCapture** → Blender optimization → GLB export. See 12.4.1. |
-| 3–8 | `roof_position_N.jpg` (×5–6) | JPEG (equirectangular) | 30 MB each | 360° panoramas from roof vantage points | 360° camera (Insta360/Theta) **or** manual photo stitch. Min 8000×4000px. See 12.5.2. |
+| # | File | Format | Size | HAOS Path | Status | Source |
+|---|------|--------|------|-----------|--------|--------|
+| 1 | `floorplan.glb` | GLB | 561 KB | `/config/www/3d/floorplan.glb` | ✅ UPLOADED | LIDAR scan — main house interior (from `7_17_2026.glb`) |
+| 2 | `property_exterior.glb` | GLB | 10.5 MB | `/config/www/3d/property_exterior.glb` | ✅ UPLOADED | Drone photogrammetry — exterior only (from `7_12_2026.glb`) |
+| 3 | `cabana_garage.glb` | GLB | 245 KB | `/config/www/3d/cabana_garage.glb` | ✅ UPLOADED | LIDAR scan — cabana & garage. Has phantom wall (fix later). (from `7_21_2026.glb`) |
+| 4 | `utility_room.glb` | GLB | 34 KB | `/config/www/3d/utility_room.glb` | ✅ UPLOADED | LIDAR scan — underhouse utility room (from `7_21_2026(1).glb`) |
+| 5 | `laundry_room.glb` | GLB | 38 KB | `/config/www/3d/laundry_room.glb` | ✅ UPLOADED | LIDAR scan — laundry room (from `7_21_2026(2).glb`) |
+| 6–11 | `roof_position_N.jpg` (×5–6) | JPEG | TBD | `/config/www/3d/panoramas/` | â³ PENDING | Phone panorama mode (equirectangular). Directory created, awaiting images. |
+
+All files accessible via HA web server at `/local/3d/<filename>`.
+
+Upload method: Chunked base64 transfer via `qm guest exec 100` through Proxmox host.
+Small files (<100KB): single base64 echo pipe.
+Large files (>100KB): SCP to Proxmox host → base64 chunk script → reassemble inside HAOS.
 
 #### Optional / Future Files
 
 | # | File | Format | Purpose | When Needed |
 |---|------|--------|---------|-------------|
-| 9 | `solar_array.glb` | GLB | Solar panel layout overlay layer | When solar is installed |
-| 10 | `landscape_plan.glb` | GLB | Planned landscaping overlay | When landscape design is finalized |
+| 12 | `solar_array.glb` | GLB | Solar panel layout overlay layer | When solar is installed |
+| 13 | `landscape_plan.glb` | GLB | Planned landscaping overlay | When landscape design is finalized |
+
+#### Known Issues
+
+| File | Issue | Priority |
+|------|-------|----------|
+| `cabana_garage.glb` | Phantom wall present in model | Low — cosmetic, fix in Blender later |
+| `floorplan.glb` | Does not include laundry, utility, cabana, garage (those are separate files) | By design — composite view will stitch them |
 
 #### Blender Export Checklist (for all GLB files)
 
@@ -2689,156 +2618,17 @@ scp roof_position_*.jpg hassio@192.168.1.19:/config/www/3d/panoramas/
 6. **Scale:** 1 Blender unit = 1 meter (real-world scale)
 7. **Layers:** Use Blender Collections named exactly as listed in Section 12.4.2
 
-#### Quick Start — Minimum Viable 3D
-
-To get started with just the floor plan overlay (minimum effort):
-
-1. Install **Sweet Home 3D** (free, https://sweethome3d.com)
-2. Draw the floor plan using the actual room dimensions
-3. Name each room in the software
-4. Export → OBJ format
-5. Open in **Blender** → rename mesh objects to match sensor entity names → Export → GLB
-6. Upload `floorplan.glb` — implementation can begin
 
 ---
 
 ## 13. Architectural Change Log
 
-This section documents significant architectural changes and the reasoning behind them.
-
-### 2026-07-21: Massive Architecture Update (v2.0)
-
-**Changes made:**
-
-1. **Project Manager → HACS integration** (NEW)
-   - *What changed:* PM evolves from standalone web app to HA-integrated system
-   - *Why:* Enable HA entity linking (assign tasks to specific devices), vendor CRM accessible from HA sidebar, hardware inventory visible as HA sensors
-   - *Architecture impact:* CT110 keeps Express API (clean separation). New HACS integration acts as bridge. PostgreSQL migration required for relational queries and purge logic.
-
-2. **JSON → PostgreSQL migration** (PLANNED for CT110)
-   - *What changed:* Data storage moves from flat JSON files to PostgreSQL on CT104
-   - *Why:* JSON flat files don't support relational queries (warranty expiry checks, vendor-to-task joins), concurrent access is unsafe (fs.readFileSync/writeFileSync), and selective purging ("sold house") requires transactional DELETE cascades
-   - *Architecture impact:* CT104 gets second database `project_mgr`. CT110 Express routes change from fs to pg client. Data model gains `assets`, `warranties` tables.
-
-3. **BirdNET native integration** (NEW)
-   - *What changed:* BirdNET moves from iframe-only to native HACS integration with custom panel
-   - *Why:* iframe sandbox blocks POST requests to BirdNET-Go API (can't review/lock detections). Native integration calls API directly from HA backend.
-   - *Architecture impact:* No infrastructure changes. New HACS component consumes existing CT112 REST API.
-
-4. **Aqara camera pipeline** (EXPANDED)
-   - *What changed:* CT113 Frigate expanded from placeholder to full 6-camera NVR
-   - *Why:* Security monitoring with AI detection, event recording, future alerting
-   - *Architecture impact:* Coral USB TPU confirmed working. MQTT broker (Mosquitto on HA) carries event data. 5 new cameras to be added to Frigate config when installed.
-
-5. **CT114 utilities expansion** (EXPANDED)
-   - *What changed:* CT114 grows from 2 tools to 2 tools + 2 games + 1 health converter
-   - *Why:* Consolidate web-served utility apps on single container
-   - *Architecture impact:* nginx/FastAPI gains new routes. Apple Health Converter requires web conversion from Tkinter desktop app. Games are pure static SPAs (no backend).
-
-6. **Kiosk console** (NEW)
-   - *What changed:* Proxmox host gains a kiosk display service
-   - *Why:* Dedicated monitoring display for vessel tracking + bird detection
-   - *Architecture impact:* Runs on host (not container) — uses native Intel iGPU, X11, Chromium. ~200MB RAM overhead. No impact on virtualization.
-
-7. **Coral USB Accelerator** (DOCUMENTED)
-   - *What changed:* Coral USB formally documented; confirmed working in Frigate
-   - *Why:* Was physically present but undocumented
-   - *Architecture impact:* Added to USB device table, CT113 config documented
-
-### 2026-07-21: Implementation of Items 1–4 and 7
-
-**Implementation completed — the following architecture items are now live and verified:**
-
-#### Item 1: Project Manager PostgreSQL Migration + HACS Integration — ✅ IMPLEMENTED
-
-**Database migration:**
-- Created `project_mgr` database on CT104 (user: `pm_user`, password: `pukalani_pm`)
-- Schema deployed: `owners`, `vendors`, `vendor_interactions`, `tasks`, `task_supplies`, `maintenance`, `assets`, `warranties` tables
-- JSON → PostgreSQL migration script (`migrate.js`) executed successfully
-- Data integrity verified: 241 tasks, 17 vendors, 4 owners — exact match
-- `dotenv` added to index.js for env var loading
-
-**Express route conversion (CT110):**
-- All routes converted from `fs.readFileSync/writeFileSync` to PostgreSQL `pg` pool queries
-- Dependency cascading logic preserved (date propagation on task completion)
-- New endpoints deployed: `/api/assets`, `/api/warranties`, `/api/purge`, `/api/health`
-- Health endpoint returns: `{"status":"ok","database":"connected","counts":{...}}`
-- PM2 service saved and auto-starts on reboot
-
-**HACS integration (`pukalani_pm`):**
-- Deployed to `/config/custom_components/pukalani_pm/` on HAOS
-- Committed to GitHub repo under `custom_components/pukalani_pm/`
-- DataUpdateCoordinator polls PM API every 300 seconds
-- 6 sensor entities: `pm_total_tasks`, `pm_active_tasks`, `pm_overdue_tasks`, `pm_total_vendors`, `pm_total_assets`, `pm_warranties_expiring`
-- 1 binary sensor: `pm_api_online`
-- Graceful fallback when assets/warranties endpoints not yet available
-
-**Automated tests:**
-- Vitest suite (`server/tests/db.test.js`): DB connection, table count verification, CRUD operations on assets, purge safety — 3/3 pass
-
-#### Item 2: Games on CT114 — ✅ IMPLEMENTED
-
-- LUX (Alux2Win) built with `npx vite build --base=/games/lux/` — WebGL strategy game
-- Trish's Games built with `npx vite build --base=/games/trishsgames/` — 7 casual games
-- Dark-themed games landing page at `/games/` with glassmorphism card layout
-- Static assets deployed to `/opt/utilities/games/{landing,lux,trishsgames}/`
-- FastAPI mount order: specific paths (`/games/lux`, `/games/trishsgames`) before catch-all `/games`
-- HA sidebar panel: `panel_iframe` entry "Entertaining Diversions" (icon: `mdi:gamepad-variant`)
-
-**Automated tests:**
-- Bash integration test suite (`/opt/utilities/tests/integration_test.sh`): 12/12 pass
-- Python pytest suite: 164/164 pass (includes regression checks)
-
-#### Item 3: Apple Health Converter on CT114 — ✅ IMPLEMENTED
-
-- `health_converter.py` module created — reuses original `parser.py` streaming XML engine and `writers.py` CSV manager
-- FastAPI endpoint: `POST /api/healthconverter/convert` — accepts `.xml` or `.zip` upload, returns `.zip` of CSVs
-- Web UI: `health_converter.html` with drag-and-drop upload interface
-- Tool card added to utilities landing page
-- Processing uses temp directories, auto-cleaned after response
-- No server-side file retention — all processing ephemeral
-
-**Automated tests:**
-- Included in the 164-test pytest suite: synthetic export.xml test, zip upload handling, missing file error, endpoint integration
-
-#### Item 4: BirdNET Native Integration — ✅ IMPLEMENTED
-
-**HACS integration (`pukalani_birdnet`):**
-- Deployed to `/config/custom_components/pukalani_birdnet/` on HAOS
-- Committed to GitHub repo under `custom_components/pukalani_birdnet/`
-- DataUpdateCoordinator polls BirdNET-Go REST API every 60 seconds
-- 5 sensor entities: `birdnet_species_today`, `birdnet_detections_today`, `birdnet_last_species`, `birdnet_last_confidence`, `birdnet_top_species`
-- 3 services: `pukalani_birdnet.review`, `pukalani_birdnet.lock`, `pukalani_birdnet.refresh`
-- Uses `Pacific/Honolulu` timezone for "today" filtering
-- Graceful offline handling via `UpdateFailed` exception
-- HA sidebar panel: `panel_iframe` entry "BirdNET" (icon: `mdi:bird`)
-
-**Automated tests:**
-- `test_coordinator.py`: Mocked HTTP responses, data parsing
-- `test_sensor.py`: Entity creation, state verification
-- `test_services.py`: Service call validation
-
-#### Item 7: Architecture Document Update — ✅ IMPLEMENTED
-
-- Architecture document updated with implementation details for all items
-- Playbook step 4 updated to reflect project_mgr database creation
-- Change log updated with this section
-- Status of items 2 and 3 in change log changed from PLANNED to IMPLEMENTED
-
-**HA Configuration changes:**
-- `panel_iframe` section added to `configuration.yaml` with 3 entries:
-  - `helper_tools` → `http://192.168.1.114:3114/tools/` (icon: `mdi:tools`)
-  - `entertaining_diversions` → `http://192.168.1.114:3114/games/` (icon: `mdi:gamepad-variant`)
-  - `birdnet` → `http://192.168.1.25:8080/` (icon: `mdi:bird`)
-- Two HACS custom integrations deployed to `/config/custom_components/`
-- HA core restarted to activate all changes
-
-**Still planned (not implemented in this pass):**
-- Item 5: Kiosk console (requires hardware setup)
-- Item 6: Aqara camera pipeline (requires camera hardware installation)
+> **Moved to separate file (append-only, unbounded growth).**
+> See: [architecture-changelog.md](architecture-changelog.md)
 
 ---
 
 *End of architecture document.*
 *Generated: 2026-07-21 from live Proxmox at 192.168.1.100*
 *Location: Pukalani, Maui, Hawaii — 21.2855N, 157.7969W*
+*Last updated: 2026-07-21 evening session*

@@ -14,7 +14,7 @@ const HOME_LAT = 21.2855;
 const HOME_LON = -157.7969;
 const NM_PER_DEG_LAT = 60.0;
 
-// ── Smart vessel timeout (same as before) ─────────────────────────────────────
+// ── Smart vessel timeout ─────────────────────────────────────────────────────
 const vesselTimeout = (lat, lon) => {
   const dLat  = (lat - HOME_LAT) * NM_PER_DEG_LAT;
   const dLon  = (lon - HOME_LON) * NM_PER_DEG_LAT * Math.cos(HOME_LAT * Math.PI / 180);
@@ -24,7 +24,7 @@ const vesselTimeout = (lat, lon) => {
   return 60000;
 };
 
-// ── Dead reckoning (original implementation) ──────────────────────────────────
+// ── Dead reckoning ────────────────────────────────────────────────────────────
 function deadReckon(lat, lon, speedKt, headingDeg, dtSeconds) {
   if (!speedKt || speedKt < 0.5 || headingDeg == null || headingDeg >= 360) {
     return { lat, lon };
@@ -37,12 +37,24 @@ function deadReckon(lat, lon, speedKt, headingDeg, dtSeconds) {
   return { lat: newLat, lon: newLon };
 }
 
-// ── Module-level live ring buffer (survives React re-renders) ─────────────────
-// Keyed by entity_id or hex; stores recent positions not yet written to DB.
+// ── Helper to identify selected aircraft or vessel ID/type ────────────────────
+function getSelectedInfo(selected) {
+  if (!selected) return null;
+  // Aircraft selection (hex is unique identifier)
+  if (selected._type === 'aircraft' || selected.hex) {
+    return { type: 'aircraft', id: selected.hex };
+  }
+  // Vessel selection (entity_id or mmsi or id is unique identifier)
+  if (selected._type === 'vessel' || selected.entity_id || selected.mmsi) {
+    return { type: 'vessel', id: selected.entity_id || selected.id || (selected.mmsi ? String(selected.mmsi) : null) };
+  }
+  return null;
+}
+
+// ── Module-level live ring buffer ─────────────────────────────────────────────
 const LIVE_CACHE = {};  // { id: [{ lat, lon, altitude, time }] }
 
 // ── Merge DB trail points + live ring buffer ───────────────────────────────────
-// DB gives today's full history; live buffer appends the last ~90s not yet persisted.
 function mergeTrail(dbPoints, liveBuffer) {
   if (!dbPoints || !dbPoints.length) {
     return (liveBuffer || []).map(p => ({
@@ -73,7 +85,7 @@ function buildAndAddSegments(points, colorFn, weight, opacity, map) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-export default function TrailLayer({ aircraft, vessels, apiBase }) {
+export default function TrailLayer({ aircraft, vessels, apiBase, selected }) {
   const map = useMap();
 
   // Layer refs
@@ -84,7 +96,7 @@ export default function TrailLayer({ aircraft, vessels, apiBase }) {
 
   const acLinesRef   = useRef({});
 
-  // DB trail cache (today's data from the API)
+  // DB trail cache
   const vDbRef       = useRef({});   // { entity_id: [DB points] }
   const acDbRef      = useRef({});   // { hex: [DB points] }
 
@@ -94,6 +106,62 @@ export default function TrailLayer({ aircraft, vessels, apiBase }) {
 
   const animTimerRef  = useRef(null);
   const trailTimerRef = useRef(null);
+
+  // ── Sync trail visibility based on selection ────────────────────────────────
+  // When an aircraft or boat is selected, hide all other trails so only the selected vessel/aircraft's track shows.
+  // When selection is released (selected is null/cleared), all active trails return.
+  const syncTrailVisibility = () => {
+    const selInfo = getSelectedInfo(selected);
+
+    // Aircraft trails
+    Object.entries(acLinesRef.current).forEach(([id, lines]) => {
+      const shouldShow = !selInfo || (selInfo.type === 'aircraft' && selInfo.id === id);
+      lines.forEach(l => {
+        if (shouldShow) {
+          if (!map.hasLayer(l)) map.addLayer(l);
+        } else {
+          if (map.hasLayer(l)) map.removeLayer(l);
+        }
+      });
+    });
+
+    // Vessel trails
+    Object.entries(vLinesRef.current).forEach(([id, lines]) => {
+      const shouldShow = !selInfo || (selInfo.type === 'vessel' && selInfo.id === id);
+      lines.forEach(l => {
+        if (shouldShow) {
+          if (!map.hasLayer(l)) map.addLayer(l);
+        } else {
+          if (map.hasLayer(l)) map.removeLayer(l);
+        }
+      });
+    });
+
+    // Vessel projection lines
+    Object.entries(vProjRef.current).forEach(([id, line]) => {
+      const shouldShow = !selInfo || (selInfo.type === 'vessel' && selInfo.id === id);
+      if (shouldShow) {
+        if (!map.hasLayer(line)) map.addLayer(line);
+      } else {
+        if (map.hasLayer(line)) map.removeLayer(line);
+      }
+    });
+
+    // Vessel anim markers
+    Object.entries(vAnimRef.current).forEach(([id, marker]) => {
+      const shouldShow = !selInfo || (selInfo.type === 'vessel' && selInfo.id === id);
+      if (shouldShow) {
+        if (!map.hasLayer(marker)) map.addLayer(marker);
+      } else {
+        if (map.hasLayer(marker)) map.removeLayer(marker);
+      }
+    });
+  };
+
+  // Re-sync visibility whenever `selected` prop changes
+  useEffect(() => {
+    syncTrailVisibility();
+  }, [selected, map]); // eslint-disable-line
 
   // ── Fetch today's DB trail ─────────────────────────────────────────────────
   const fetchTodayTrail = async (id, isAircraft) => {
@@ -122,11 +190,11 @@ export default function TrailLayer({ aircraft, vessels, apiBase }) {
     vLinesRef.current[id] = [];
     if (points.length < 2) return;
 
-    const vclass = classifyVessel(vesselType, id);
-    const color  = VESSEL_CLASS_COLOR[vclass] || '#ffffff';
+    // All vessel/boat trails are black — makes them easy to distinguish from aircraft
     vLinesRef.current[id] = buildAndAddSegments(
-      points, () => color, 2, 0.60, map
+      points, () => '#000000', 2.5, 0.80, map
     );
+    syncTrailVisibility();
   };
 
   // ── Render aircraft trail from merged data ──────────────────────────────────
@@ -140,6 +208,7 @@ export default function TrailLayer({ aircraft, vessels, apiBase }) {
     acLinesRef.current[id] = buildAndAddSegments(
       points, p => altColor(p.altitude), 1.5, 0.65, map
     );
+    syncTrailVisibility();
   };
 
   // ── Aircraft effect ────────────────────────────────────────────────────────
@@ -312,10 +381,13 @@ export default function TrailLayer({ aircraft, vessels, apiBase }) {
           if (vAnimRef.current[id]) { map.removeLayer(vAnimRef.current[id]); delete vAnimRef.current[id]; }
         }
       }
+
+      // Sync visibility for any newly added projection/anim markers
+      syncTrailVisibility();
     }, ANIM_INTERVAL_MS);
 
     return () => clearInterval(animTimerRef.current);
-  }, [map]);
+  }, [map]); // eslint-disable-line
 
   // ── Cleanup on unmount ─────────────────────────────────────────────────────
   useEffect(() => {

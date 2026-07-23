@@ -1,17 +1,17 @@
-﻿# Pukalani Home Control â€” Full System Architecture
+# Pukalani Home Control — Full System Architecture
 
 > **Purpose:** Complete specification for reconstructing or porting this system to new hardware.
 > An AI agent reading this alongside a hardware inventory should be able to provision containers,
 > configure services, and bring the full system to operational status with minimal debugging.
 >
 > **Repository:** https://github.com/gavinfischer-keenan/pukalanihomecontrol
-> **Location:** Pukalani, Maui, Hawaii â€” 21.2855Â°N, 157.7969Â°W
-> **Last updated:** 2026-07-21 (generated from live system state)
+> **Location:** Pukalani, Maui, Hawaii — 21.2855°N, 157.7969°W
+> **Last updated:** 2026-07-22 (updated: Google API removal, vessel trails, photo pipeline, Photo Chronologizer planned)
 >
 > **Architecture Documentation Suite** (3 files):
-> - **architecture.md** â€” This file (hardware, VMs, data flows, network, 3D)
-> - [architecture-credentials.md](architecture-credentials.md) â€” Credentials, tokens, SSH access, API endpoints
-> - [architecture-changelog.md](architecture-changelog.md) â€” Change log (append-only history)
+> - **architecture.md** — This file (hardware, VMs, data flows, network, 3D)
+> - [architecture-credentials.md](architecture-credentials.md) — Credentials, tokens, SSH access, API endpoints
+> - [architecture-changelog.md](architecture-changelog.md) — Change log (append-only history)
 >
 > All three files are tracked in the GitHub repository.
 
@@ -23,13 +23,13 @@
 
 | Attribute | Value |
 |-----------|-------|
-| CPU | Intel Core Ultra 5 245T â€” 14 cores, 1 socket |
+| CPU | Intel Core Ultra 5 245T — 14 cores, 1 socket |
 | RAM | 16 GB (15 GiB usable) |
 | OS | Proxmox VE 8.x |
 | Host IP | 192.168.1.100 |
 | Gateway | 192.168.1.1 |
 | Network bridge | vmbr0 (LAN: 192.168.1.0/24) |
-| Monitor | Attached display (HDMI/DP) â€” used for kiosk console |
+| Monitor | Attached display (HDMI/DP) — used for kiosk console |
 | Input | USB mouse + keyboard (kiosk is mouse-only; keyboard for maintenance) |
 
 ### Storage Pools
@@ -44,18 +44,18 @@
 
 ### USB Devices
 
-All on a VIA Labs USB 2.0 hub (2109:2817), bus 1 â€” except Coral (bus 2, USB 3.0).
+All on a VIA Labs USB 2.0 hub (2109:2817), bus 1 — except Coral (bus 2, USB 3.0).
 
 | Port | USB ID | Product | Role | Assigned to |
 |------|--------|---------|------|-------------|
 | 1-7.2 | 31b2:0022 | KTMicro LavMicro-U | Microphone (BirdNET) | CT112 via /dev/snd bind-mount |
 | 1-7.4 | 10c4:ea60 | Sonoff Zigbee 3.0 Dongle Plus V2 | Zigbee coordinator | VM100 (HAOS) pinned by physical port |
-| 1-1 | 0bda:2838 | RTL-SDR Blog V4 (serial 00000001) | AIS 162MHz SDR | Proxmox host â€” rtl-tcp-ais service |
+| 1-1 | 0bda:2838 | RTL-SDR Blog V4 (serial 00000001) | AIS 162MHz SDR | Proxmox host — rtl-tcp-ais service |
 | 1-? | 0bda:2838 | Generic RTL2838 DVB-T | ADS-B 1090MHz SDR | CT102 via /dev/bus/usb bind-mount |
 | USB3 | 152d:b583 | JMicron YOTUO | External SSD | bigdata storage pool |
 | Bus 2 | 18d1:9302 | Google Coral USB Accelerator | Edge TPU (Frigate AI) | CT113 via /dev/bus/usb bind-mount |
 
-> CRITICAL â€” USB disambiguation: The Zigbee dongle and any CP210x AIS receiver share
+> CRITICAL — USB disambiguation: The Zigbee dongle and any CP210x AIS receiver share
 > VID:PID 10c4:ea60. Udev rules disambiguate by hardware serial number.
 > The HAOS VM is pinned to physical port 1-7.4 so Zigbee is never grabbed after a replug.
 > Zigbee dongle serial: 22571d3d0d91f011ab54786236f0e4ad
@@ -70,7 +70,7 @@ All on a VIA Labs USB 2.0 hub (2109:2817), bus 1 â€” except Coral (bus 2, U
 
 ## 2. Virtual Machines and Containers
 
-### VM100 â€” haos-18.1 (Home Assistant OS)
+### VM100 — haos-18.1 (Home Assistant OS)
 
 | Setting | Value |
 |---------|-------|
@@ -79,8 +79,8 @@ All on a VIA Labs USB 2.0 hub (2109:2817), bus 1 â€” except Coral (bus 2, U
 | IP | 192.168.1.19 (set inside HA network config) |
 | CPU | 2 cores |
 | RAM | 4096 MB |
-| Disk | local-lvm:vm-100-disk-0 â€” 32 GB SSD+discard |
-| EFI | local-lvm:vm-100-disk-1 â€” 4 MB |
+| Disk | local-lvm:vm-100-disk-0 — 32 GB SSD+discard |
+| EFI | local-lvm:vm-100-disk-1 — 4 MB |
 | USB passthrough | usb0: host=1-7.4 (Zigbee dongle by physical port) |
 | Boot | onboot: 1 |
 | Key integrations | Enphase Envoy (solar), Ecowitt GW2000, ZHA (Zigbee), ESPHome, Frigate, Mosquitto MQTT |
@@ -94,7 +94,7 @@ All on a VIA Labs USB 2.0 hub (2109:2817), bus 1 â€” except Coral (bus 2, U
     Configuration pending: user accounts, ACLs, TLS.
 
     When configuring:
-      1. HA â†’ Settings â†’ Add-ons â†’ Mosquitto broker â†’ Configuration
+      1. HA → Settings → Add-ons → Mosquitto broker → Configuration
       2. Add user: frigate / <password>
       3. Add user: ha_internal / <password>
       4. Update Frigate config.yml mqtt section with credentials
@@ -106,17 +106,17 @@ The following panels are configured (or planned) in HA's `configuration.yaml`:
 
 | Panel | Type | Status | URL / Config |
 |-------|------|--------|--------------|
-| Helper Tools | panel_iframe | âœ… LIVE | http://192.168.1.114:3114/tools/ |
-| Project Manager | panel_custom (HACS) | ðŸ”² NOT YET IMPLEMENTED | HACS integration `pukalani_pm` |
-| BirdNET | panel_custom (HACS) | ðŸ”² NOT YET IMPLEMENTED | HACS integration `pukalani_birdnet` |
-| Entertaining Diversions | panel_iframe | ðŸ”² NOT YET IMPLEMENTED | http://192.168.1.114:3114/games/ |
-| Frigate | HACS integration | âœ… LIVE (pending full config) | Frigate integration via MQTT |
+| Helper Tools | panel_iframe | ✅ LIVE | http://192.168.1.114:3114/tools/ |
+| Project Manager | panel_custom (HACS) | 🔲 NOT YET IMPLEMENTED | HACS integration `pukalani_pm` |
+| BirdNET | panel_custom (HACS) | 🔲 NOT YET IMPLEMENTED | HACS integration `pukalani_birdnet` |
+| Entertaining Diversions | panel_iframe | 🔲 NOT YET IMPLEMENTED | http://192.168.1.114:3114/games/ |
+| Frigate | HACS integration | ✅ LIVE (pending full config) | Frigate integration via MQTT |
 
 #### Home Assistant Custom Integrations (HACS)
 
-##### `pukalani_pm` â€” Project Manager Integration
+##### `pukalani_pm` — Project Manager Integration
 
-> ðŸ”² **NOT YET IMPLEMENTED** â€” Architecture defined below; build when PM PostgreSQL migration is complete.
+> 🔲 **NOT YET IMPLEMENTED** — Architecture defined below; build when PM PostgreSQL migration is complete.
 
 **Purpose:** Bridge the standalone Project Manager (CT110) into HA as a native integration.
 Exposes task counts, overdue alerts, and hardware inventory as HA entities.
@@ -125,16 +125,16 @@ Registers a custom sidebar panel for the full PM UI.
 **File structure** (in pukalanihomecontrol repo):
 
     custom_components/pukalani_pm/
-    â”œâ”€â”€ __init__.py           # async_setup_entry: creates coordinator, forwards platforms
-    â”œâ”€â”€ manifest.json         # domain: pukalani_pm, requirements: [aiohttp], version
-    â”œâ”€â”€ config_flow.py        # ConfigFlow: asks for PM API URL (default http://192.168.1.110:3001)
-    â”œâ”€â”€ const.py              # DOMAIN, DEFAULT_URL, SCAN_INTERVAL (300s)
-    â”œâ”€â”€ coordinator.py        # DataUpdateCoordinator: polls PM /api/tasks, /api/vendors, /api/assets
-    â”œâ”€â”€ sensor.py             # Sensors: tasks_total, tasks_overdue, tasks_in_progress, assets_total
-    â”œâ”€â”€ binary_sensor.py      # Binary sensors: has_delayed_tasks, has_expiring_warranties
-    â”œâ”€â”€ services.yaml         # Service descriptions
-    â”œâ”€â”€ strings.json          # UI translations
-    â””â”€â”€ translations/en.json
+    ├── __init__.py           # async_setup_entry: creates coordinator, forwards platforms
+    ├── manifest.json         # domain: pukalani_pm, requirements: [aiohttp], version
+    ├── config_flow.py        # ConfigFlow: asks for PM API URL (default http://192.168.1.110:3001)
+    ├── const.py              # DOMAIN, DEFAULT_URL, SCAN_INTERVAL (300s)
+    ├── coordinator.py        # DataUpdateCoordinator: polls PM /api/tasks, /api/vendors, /api/assets
+    ├── sensor.py             # Sensors: tasks_total, tasks_overdue, tasks_in_progress, assets_total
+    ├── binary_sensor.py      # Binary sensors: has_delayed_tasks, has_expiring_warranties
+    ├── services.yaml         # Service descriptions
+    ├── strings.json          # UI translations
+    └── translations/en.json
 
 **Entities exposed:**
 
@@ -152,14 +152,14 @@ Registers a custom sidebar panel for the full PM UI.
 
 | Service | Parameters | Description |
 |---------|-----------|-------------|
-| pukalani_pm.refresh | â€” | Force refresh from PM API |
+| pukalani_pm.refresh | — | Force refresh from PM API |
 | pukalani_pm.create_task | name, section, vendor_id, entity_id | Create task (can reference HA entity) |
 | pukalani_pm.purge_project | keep_vendors, keep_assets | "Sold house" purge (see section 4.11) |
 
 **HA entity linking:**
 Tasks can reference HA entities via an `entity_id` field (e.g., `light.living_room`).
 The coordinator resolves entity_id to friendly_name for display.
-Example: Task "Replace bulb" â†’ entity_id: `light.kitchen_ceiling` â†’ shows "Kitchen Ceiling" in PM UI.
+Example: Task "Replace bulb" → entity_id: `light.kitchen_ceiling` → shows "Kitchen Ceiling" in PM UI.
 
 **Custom panel registration** (in `__init__.py`):
 
@@ -188,9 +188,9 @@ asset inventory) using HA's native web component patterns.
 
 ---
 
-##### `pukalani_birdnet` â€” BirdNET Native Integration
+##### `pukalani_birdnet` — BirdNET Native Integration
 
-> ðŸ”² **NOT YET IMPLEMENTED** â€” Architecture defined below; build when ready.
+> 🔲 **NOT YET IMPLEMENTED** — Architecture defined below; build when ready.
 
 **Purpose:** Replace the current iframe-only BirdNET access with a native HA integration.
 Provides real-time detection entities, species statistics, and a custom panel with
@@ -205,15 +205,15 @@ bypassing all iframe limitations.
 **File structure:**
 
     custom_components/pukalani_birdnet/
-    â”œâ”€â”€ __init__.py           # async_setup_entry, panel registration
-    â”œâ”€â”€ manifest.json         # domain: pukalani_birdnet, requirements: [aiohttp]
-    â”œâ”€â”€ config_flow.py        # ConfigFlow: BirdNET-Go URL (default http://192.168.1.25:8080)
-    â”œâ”€â”€ const.py              # DOMAIN, API_BASE, SCAN_INTERVAL (60s)
-    â”œâ”€â”€ coordinator.py        # DataUpdateCoordinator: polls /api/v2/detections + /api/v2/analytics
-    â”œâ”€â”€ sensor.py             # Sensors: species_today, total_detections_today, last_species, last_confidence
-    â”œâ”€â”€ services.yaml         # review_detection, lock_detection
-    â”œâ”€â”€ strings.json
-    â””â”€â”€ translations/en.json
+    ├── __init__.py           # async_setup_entry, panel registration
+    ├── manifest.json         # domain: pukalani_birdnet, requirements: [aiohttp]
+    ├── config_flow.py        # ConfigFlow: BirdNET-Go URL (default http://192.168.1.25:8080)
+    ├── const.py              # DOMAIN, API_BASE, SCAN_INTERVAL (60s)
+    ├── coordinator.py        # DataUpdateCoordinator: polls /api/v2/detections + /api/v2/analytics
+    ├── sensor.py             # Sensors: species_today, total_detections_today, last_species, last_confidence
+    ├── services.yaml         # review_detection, lock_detection
+    ├── strings.json
+    └── translations/en.json
 
 **BirdNET-Go REST API consumed** (CT112:8080):
 
@@ -247,13 +247,13 @@ bypassing all iframe limitations.
 |---------|-----------|-------------|
 | pukalani_birdnet.review | detection_id, species, verified | Confirm/reject a detection |
 | pukalani_birdnet.lock | detection_id | Lock detection against re-classification |
-| pukalani_birdnet.refresh | â€” | Force data refresh |
+| pukalani_birdnet.refresh | — | Force data refresh |
 
 **Custom panel features:**
 - Real-time detection feed (via SSE subscription)
 - Detection list with audio playback, spectrogram thumbnail
-- âœ… Agree / âŒ Disagree buttons (POST /api/v2/detections/:id/review)
-- ðŸ”’ Lock button (POST /api/v2/detections/:id/lock)
+- ✅ Agree / âŒ Disagree buttons (POST /api/v2/detections/:id/review)
+- 🔒 Lock button (POST /api/v2/detections/:id/lock)
 - Species statistics dashboard (daily/weekly/monthly charts)
 - Filter by species, confidence threshold, verified status
 
@@ -269,7 +269,7 @@ bypassing all iframe limitations.
 
 ---
 
-### CT101 â€” brain (Docker/utility host)
+### CT101 — brain (Docker/utility host)
 
 | Setting | Value |
 |---------|-------|
@@ -277,7 +277,7 @@ bypassing all iframe limitations.
 | OS | Debian (Docker LXC via community-scripts) |
 | CPU | 2 cores |
 | RAM | 2048 MB |
-| Disk | bigdata:vm-101-disk-0 â€” 16 GB |
+| Disk | bigdata:vm-101-disk-0 — 16 GB |
 | Features | nesting=1 |
 | GPU | /dev/dri/renderD128, /dev/dri/card1 passthrough (Intel iGPU) |
 | Sound | /dev/snd bind-mount |
@@ -286,7 +286,7 @@ bypassing all iframe limitations.
 
 ---
 
-### CT102 â€” Airspace (ADS-B)
+### CT102 — Airspace (ADS-B)
 
 | Setting | Value |
 |---------|-------|
@@ -294,7 +294,7 @@ bypassing all iframe limitations.
 | OS | Debian (unprivileged) |
 | CPU | 1 core |
 | RAM | 512 MB |
-| Disk | local-lvm:vm-102-disk-0 â€” 2 GB |
+| Disk | local-lvm:vm-102-disk-0 — 2 GB |
 | USB | /dev/bus/usb bind-mount for RTL-SDR ADS-B stick |
 | Services | dump1090-fa, tar1090 |
 | Port :80 | tar1090 web UI at http://192.168.1.102/tar1090 |
@@ -302,7 +302,7 @@ bypassing all iframe limitations.
 
 ---
 
-### CT103 â€” Marine-ais (legacy serial bridge, idle)
+### CT103 — Marine-ais (legacy serial bridge, idle)
 
 | Setting | Value |
 |---------|-------|
@@ -310,13 +310,13 @@ bypassing all iframe limitations.
 | OS | Debian (unprivileged) |
 | CPU | 1 core |
 | RAM | 512 MB |
-| Disk | local-lvm:vm-103-disk-0 â€” 2 GB |
+| Disk | local-lvm:vm-103-disk-0 — 2 GB |
 | USB | /dev/ttyUSB0 bind-mount |
-| Status | IDLE â€” AIS now handled by RTL-SDR pipeline (see section 4.1) |
+| Status | IDLE — AIS now handled by RTL-SDR pipeline (see section 4.1) |
 
 ---
 
-### CT104 â€” trackerDB (PostgreSQL)
+### CT104 — trackerDB (PostgreSQL)
 
 | Setting | Value |
 |---------|-------|
@@ -324,7 +324,7 @@ bypassing all iframe limitations.
 | OS | Debian (unprivileged) |
 | CPU | 1 core |
 | RAM | 1024 MB |
-| Disk | bigdata:vm-104-disk-0 â€” 200 GB |
+| Disk | bigdata:vm-104-disk-0 — 200 GB |
 | Engine | PostgreSQL 15 |
 | Port | 5432 (LAN-only) |
 | App user | tracker / pukalani |
@@ -371,7 +371,7 @@ bypassing all iframe limitations.
 
 #### Database: `project_mgr` (NEW)
 
-> ðŸ”² **NOT YET IMPLEMENTED** â€” Create this database when migrating Project Manager from JSON flat files.
+> 🔲 **NOT YET IMPLEMENTED** — Create this database when migrating Project Manager from JSON flat files.
 
     Migration from:  CT110 server/data/*.json (tasks.json, vendors.json, owners.json, maintenance.json)
     Migration to:    PostgreSQL on CT104, database 'project_mgr', user 'pm_user'
@@ -387,7 +387,7 @@ bypassing all iframe limitations.
       notes TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
 
-    -- Vendors (contractors, suppliers â€” survives "sold house" purge)
+    -- Vendors (contractors, suppliers — survives "sold house" purge)
     vendors
       id UUID PK DEFAULT gen_random_uuid(),
       name TEXT NOT NULL,
@@ -413,7 +413,7 @@ bypassing all iframe limitations.
       linked_task_id UUID,        -- FK to tasks(id), nullable
       created_at TIMESTAMPTZ DEFAULT NOW()
 
-    -- Tasks (project work items â€” purged on "sold house")
+    -- Tasks (project work items — purged on "sold house")
     tasks
       id UUID PK DEFAULT gen_random_uuid(),
       parent_id UUID REFERENCES tasks(id) ON DELETE CASCADE,
@@ -448,7 +448,7 @@ bypassing all iframe limitations.
       cost NUMERIC(10,2) DEFAULT 0,
       checked_off BOOLEAN DEFAULT FALSE
 
-    -- Maintenance log (purged on "sold house" â€” historical repairs to previous owner's stuff)
+    -- Maintenance log (purged on "sold house" — historical repairs to previous owner's stuff)
     maintenance
       id UUID PK DEFAULT gen_random_uuid(),
       description TEXT,
@@ -464,7 +464,7 @@ bypassing all iframe limitations.
       section_name TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
 
-    -- Hardware assets (survives "sold house" purge â€” tracks installed equipment)
+    -- Hardware assets (survives "sold house" purge — tracks installed equipment)
     assets
       id UUID PK DEFAULT gen_random_uuid(),
       name TEXT NOT NULL,               -- e.g. 'Rheem ProTerra Heat Pump Water Heater'
@@ -481,7 +481,7 @@ bypassing all iframe limitations.
       notes TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
 
-    -- Warranties (survives "sold house" purge â€” tied to assets)
+    -- Warranties (survives "sold house" purge — tied to assets)
     warranties
       id UUID PK DEFAULT gen_random_uuid(),
       asset_id UUID REFERENCES assets(id) ON DELETE CASCADE,
@@ -522,7 +522,7 @@ bypassing all iframe limitations.
 
 ---
 
-### CT105 â€” tracker-engine (Python collectors)
+### CT105 — tracker-engine (Python collectors)
 
 | Setting | Value |
 |---------|-------|
@@ -530,7 +530,7 @@ bypassing all iframe limitations.
 | OS | Debian (unprivileged) |
 | CPU | 1 core |
 | RAM | 512 MB |
-| Disk | local-lvm:vm-105-disk-0 â€” 4 GB |
+| Disk | local-lvm:vm-105-disk-0 — 4 GB |
 | Listens | UDP :10110 (NMEA sentences from AIS-Catcher on CT106) |
 
 Running services:
@@ -542,7 +542,7 @@ Running services:
 | avia-collector.service | /opt/ | METAR + winds aloft from aviationweather.gov every 5min -> aviation_weather |
 | env-collector.service | /opt/ | NDBC buoy every 30min + NOAA tides every 8h -> DB |
 | tracker-engine.service | /opt/tracker_engine.py | Enriches records, updates seen_days counters, destination prediction |
-| cron | â€” | Prunes live_tracks older than retention window |
+| cron | — | Prunes live_tracks older than retention window |
 
 Environment (/opt/.env):
 
@@ -556,7 +556,7 @@ Environment (/opt/.env):
 
 ---
 
-### CT106 â€” sdr-engine (AIS-Catcher)
+### CT106 — sdr-engine (AIS-Catcher)
 
 | Setting | Value |
 |---------|-------|
@@ -564,7 +564,7 @@ Environment (/opt/.env):
 | OS | Debian (unprivileged) |
 | CPU | 2 cores |
 | RAM | 512 MB |
-| Disk | local-lvm:vm-106-disk-0 â€” 4 GB |
+| Disk | local-lvm:vm-106-disk-0 — 4 GB |
 
 ais-catcher.service ExecStart:
 
@@ -577,14 +577,14 @@ ais-catcher.service ExecStart:
 
 ---
 
-### CT108 â€” dashboard (Node.js API + React/Vite UI)
+### CT108 — dashboard (Node.js API + React/Vite UI)
 
 | Setting | Value |
 |---------|-------|
 | IP | 192.168.1.108 (static) |
 | OS | Debian (unprivileged) |
 | RAM | 512 MB |
-| Disk | local-lvm:vm-108-disk-0 â€” 8 GB |
+| Disk | local-lvm:vm-108-disk-0 — 8 GB |
 | API | Express/Node.js port 3001, managed by PM2 |
 | Web | nginx port 80 -> serves /opt/dashboard/client/dist/ + proxies /api/ -> :3001 |
 | Code | /opt/dashboard/server/ (API), /opt/dashboard/client/ (React/Vite) |
@@ -602,6 +602,8 @@ Server environment (/opt/dashboard/server/.env):
     ALERTS_ENGINE_URL=http://192.168.1.109:3009
     HA_WEBHOOK_URL=http://192.168.1.19:8123/api/webhook/5de76fbee15b641d309d042238b47326
     PORT=3001
+    # GOOGLE_GEOCODING_KEY — REMOVED 2026-07-22 (geocodeAirport() deleted; AIRPORT_COORDS map used exclusively)
+    # GOOGLE_CSE_CX       — REMOVED 2026-07-22 (CSE replaced by direct MarineTraffic + planespotters.net sources)
 
 All API routes (GET unless noted):
 
@@ -644,88 +646,107 @@ All API routes (GET unless noted):
 React client components (/opt/dashboard/client/src/components/):
 
 Map layers:
-  VesselLayer.jsx     â€” AIS vessels, dead-reckoning animation (great-circle, rAF)
-  AircraftLayer.jsx   â€” ADS-B aircraft with type icons and altitude colouring
-  TrailLayer.jsx      â€” Position trail polyline for selected entity
-  BuoyLayer.jsx       â€” NDBC buoy markers
-  MetarLayer.jsx      â€” METAR station circles
-  EcowittLayer.jsx    â€” Home weather station marker
-  SurfLayer.jsx       â€” Surf spots
-  TideLayer.jsx       â€” Tide gauge markers
-  RadarLayer.jsx      â€” RainViewer radar tile overlay
-  HDRadarLayer.jsx    â€” HD Radio radar (future)
-  HDTrafficLayer.jsx  â€” HD Radio traffic (future)
-  HDGasLayer.jsx      â€” HD Radio gas prices (future)
-  HomeBase.jsx        â€” Home location pin
-  RangeRings.jsx      â€” Configurable distance rings
-  ReferenceObjects.jsx â€” Static reference markers
+  VesselLayer.jsx     — AIS vessels, dead-reckoning animation (great-circle, rAF)
+  AircraftLayer.jsx   — ADS-B aircraft with type icons and altitude colouring
+  TrailLayer.jsx      — Position trail polyline for selected entity
+                        Vessel trails: #000000 black (weight 2.5, opacity 0.80) — changed 2026-07-22
+                        Aircraft trails: altitude-gradient color (unchanged)
+  BuoyLayer.jsx       — NDBC buoy markers
+  MetarLayer.jsx      — METAR station circles
+  EcowittLayer.jsx    — Home weather station marker
+  SurfLayer.jsx       — Surf spots
+  TideLayer.jsx       — Tide gauge markers
+  RadarLayer.jsx      — RainViewer radar tile overlay
+  HDRadarLayer.jsx    — HD Radio radar (future)
+  HDTrafficLayer.jsx  — HD Radio traffic (future)
+  HDGasLayer.jsx      — HD Radio gas prices (future)
+  HomeBase.jsx        — Home location pin
+  RangeRings.jsx      — Configurable distance rings
+  ReferenceObjects.jsx — Static reference markers
 
 Panels and UI:
-  App.jsx              â€” Root: layer state, polling timers, map init
-  LayerControl.jsx     â€” Layer toggle sidebar (Airspace / Integrated Vessel / Weather / Map / NWS/NOAA)
-  DetailPanel.jsx      â€” Entity detail, seen-days badge, edit form, photo upload
-  StatusBar.jsx        â€” Top status strip
-  ATISBar.jsx          â€” Airport ATIS bar
-  AirportStatusBar.jsx â€” Airport status
-  ForecastPanel.jsx    â€” Marine/aviation forecast
-  WindsAloftPanel.jsx  â€” Winds aloft visualisation
-  SunMoonPanel.jsx     â€” Sun/moon rise/set
-  AlertsPage.jsx       â€” Full-screen NWS active alerts overlay
-  TideChartModal.jsx   â€” Tide chart popup
-  HDRadioStatusPanel.jsx â€” HD Radio status
-  AltLegend.jsx        â€” Altitude colour legend
-  Legend.jsx           â€” General map legend
-  MapEventTracker.jsx  â€” Map click/hover handler
-  ErrorBoundary.jsx    â€” React error boundary (silent fail for map layers)
+  App.jsx              — Root: layer state, polling timers, map init
+  LayerControl.jsx     — Layer toggle sidebar (Airspace / Integrated Vessel / Weather / Map / NWS/NOAA)
+  DetailPanel.jsx      — Entity detail, seen-days badge, edit form, photo upload
+  FrequentVisitorsSidebar.jsx — Known-entity sidebar: vessels + aircraft with auto-fetched photos,
+                                seen-days, schedule, POTENTIAL/CONFIRMED/REJECTED photo approval
+  StatusBar.jsx        — Top status strip
+  ATISBar.jsx          — Airport ATIS bar
+  AirportStatusBar.jsx — Airport status
+  ForecastPanel.jsx    — Marine/aviation forecast
+  WindsAloftPanel.jsx  — Winds aloft visualisation
+  SunMoonPanel.jsx     — Sun/moon rise/set
+  AlertsPage.jsx       — Full-screen NWS active alerts overlay
+  TideChartModal.jsx   — Tide chart popup
+  HDRadioStatusPanel.jsx — HD Radio status
+  AltLegend.jsx        — Altitude colour legend
+  Legend.jsx           — General map legend
+  MapEventTracker.jsx  — Map click/hover handler
+  ErrorBoundary.jsx    — React error boundary (silent fail for map layers)
+
+Server-side services (/opt/dashboard/server/):
+  known-entities-service.js — Entity management: vessel_info, aircraft_info, entity_photos,
+                              entity_track_history, entity_schedule tables.
+                              Photo auto-fetch pipeline (2026-07-22):
+                                - Aircraft: planespotters.net API by ICAO hex (no key required)
+                                - Vessels:  MarineTraffic showphoto.aspx by MMSI (no key required)
+                                - Runs: 2 min after startup + every 6 hours (setInterval)
+                                - Status: stored as 'potential' in entity_photos, user approves in sidebar
+                                - Source value: 'google_image_search' (DB check constraint value)
+                              Google APIs REMOVED 2026-07-22:
+                                - geocodeAirport() deleted (was: Google Maps Geocoding API)
+                                - Airport coords: AIRPORT_COORDS hardcoded map only
+                                - Google CSE: replaced by direct scraping/API sources
+  nws-service.js            — NWS/NOAA data caching (good-citizen, avoids API hammering)
 
 NWS/NOAA panel suite:
-  NWSApp.jsx + .css      â€” Standalone NWS app entry point, tab router (Loops / Air / Water / Forecasts)
-  NWSLoopsGrid.jsx + .css â€” Sidebar+viewer layout: clickable loop list with descriptions
+  NWSApp.jsx + .css      — Standalone NWS app entry point, tab router (Loops / Air / Water / Forecasts)
+  NWSLoopsGrid.jsx + .css — Sidebar+viewer layout: clickable loop list with descriptions
                             & tips on left, selected loop imagery viewer on right.
                             4 loops: GeoColor, Infrared, Water Vapor, N. Pacific Wide-Area.
                             5min auto-refresh.
-  NWSForecastPanel.jsx + .css â€” Category-tabbed forecast panel:
-                            Tabs: ðŸ„ Surf, ðŸŒ¤ï¸ Weather, â›µ Marine, ðŸ“Š Climate.
+  NWSForecastPanel.jsx + .css — Category-tabbed forecast panel:
+                            Tabs: ðŸ „ Surf, ðŸŒ¤ï¸  Weather, ⛵ Marine, 📊 Climate.
                             Jump links within multi-product categories.
                             Accordion cards with product ID badge, description, issue time.
                             Climate tab: ENSO/RONI tracker + CPC 90-day outlook images.
-  NWSMap.jsx + .css      â€” Leaflet map with air/water sub-tabs:
+  NWSMap.jsx + .css      — Leaflet map with air/water sub-tabs:
                             Air: NWS Station Obs (NWS API v2), Active Alerts, NEXRAD Radar.
                             Water: FAD Locations, Depth (Esri Ocean Reference), SST, Wave Height.
-                            (Harbor Approaches and Trade Routes REMOVED â€” data to be revamped later)
+                            (Harbor Approaches and Trade Routes REMOVED — data to be revamped later)
 
 Hooks and utilities:
-  useDraggable.js        â€” Drag behaviour for floating panels
+  useDraggable.js        — Drag behaviour for floating panels
 
 Test suites:
-  dashboard/server/tests/api.test.js        â€” Jest/axios: all GET endpoints
+  dashboard/server/tests/api.test.js        — Jest/axios: all GET endpoints
   dashboard/client/src/__tests__/
-    vessel.test.js                          â€” Vitest: classifyVessel(), VESSEL_CLASS_COLOR
-    deadReckon.test.js                      â€” Vitest: great-circle dead-reckoning (5 cases)
+    vessel.test.js                          — Vitest: classifyVessel(), VESSEL_CLASS_COLOR
+    deadReckon.test.js                      — Vitest: great-circle dead-reckoning (5 cases)
 
 
 ---
 
-### CT109 â€” alerts-engine
+### CT109 — alerts-engine
 
 | Setting | Value |
 |---------|-------|
 | IP | 192.168.1.109 (static) |
 | OS | Debian (unprivileged) |
 | CPU | 1 core, RAM 512 MB |
-| Disk | local-lvm:vm-109-disk-0 â€” 4 GB |
+| Disk | local-lvm:vm-109-disk-0 — 4 GB |
 | Port | 3009 |
 | App | /opt/alerts/ |
 | Role | NWS CAP alert poller; CT108 proxies /api/alerts through it |
 
-### CT110 â€” project-mgr
+### CT110 — project-mgr
 
 | Setting | Value |
 |---------|-------|
 | IP | 192.168.1.110 (static) |
 | OS | Debian (unprivileged) |
 | CPU | 1 core, RAM 512 MB |
-| Disk | bigdata:vm-110-disk-0 â€” 50 GB |
+| Disk | bigdata:vm-110-disk-0 — 50 GB |
 | Port | 3001 |
 | Stack | Node.js (ES Modules), Express 4, React 19, Vite 6 |
 | App root | /opt/project-mgr/ |
@@ -768,7 +789,7 @@ Server environment (/opt/project-mgr/server/.env):
 | POST | /api/owners | Create owner |
 | PUT | /api/owners/:id | Update owner |
 | DELETE | /api/owners/:id | Delete owner |
-| POST | /api/import | Upload Excel .xlsx â†’ parse â†’ import tasks |
+| POST | /api/import | Upload Excel .xlsx → parse → import tasks |
 
 **New API routes (after PostgreSQL migration):**
 
@@ -789,18 +810,18 @@ Server environment (/opt/project-mgr/server/.env):
 
 | View | Status | Description |
 |------|--------|-------------|
-| SummaryDashboard | âœ… LIVE | Progress ring, section cards, recent completions |
-| TaskTable | âœ… LIVE | Hierarchical tree table, drag-reorder, inline editing |
-| GanttTimeline | âœ… LIVE | Interactive Gantt chart |
-| DailyTaskList | âœ… LIVE | Prioritized daily action list |
-| CompletedView | âœ… LIVE | Finished task archive with variance |
-| MaintenanceLog | âœ… LIVE | Repair and installation log |
-| VendorPanel | âœ… LIVE | CRM contacts, interaction timeline |
-| ShoppingList | âœ… LIVE | Aggregated supplies across tasks |
-| ImportWizard | âœ… LIVE | Excel drag-and-drop importer |
-| PdfReportView | âœ… LIVE | Exportable reports (SheetJS + html2pdf) |
-| AssetInventory | ðŸ”² NEW | Hardware asset list with warranty tracker |
-| AssetDetail | ðŸ”² NEW | Single asset view: serial, location, warranty, linked HA entity |
+| SummaryDashboard | ✅ LIVE | Progress ring, section cards, recent completions |
+| TaskTable | ✅ LIVE | Hierarchical tree table, drag-reorder, inline editing |
+| GanttTimeline | ✅ LIVE | Interactive Gantt chart |
+| DailyTaskList | ✅ LIVE | Prioritized daily action list |
+| CompletedView | ✅ LIVE | Finished task archive with variance |
+| MaintenanceLog | ✅ LIVE | Repair and installation log |
+| VendorPanel | ✅ LIVE | CRM contacts, interaction timeline |
+| ShoppingList | ✅ LIVE | Aggregated supplies across tasks |
+| ImportWizard | ✅ LIVE | Excel drag-and-drop importer |
+| PdfReportView | ✅ LIVE | Exportable reports (SheetJS + html2pdf) |
+| AssetInventory | 🔲 NEW | Hardware asset list with warranty tracker |
+| AssetDetail | 🔲 NEW | Single asset view: serial, location, warranty, linked HA entity |
 
 **Dependency cascading algorithm** (existing, unchanged):
 When a task's `dateFinished` is updated, all tasks with `dependsOnTaskId` pointing to it
@@ -809,7 +830,7 @@ the dependency chain. Duration is preserved; finish dates shift accordingly.
 
 ---
 
-### CT111 â€” nrsc5-engine (HD Radio, standby)
+### CT111 — nrsc5-engine (HD Radio, standby)
 
 | Setting | Value |
 |---------|-------|
@@ -817,17 +838,17 @@ the dependency chain. Duration is preserved; finish dates shift accordingly.
 | OS | Debian (unprivileged) |
 | CPU | 2 cores, RAM 512 MB |
 | Port | 3011 |
-| Status | STANDBY â€” Hawaii FM has no HD Radio data services. Built for Berkeley CA |
+| Status | STANDBY — Hawaii FM has no HD Radio data services. Built for Berkeley CA |
 |        | deployment. HD_RADIO_DISABLED=true in sdr-scheduler.sh |
 
-### CT112 â€” birdnet (BirdNET-Go)
+### CT112 — birdnet (BirdNET-Go)
 
 | Setting | Value |
 |---------|-------|
-| IP | 192.168.1.25 (DHCP â€” consider assigning static) |
+| IP | 192.168.1.25 (DHCP — consider assigning static) |
 | OS | Debian (Docker LXC, nesting=1) |
 | CPU | 2 cores, RAM 2048 MB |
-| Disk | bigdata:vm-112-disk-0 â€” 16 GB |
+| Disk | bigdata:vm-112-disk-0 — 16 GB |
 | Sound | /dev/snd bind-mount (KTMicro LavMicro-U, USB port 1-7.2) |
 | Port | 8080 |
 
@@ -868,17 +889,17 @@ the dependency chain. Duration is preserved; finish dates shift accordingly.
   species: taxonomy, scientific/common names
   predictions: raw model output per audio segment
 
-### CT113 â€” frigate (Camera NVR + AI Detection)
+### CT113 — frigate (Camera NVR + AI Detection)
 
 | Setting | Value |
 |---------|-------|
 | IP | 192.168.1.113 (static) |
 | OS | Debian (Docker LXC, nesting=1, keyctl=1, AppArmor=unconfined) |
 | CPU | 4 cores, RAM 4096 MB |
-| Disk | bigdata:vm-113-disk-0 â€” 60 GB |
+| Disk | bigdata:vm-113-disk-0 — 60 GB |
 | USB | /dev/bus/usb bind-mount (Google Coral USB TPU visible) |
 | cgroup | c 189:* rwm (USB), c 243:* rwm |
-| Role | Frigate NVR â€” camera recording, AI object detection via Coral TPU |
+| Role | Frigate NVR — camera recording, AI object detection via Coral TPU |
 
 **Docker compose** (/opt/frigate/docker-compose.yml):
 
@@ -951,16 +972,16 @@ the dependency chain. Duration is preserved; finish dates shift accordingly.
 
 **Camera configuration:**
 
-Currently 1 of 6 cameras configured. Full deployment: 5Ã— Aqara G5 PoE + 1Ã— Aqara Doorbell PoE.
+Currently 1 of 6 cameras configured. Full deployment: 5× Aqara G5 PoE + 1× Aqara Doorbell PoE.
 
 | Camera | Model | IP | RTSP Credentials | Status |
 |--------|-------|----|-----------------|--------|
-| aqara_g5pro | Aqara G5 PoE | 192.168.1.32 | 772:885 | âœ… LIVE (detection disabled) |
-| aqara_g5pro_2 | Aqara G5 PoE | PENDING | PENDING | ðŸ”² NOT YET INSTALLED |
-| aqara_g5pro_3 | Aqara G5 PoE | PENDING | PENDING | ðŸ”² NOT YET INSTALLED |
-| aqara_g5pro_4 | Aqara G5 PoE | PENDING | PENDING | ðŸ”² NOT YET INSTALLED |
-| aqara_g5pro_5 | Aqara G5 PoE | PENDING | PENDING | ðŸ”² NOT YET INSTALLED |
-| aqara_doorbell | Aqara Doorbell PoE | PENDING | PENDING | ðŸ”² NOT YET INSTALLED |
+| aqara_g5pro | Aqara G5 PoE | 192.168.1.32 | 772:885 | ✅ LIVE (detection disabled) |
+| aqara_g5pro_2 | Aqara G5 PoE | PENDING | PENDING | 🔲 NOT YET INSTALLED |
+| aqara_g5pro_3 | Aqara G5 PoE | PENDING | PENDING | 🔲 NOT YET INSTALLED |
+| aqara_g5pro_4 | Aqara G5 PoE | PENDING | PENDING | 🔲 NOT YET INSTALLED |
+| aqara_g5pro_5 | Aqara G5 PoE | PENDING | PENDING | 🔲 NOT YET INSTALLED |
+| aqara_doorbell | Aqara Doorbell PoE | PENDING | PENDING | 🔲 NOT YET INSTALLED |
 
 **Per-camera Frigate config template (add for each camera):**
 
@@ -985,9 +1006,9 @@ Currently 1 of 6 cameras configured. Full deployment: 5Ã— Aqara G5 PoE + 1Ã�
       zones: {}    # Define per-camera zones during installation
 
 **Aqara G5 PoE camera notes:**
-- Protocol: Native RTSP (no go2rtc needed â€” G5 PoE supports direct RTSP)
-- Streams: `/1080p` (detect), `/1520p` (record â€” 2K resolution)
-- Power: PoE (802.3af) â€” no separate power supply needed
+- Protocol: Native RTSP (no go2rtc needed — G5 PoE supports direct RTSP)
+- Streams: `/1080p` (detect), `/1520p` (record — 2K resolution)
+- Power: PoE (802.3af) — no separate power supply needed
 - Audio: Two-way audio via RTSP
 - The Doorbell PoE model adds a doorbell button event via HomeKit/Aqara Home integration
 
@@ -1000,9 +1021,9 @@ For now, Frigate handles all streams directly.
 Install the Frigate integration via HACS. It connects via MQTT and the Frigate API.
 Provides: camera entities, event sensors, media browser, notification blueprints.
 
-**Notification architecture** (future â€” stub for when speakers/displays are available):
+**Notification architecture** (future — stub for when speakers/displays are available):
 
-> ðŸ”² **NOT YET IMPLEMENTED** â€” No notification targets currently available.
+> 🔲 **NOT YET IMPLEMENTED** — No notification targets currently available.
 > Design below is ready to activate when speakers, displays, or HA Companion app are deployed.
 
     Trigger: Frigate publishes event to MQTT topic frigate/reviews
@@ -1025,25 +1046,25 @@ Provides: camera entities, event sensors, media browser, notification blueprints
               image: "/api/frigate/notifications/{{ trigger.payload_json['after']['id'] }}/thumbnail.jpg"
 
 **Event review interface:**
-Frigate provides a built-in review UI at http://192.168.1.113:5000.
+Frigate provides a built-in review UI at 192.168.1.113:5000.
 The HA Frigate integration adds a media browser panel for reviewing events.
 Events are organized by: camera, detected object, time range.
 AI-assisted timeline shows exactly when motion/objects were detected with confidence scores.
 
 ---
 
-### CT114 â€” utilities (PDF Maker + PDF Shrinker + Games + Health Converter)
+### CT114 — utilities (PDF Maker + PDF Shrinker + Games + Health Converter + Photo Chronologizer)
 
 | Setting | Value |
 |---------|-------|
 | IP | 192.168.1.114 (static) |
 | OS | Debian 13 (unprivileged LXC) |
-| CPU | 2 cores |
-| RAM | 1024 MB |
-| Disk | local-lvm:vm-114-disk-0 â€” 8 GB |
+| CPU | 4 cores |
+| RAM | 4096 MB |
+| Disk | local-lvm:vm-114-disk-0 — 8 GB |
 | Features | nesting=1 |
-| Port | 3114 |
-| App root | /opt/utilities/ |
+| Port | 3114 (existing utilities), 7777 (photo-chrono FastAPI — planned) |
+| App root | /opt/utilities/ (existing), /app/photo-chrono/ (planned) |
 | venv | /opt/utilities/venv (Python 3.13) |
 | Service | utilities.service (systemd, auto-start on boot) |
 | GitHub | utilities/ subfolder in pukalanihomecontrol repo |
@@ -1052,49 +1073,103 @@ AI-assisted timeline shows exactly when motion/objects were detected with confid
 
 | Tool | URL | Status | Description |
 |------|-----|--------|-------------|
-| Landing page | http://192.168.1.114:3114/tools/ | âœ… LIVE | Tools dashboard with card links |
-| PDF Maker | http://192.168.1.114:3114/tools/pdfmaker | âœ… LIVE | Merge images, docs & PDFs into one file |
-| PDF Shrinker | http://192.168.1.114:3114/tools/shrinker | âœ… LIVE | Compress existing PDFs at 4 quality levels |
-| Games Landing | http://192.168.1.114:3114/games/ | ðŸ”² NOT YET IMPLEMENTED | Entertaining Diversions portal |
-| LUX | http://192.168.1.114:3114/games/lux/ | ðŸ”² NOT YET IMPLEMENTED | Strategy game (TypeScript/Pixi.js) |
-| Trish's Games | http://192.168.1.114:3114/games/trishsgames/ | ðŸ”² NOT YET IMPLEMENTED | 7 casual web games (React 19) |
-| Apple Health Converter | http://192.168.1.114:3114/tools/healthconverter | ðŸ”² NOT YET IMPLEMENTED | Apple Health XML â†’ CSV converter |
+| Landing page | http://192.168.1.114:3114/tools/ | ✅ LIVE | Tools dashboard with card links |
+| Landing page | http://192.168.1.114:3114/tools/ | ✅ LIVE | Tools dashboard with card links |
+| PDF Maker | http://192.168.1.114:3114/tools/pdfmaker | ✅ LIVE | Merge images, docs & PDFs into one file |
+| PDF Shrinker | http://192.168.1.114:3114/tools/shrinker | ✅ LIVE | Compress existing PDFs at 4 quality levels |
+| Games Landing | http://192.168.1.114:3114/games/ | ▢ NOT YET IMPLEMENTED | Entertaining Diversions portal |
+| LUX | http://192.168.1.114:3114/games/lux/ | ▢ NOT YET IMPLEMENTED | Strategy game (TypeScript/Pixi.js) |
+| Trish's Games | http://192.168.1.114:3114/games/trishsgames/ | ▢ NOT YET IMPLEMENTED | 7 casual web games (React 19) |
+| Apple Health Converter | http://192.168.1.114:3114/tools/healthconverter | 📲 NOT YET IMPLEMENTED | Apple Health XML → CSV converter |
+| **Photo Chronologizer** | **http://192.168.1.114:7777** | **✅ LIVE v2** | **Sort scanned photos chronologically by face recognition + age estimation** |
+
+**Photo Chronologizer (✅ LIVE v3 — /app/photo-chrono/):**
+- ML stack: InsightFace `buffalo_sc` (ArcFace recognition + age estimation). No API keys. Fully local.
+- Backend: FastAPI + SQLite on port 7777. Sources: rclone Google Drive, local computer (via bridge agent), or server paths.
+- Frontend: Vite + React — 5-phase flow: setup → enrollment → processing → review → export.
+- rclone: installed on CT114 with FUSE enabled; 100% in-app interactive setup & drive mounting via web UI (no terminal required).
+- Output format: `025_~1962_name.jpg` (age zero-padded). `~` = AI est., `=` = user-locked (immutable). Alphabetical = chronological.
+- Service: `/etc/systemd/system/photo-chrono.service` — enabled, auto-starts on boot.
+- **v2 Features (2026-07-23):** enrollment face crop confirm modal (cancel available); collapsible strip viewer
+  (±10 window, slider, lazy thumbnails); annotation panel with date lock; re-run auto-detection by filename
+  pattern + confirm prompt; validated photos = 2× weighted model anchors on re-run; user-triggered model
+  rebuild only (`POST /update-model`); session linking imports prior validated embeddings; age-bucketed
+  calibration questions (0-15, 15-25, 25-40, 40-65) on re-run.
+- **v3 Features (2026-07-23):**
+  - **Portable metadata (`.photo-chrono.db`):** SQLite database written to the output folder on export.
+    Contains: collection info, per-photo metadata (age, date, sort order, match scores), enrolled reference
+    faces (embeddings), known people registry, and run history. Survives server wipes. Enables cross-run
+    persistence — re-runs import prior enrollments and dates automatically.
+    Tables: `collection`, `photos`, `photo_people`, `known_people`, `reference_faces`, `run_history`.
+  - **Bridge agent (`/app/photo-chrono/bridge/photo_chrono_bridge.py`):** Portable Python HTTP server
+    that runs on the user's local computer. User double-clicks, picks a folder, and it serves all photos
+    over HTTP on the LAN (port 9777). Photo Chronologizer connects to it as a source — no uploading needed.
+    Supports thumbnail generation, CORS, and auto-detects LAN IP. Build to `.exe` via PyInstaller.
+    `source_path` stored as `bridge://<ip>:9777` in session DB.
+  - **Photo exclusion:** "Not [Name]" button on enrollment cards. Marks photos as `status='excluded'` in DB.
+    Excluded photos are skipped during processing. Red ✕ badge on excluded cards.
+  - **Face detection caching:** Results stored in `faces_cache` column as JSON. First detection is slow (~3s),
+    subsequent loads are instant.
+  - **Auto-enrollment queue:** Single-face photos auto-pop the confirm modal for rapid enrollment.
+  - **Session setup source picker:** Three-tab UI (Google Drive / Local Computer / Server Path).
+  - **Read-only filmstrip view:** Horizontal scrolling chronological strip of photo thumbnails.
+    Data model includes `sort_order REAL` for future drag-to-reorder capability.
+  - **Planned: Scan for Friends** — DBSCAN clustering of non-subject faces, ranked by year-range breadth.
+    Full secondary enrollment workflow with person naming, per-face confirm/reject, and dropdown assignment.
+
+> **🚨 CRITICAL SECURITY ISSUE — MUST FIX (flagged 2026-07-22):**
+>
+> **Problem:** rclone currently uses a SINGLE shared Google Drive credential stored in
+> `/root/.config/rclone/rclone.conf`. This means ALL users of Photo Chronologizer see
+> the SAME Google Drive — whichever account was last authenticated. User A can browse,
+> read, and potentially modify User B's entire Google Drive contents. This is a
+> **massive privacy/security violation** in a multi-user household.
+>
+> **Required Fix:** Per-user Google Drive isolation. Each user must authenticate with
+> their OWN Google account and only see their own Drive. Options:
+> 1. Per-session rclone configs (`rclone.conf` per session/user, stored alongside session DB)
+> 2. User login system (lightweight — username picker, no passwords needed on LAN)
+> 3. OAuth tokens stored per-user in SQLite, mounted to per-user mount points
+>    (e.g., `/mnt/gdrive-gavin/`, `/mnt/gdrive-trish/`)
+>
+> **Priority:** BLOCKING — must be resolved before any further multi-user usage.
+> **Status:** NOT STARTED — flagged for implementation 2026-07-23.
 
 **Architecture (existing):**
 
 ```
 Browser (client)                    CT114 (server)
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€                    â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+————————————————                    ——————————————————————————————————
 React 18 SPA                        FastAPI + uvicorn (2 workers)
-  - Session ID in localStorage  â†’     POST /api/pdfmaker/session
-  - File picked locally         â†’     POST /api/pdfmaker/import  (multipart upload)
-  - All edits in browser state  â†’     POST /api/pdfmaker/preview (returns PNG)
-  - Click Download              â†’     POST /api/pdfmaker/build   (returns PDF bytes)
-  - PDF saved by browser                â†“ (never written to disk, streamed only)
-  - No files stored on server   âœ“     Session temp dir auto-purged after 2h
+  - Session ID in localStorage  →     POST /api/pdfmaker/session
+  - File picked locally         →     POST /api/pdfmaker/import  (multipart upload)
+  - All edits in browser state  →     POST /api/pdfmaker/preview (returns PNG)
+  - Click Download              →     POST /api/pdfmaker/build   (returns PDF bytes)
+  - PDF saved by browser                ↓ (never written to disk, streamed only)
+  - No files stored on server   ✓     Session temp dir auto-purged after 2h
 ```
 
 **File storage model:**
-- Uploaded files â†’ `/tmp/pdfmaker-sessions/{uuid}/` (session-scoped temp dir)
+- Uploaded files → `/tmp/pdfmaker-sessions/{uuid}/` (session-scoped temp dir)
 - Auto-purged: background thread checks every 5 min, deletes sessions idle > 2 hours
-- Build output: assembled in-memory buffer, streamed as HTTP response â†’ **never written to disk**
-- User intent: "save/read from client machine only" â€” server is a stateless PDF processing engine
+- Build output: assembled in-memory buffer, streamed as HTTP response → **never written to disk**
+- User intent: "save/read from client machine only" — server is a stateless PDF processing engine
 
 **Python stack (`/opt/utilities/venv`):**
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| fastapi | â‰¥0.111 | HTTP framework + OpenAPI |
-| uvicorn | â‰¥0.30 | ASGI server (2 workers) |
-| pymupdf (fitz) | â‰¥1.24 | PDF reading, writing, rendering, assembly |
-| Pillow | â‰¥10.4 | Image loading, EXIF correction, compositing |
-| reportlab | â‰¥4.2 | Text â†’ PDF rendering |
-| python-docx | â‰¥1.1 | DOCX text extraction (server fallback, no Word COM) |
-| trimesh | â‰¥4.4 | 3D model loading (GLTF/GLB/OBJ/STL/FBX) |
-| pyrender | â‰¥0.1.45 | 3D â†’ PNG rendering (headless via OSMesa) |
-| numpy | â‰¥1.26 | Required by pyrender |
+| fastapi | ≥0.111 | HTTP framework + OpenAPI |
+| uvicorn | ≥0.30 | ASGI server (2 workers) |
+| pymupdf (fitz) | ≥1.24 | PDF reading, writing, rendering, assembly |
+| Pillow | ≥10.4 | Image loading, EXIF correction, compositing |
+| reportlab | ≥4.2 | Text → PDF rendering |
+| python-docx | ≥1.1 | DOCX text extraction (server fallback, no Word COM) |
+| trimesh | ≥4.4 | 3D model loading (GLTF/GLB/OBJ/STL/FBX) |
+| pyrender | ≥0.1.45 | 3D → PNG rendering (headless via OSMesa) |
+| numpy | ≥1.26 | Required by pyrender |
 | libosmesa6 | system | Headless OpenGL for 3D rendering (no display needed) |
-| lxml | â‰¥5.0 | **NEW** â€” streaming XML parser for Apple Health Converter |
+| lxml | ≥5.0 | **NEW** — streaming XML parser for Apple Health Converter |
 
 **Environment variables for 3D support:**
 
@@ -1119,26 +1194,26 @@ PYOPENGL_PLATFORM=osmesa   # tells pyrender to use headless OSMesa renderer
 
 | Method | Route | Status | Description |
 |--------|-------|--------|-------------|
-| GET | /api/health | âœ… | `{"ok":true, "service":"utilities"}` |
-| POST | /api/pdfmaker/session | âœ… | Create session â†’ `{session_id}` |
-| DELETE | /api/pdfmaker/session/{id} | âœ… | Delete session + temp files |
-| POST | /api/pdfmaker/import | âœ… | Upload files â†’ page list with file_ids |
-| POST | /api/pdfmaker/preview | âœ… | Render page with edit state â†’ PNG bytes |
-| POST | /api/pdfmaker/build | âœ… | Build final PDF â†’ streaming download |
-| POST | /api/shrinker/compress | âœ… | Compress PDF at level â†’ download |
-| POST | /api/healthconverter/convert | ðŸ”² NEW | Upload Apple Health export.xml â†’ streaming CSV zip |
+| GET | /api/health | ✅ | `{"ok":true, "service":"utilities"}` |
+| POST | /api/pdfmaker/session | ✅ | Create session → `{session_id}` |
+| DELETE | /api/pdfmaker/session/{id} | ✅ | Delete session + temp files |
+| POST | /api/pdfmaker/import | ✅ | Upload files → page list with file_ids |
+| POST | /api/pdfmaker/preview | ✅ | Render page with edit state → PNG bytes |
+| POST | /api/pdfmaker/build | ✅ | Build final PDF → streaming download |
+| POST | /api/shrinker/compress | ✅ | Compress PDF at level → download |
+| POST | /api/healthconverter/convert | 🔲 NEW | Upload Apple Health export.xml → streaming CSV zip |
 
 **Games static asset serving (nginx or FastAPI StaticFiles):**
 
-    /games/           â†’ /opt/utilities/games/landing/dist/    (games landing page)
-    /games/lux/       â†’ /opt/utilities/games/lux/dist/        (LUX static SPA)
-    /games/trishsgames/ â†’ /opt/utilities/games/trishsgames/dist/ (Trish's Games SPA)
+    /games/           → /opt/utilities/games/landing/dist/    (games landing page)
+    /games/lux/       → /opt/utilities/games/lux/dist/        (LUX static SPA)
+    /games/trishsgames/ → /opt/utilities/games/trishsgames/dist/ (Trish's Games SPA)
 
 ---
 
-#### Apple Health Converter â€” Web Conversion Architecture
+#### Apple Health Converter — Web Conversion Architecture
 
-> ðŸ”² **NOT YET IMPLEMENTED** â€” Convert desktop Tkinter app to FastAPI web endpoint on CT114.
+> 🔲 **NOT YET IMPLEMENTED** — Convert desktop Tkinter app to FastAPI web endpoint on CT114.
 
 **Current state:** Standalone Windows desktop app (Python/Tkinter) at
 `https://github.com/gavinfischer-keenan/AppleHealthConverter`
@@ -1153,8 +1228,8 @@ PYOPENGL_PLATFORM=osmesa   # tells pyrender to use headless OSMesa renderer
 
 ```
 Browser                              CT114 (FastAPI)
-â”€â”€â”€â”€â”€â”€â”€â”€                             â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-1. User uploads export.xml      â†’    POST /api/healthconverter/convert
+────────                             ───────────────
+1. User uploads export.xml      →    POST /api/healthconverter/convert
    (or export.zip containing         (multipart/form-data, file field)
     export.xml)
                                      Server:
@@ -1162,7 +1237,7 @@ Browser                              CT114 (FastAPI)
                                      2. If .zip: extract export.xml
                                      3. Stream-parse XML using iterparse (existing logic)
                                      4. Write CSV files to session temp dir
-                                     5. Zip all CSVs â†’ stream as response
+                                     5. Zip all CSVs → stream as response
 2. Browser receives .zip        â†    Content-Type: application/zip
    and triggers download             Content-Disposition: attachment; filename="health_export.zip"
                                      6. Delete temp session dir
@@ -1183,49 +1258,49 @@ to support large Apple Health exports (can be 1-3 GB).
 
 ---
 
-#### LUX Game â€” Deployment Architecture
+#### LUX Game — Deployment Architecture
 
-> ðŸ”² **NOT YET IMPLEMENTED** â€” Build and deploy when ready.
+> 🔲 **NOT YET IMPLEMENTED** — Build and deploy when ready.
 
 **Source:** `https://github.com/gavinfischer-keenan/Alux2Win`
 **Tech stack:** TypeScript, Pixi.js (WebGL 2D), Tailwind CSS, Vite 8
 **Storage:** Browser localStorage only (custom levels saved as `lux_custom_levels`)
-**Build:** `npm run build` â†’ `dist/` directory (static assets)
-**Entry point:** `index.html` â†’ `src/main.ts` â†’ `src/App.ts`
+**Build:** `npm run build` → `dist/` directory (static assets)
+**Entry point:** `index.html` → `src/main.ts` → `src/App.ts`
 
 **Deployment steps:**
 1. Clone repo on dev machine
 2. `npm install && npm run build`
 3. Copy `dist/` contents to CT114 at `/opt/utilities/games/lux/dist/`
-4. Configure FastAPI or nginx to serve `/games/lux/` â†’ that directory
-5. No backend needed â€” pure client-side SPA
+4. Configure FastAPI or nginx to serve `/games/lux/` → that directory
+5. No backend needed — pure client-side SPA
 
 ---
 
-#### Trish's Games â€” Deployment Architecture
+#### Trish's Games — Deployment Architecture
 
-> ðŸ”² **NOT YET IMPLEMENTED** â€” Build and deploy when ready.
+> 🔲 **NOT YET IMPLEMENTED** — Build and deploy when ready.
 
 **Source:** `https://github.com/gavinfischer-keenan/TrishsGame`
 **Tech stack:** React 19, JavaScript (JSX), Vite 8, Vanilla CSS
 **Games included:** BrickSmack, Build Me a River, Slipped My Mind, Number Drawing,
                     Battleship, Word Wager, Connect4 (7 games with Home Screen selector)
 **Storage:** Browser localStorage / in-memory React state only
-**Build:** `npm run build` â†’ `dist/` directory (static assets)
-**Entry point:** `index.html` â†’ `src/main.jsx` â†’ `src/App.jsx`
+**Build:** `npm run build` → `dist/` directory (static assets)
+**Entry point:** `index.html` → `src/main.jsx` → `src/App.jsx`
 
 **Deployment steps:**
 1. Clone repo on dev machine
 2. `npm install && npm run build`
 3. Copy `dist/` to CT114 at `/opt/utilities/games/trishsgames/dist/`
 4. Configure static serving at `/games/trishsgames/`
-5. No backend needed â€” pure client-side SPA
+5. No backend needed — pure client-side SPA
 
 ---
 
 #### Games Landing Page
 
-> ðŸ”² **NOT YET IMPLEMENTED**
+> 🔲 **NOT YET IMPLEMENTED**
 
 A simple dark-themed landing page at `/games/` matching the Pukalani aesthetic:
 - Card for LUX with game description and link
@@ -1262,8 +1337,8 @@ panel_iframe:
 
 | Level | DPI | JPEG Quality | Notes |
 |-------|-----|-------------|-------|
-| light | â€” | â€” | Lossless: stream compression + metadata strip only |
-| standard | 150 | 75% | Adobe Quartz equivalent â€” good balance |
+| light | — | — | Lossless: stream compression + metadata strip only |
+| standard | 150 | 75% | Adobe Quartz equivalent — good balance |
 | aggressive | 96 | 50% | Maximum compression; strips annotations & forms |
 | grayscale | 120 | 65% | Converts to B&W; strips annotations & forms |
 
@@ -1277,7 +1352,7 @@ cd /opt/utilities/app
 Tests cover: controller (page state, event bus), pdf_builder (render, assembly, page numbers),
 settings_manager (persistence, fallbacks), API endpoints (health, session, import, shrinker).
 
-**HA Integration â€” `panel_iframe`:**
+**HA Integration — `panel_iframe`:**
 
 Add to `/config/configuration.yaml` in Home Assistant (192.168.1.19):
 
@@ -1290,8 +1365,8 @@ panel_iframe:
     require_admin: false
 ```
 
-Then restart HA: `Settings â†’ System â†’ Restart`. The "Helper Tools" panel will appear in the
-HA sidebar with a ðŸ”§ icon and open the tools landing page in an iframe.
+Then restart HA: `Settings → System → Restart`. The "Helper Tools" panel will appear in the
+HA sidebar with a 🔧 icon and open the tools landing page in an iframe.
 
 **Deployment / rebuild instructions:**
 
@@ -1318,9 +1393,9 @@ cd /opt/utilities/app
 ```
 
 **Known limitations:**
-- DOCX conversion: formatting NOT preserved (no MS Word COM on Linux â€” text extraction only via python-docx)
+- DOCX conversion: formatting NOT preserved (no MS Word COM on Linux — text extraction only via python-docx)
 - 3D rendering requires OSMesa; pyrender cannot be imported directly (viewer class fails without X11)
-  â†’ FastAPI sets `PYOPENGL_PLATFORM=osmesa` in environment before import
+  → FastAPI sets `PYOPENGL_PLATFORM=osmesa` in environment before import
 - Session state is lost if the browser tab is closed without downloading (re-upload required)
 
 ---
@@ -1369,9 +1444,9 @@ cd /opt/utilities/app
             data freshness (AIS/ADS-B/weather) + BirdNET + dashboard API + disk
     Auto-repairs: pct start, systemctl restart, docker compose up -d
 
-### kiosk.service (NEW â€” Control Console)
+### kiosk.service (NEW — Control Console)
 
-> ðŸ”² **NOT YET IMPLEMENTED** â€” Install when ready to use the attached monitor as a kiosk.
+> 🔲 **NOT YET IMPLEMENTED** — Install when ready to use the attached monitor as a kiosk.
 
 **Purpose:** Auto-start a split-screen kiosk display on the Proxmox host's attached monitor.
 Top half: Integrated Vessel Tracking dashboard (CT108).
@@ -1474,7 +1549,7 @@ Launch two separate Chromium windows via Openbox autostart:
     chromium --app=http://192.168.1.25:8080 --window-position=0,540 --window-size=1920,540 &
 
 **Hardware requirements:**
-- Intel iGPU (Arrow Lake Xe) drives display via DRM/KMS â€” native to Proxmox host kernel
+- Intel iGPU (Arrow Lake Xe) drives display via DRM/KMS — native to Proxmox host kernel
 - No GPU passthrough to VMs/containers needed (kiosk runs on host)
 - RAM overhead: ~200-300 MB for X11 + Chromium
 
@@ -1482,17 +1557,17 @@ Launch two separate Chromium windows via Openbox autostart:
 
 ## 4. Data Flows
 
-### 4.1 AIS â€” Marine Vessel Tracking
+### 4.1 AIS — Marine Vessel Tracking
 
     RTL-SDR Blog V4 (serial 00000001, 162.000 MHz, 2.4MHz SR)
       -> rtl-tcp-ais.service [host, TCP :1234]
-      -> AIS-Catcher [CT106] â€” IQ to NMEA
+      -> AIS-Catcher [CT106] — IQ to NMEA
       -> UDP :10110 -> ais-collector.service [CT105]
                     -> UDP :2828 -> AISHub (144.76.105.244)
       -> live_tracks [CT104] source_type='ais'
       -> tracker_engine enriches vessel_info + seen_days
-      -> GET /api/vessels [CT108] â€” SQL last 30min, deduped by MMSI
-      -> VesselLayer.jsx [browser] â€” poll every 15s
+      -> GET /api/vessels [CT108] — SQL last 30min, deduped by MMSI
+      -> VesselLayer.jsx [browser] — poll every 15s
 
     Dead-reckoning (great-circle, requestAnimationFrame):
       EARTH_R_NM = 3440.065
@@ -1512,15 +1587,15 @@ Launch two separate Chromium windows via Openbox autostart:
     RTL-SDR ADS-B (1090 MHz) -> /dev/bus/usb -> CT102
     dump1090-fa -> tar1090 -> aircraft.json (http://192.168.1.102/tar1090/data/aircraft.json)
     adsb-collector [CT105] polls every 5s -> live_tracks source_type='adsb'
-    GET /api/aircraft [CT108] â€” merges tar1090 live + DB enrichment
-    AircraftLayer.jsx â€” poll every 5s
+    GET /api/aircraft [CT108] — merges tar1090 live + DB enrichment
+    AircraftLayer.jsx — poll every 5s
 
-### 4.3 Weather â€” Ecowitt GW2000
+### 4.3 Weather — Ecowitt GW2000
 
     Hardware: Ecowitt GW2000 gateway + WS90 haptic rain/wind sensor array
     Station ID (in DB): pukalani_home
     PASSKEY: C7166AA801074351480D81CB3F0286C2
-    Location: Pukalani, Maui, HI â€” same lat/lon as dashboard home base
+    Location: Pukalani, Maui, HI — same lat/lon as dashboard home base
 
     Push configuration (set in Ecowitt app -> Weather Services -> Customized):
       Protocol:  Ecowitt  (application/x-www-form-urlencoded)
@@ -1539,34 +1614,34 @@ Launch two separate Chromium windows via Openbox autostart:
       2. Inserts into pws_obs [CT104] with ON CONFLICT DO UPDATE
 
     pws_obs table columns (tracking_db on CT104):
-      station_id       â€” always 'pukalani_home'
-      obs_time         â€” from dateutc field in payload (falls back to server time)
-      received_at      â€” server wall-clock time
-      passkey          â€” from PASSKEY field (C7166AA801074351480D81CB3F0286C2)
-      temp_in_f        â€” indoor temp (from tempinf)
-      humidity_in      â€” indoor humidity (from humidityin)
-      temp_out_f       â€” outdoor temp (from tempf â€” WS90 outdoor sensor)
-      humidity_out     â€” outdoor humidity (from humidity)
-      baro_rel_inhg    â€” relative barometric pressure (from baromrelin)
-      baro_abs_inhg    â€” absolute barometric pressure (from baromabsin)
-      wind_dir         â€” wind direction degrees (from winddir)
-      wind_spd_mph     â€” wind speed mph (from windspeedmph)
-      wind_gust_mph    â€” wind gust mph (from windgustmph)
-      max_gust_mph     â€” max daily gust mph (from maxdailygust)
-      rain_rate_in     â€” rain rate in/hr (WS90 piezo: rrain_piezo, fallback rainratein)
-      rain_event_in    â€” event rain (erain_piezo / eventrainin)
-      rain_hourly_in   â€” hourly rain (hrain_piezo / hourlyrainin)
-      rain_daily_in    â€” daily rain (drain_piezo / dailyrainin)
-      rain_weekly_in   â€” weekly rain (wrain_piezo / weeklyrainin)
-      rain_monthly_in  â€” monthly rain (mrain_piezo / monthlyrainin)
-      rain_yearly_in   â€” yearly rain (yrain_piezo / totalrainin)
-      solar_rad        â€” solar irradiance W/mÂ² (from solarradiation)
-      uv_index         â€” UV index (from uv)
-      lightning_dist   â€” lightning distance km (from lightning)
-      lightning_count  â€” lightning count (from lightning_num)
-      lightning_time   â€” lightning last strike UTC (from lightning_time epoch)
-      ws90_batt        â€” WS90 capacitor voltage (ws90cap_volt / wh90batt)
-      console_batt     â€” console battery (wh65batt)
+      station_id       — always 'pukalani_home'
+      obs_time         — from dateutc field in payload (falls back to server time)
+      received_at      — server wall-clock time
+      passkey          — from PASSKEY field (C7166AA801074351480D81CB3F0286C2)
+      temp_in_f        — indoor temp (from tempinf)
+      humidity_in      — indoor humidity (from humidityin)
+      temp_out_f       — outdoor temp (from tempf — WS90 outdoor sensor)
+      humidity_out     — outdoor humidity (from humidity)
+      baro_rel_inhg    — relative barometric pressure (from baromrelin)
+      baro_abs_inhg    — absolute barometric pressure (from baromabsin)
+      wind_dir         — wind direction degrees (from winddir)
+      wind_spd_mph     — wind speed mph (from windspeedmph)
+      wind_gust_mph    — wind gust mph (from windgustmph)
+      max_gust_mph     — max daily gust mph (from maxdailygust)
+      rain_rate_in     — rain rate in/hr (WS90 piezo: rrain_piezo, fallback rainratein)
+      rain_event_in    — event rain (erain_piezo / eventrainin)
+      rain_hourly_in   — hourly rain (hrain_piezo / hourlyrainin)
+      rain_daily_in    — daily rain (drain_piezo / dailyrainin)
+      rain_weekly_in   — weekly rain (wrain_piezo / weeklyrainin)
+      rain_monthly_in  — monthly rain (mrain_piezo / monthlyrainin)
+      rain_yearly_in   — yearly rain (yrain_piezo / totalrainin)
+      solar_rad        — solar irradiance W/m² (from solarradiation)
+      uv_index         — UV index (from uv)
+      lightning_dist   — lightning distance km (from lightning)
+      lightning_count  — lightning count (from lightning_num)
+      lightning_time   — lightning last strike UTC (from lightning_time epoch)
+      ws90_batt        — WS90 capacitor voltage (ws90cap_volt / wh90batt)
+      console_batt     — console battery (wh65batt)
 
     Data consumers:
       GET /api/ecowitt/current -> EcowittLayer.jsx (map station marker)
@@ -1575,7 +1650,7 @@ Launch two separate Chromium windows via Openbox autostart:
     Future: solar panel efficiency metric
       formula = enphase_W / pws_obs.solar_rad (normalised W produced per W/m2 irradiance)
 
-### 4.4 Tides â€” NOAA CO-OPS (cached 8h)
+### 4.4 Tides — NOAA CO-OPS (cached 8h)
 
     env-collector [CT105] every 8h -> tidesandcurrents.noaa.gov
     -> tide_predictions [CT104] station 1617760 (Honolulu Harbor)
@@ -1583,7 +1658,7 @@ Launch two separate Chromium windows via Openbox autostart:
     GET /api/tides/:s/chart -> TideChartModal.jsx
     GET /api/noaa-tides/:s -> live NOAA passthrough (fallback)
 
-### 4.5 Buoys â€” NDBC (cached 30min)
+### 4.5 Buoys — NDBC (cached 30min)
 
     env-collector [CT105] every 30min -> ndbc.noaa.gov
     -> buoy_obs [CT104]
@@ -1609,41 +1684,41 @@ Launch two separate Chromium windows via Openbox autostart:
 
     Data Sources & Flows:
 
-    Station Observations (NWS API v2 â€” REPLACES deprecated weather.gov/hfo KML feeds):
+    Station Observations (NWS API v2 — REPLACES deprecated weather.gov/hfo KML feeds):
       https://api.weather.gov/stations/{id}/observations/latest
-      â†’ fetchObsKML() fetches 12 HI stations in parallel:
+      → fetchObsKML() fetches 12 HI stations in parallel:
         PHNL, PHOG, PHTO, PHLI, PHKO, PHJR, PHJH, PHNG, PHMK, PHMU, PHBK, PHHI, PHSF
-      â†’ Converts metric to imperial, builds description string
-      â†’ Writes /opt/dashboard/public/nws-cache/data/obs.geojson
-      â†’ /api/nws/obs â†’ NWSMap.jsx (circle markers color-coded by temp)
-      â†’ Refresh: every 32 min
+      → Converts metric to imperial, builds description string
+      → Writes /opt/dashboard/public/nws-cache/data/obs.geojson
+      → /api/nws/obs → NWSMap.jsx (circle markers color-coded by temp)
+      → Refresh: every 32 min
 
     Active Alerts (NWS API v2):
       https://api.weather.gov/alerts/active?area=HI
-      â†’ /api/nws/alerts â†’ NWSMap.jsx (alert polygons)
-      â†’ Refresh: every 5 min
+      → /api/nws/alerts → NWSMap.jsx (alert polygons)
+      → Refresh: every 5 min
 
     Text Products (NWS API v2):
-      /api/nws/text/SRF|AFD|RWR|CWF|HSF â†’ NWSForecastPanel.jsx
-      â†’ Displayed in category-tabbed accordion cards:
+      /api/nws/text/SRF|AFD|RWR|CWF|HSF → NWSForecastPanel.jsx
+      → Displayed in category-tabbed accordion cards:
         Surf: SRF | Weather: AFD, RWR | Marine: CWF, HSF | Climate: ENSO + CPC
 
     ENSO Data:
-      CPC origin.cpc.ncep.noaa.gov â†’ /api/nws/enso â†’ Climate tab
+      CPC origin.cpc.ncep.noaa.gov → /api/nws/enso → Climate tab
 
     FAD Locations:
-      /api/nws/fads â†’ NWSMap.jsx (Water sub-tab)
+      /api/nws/fads → NWSMap.jsx (Water sub-tab)
 
     Satellite/Radar Loops:
-      /api/nws/loops â†’ NWSLoopsGrid.jsx
+      /api/nws/loops → NWSLoopsGrid.jsx
       4 loops: geocolor, infrared, watervapor, npac
       Displayed in sidebar+viewer layout with per-loop descriptions and tips
 
     REMOVED (data to be revamped in future):
-      âœ— /api/nws/harbor-approaches â€” route exists but data removed from UI
-      âœ— /api/nws/trade-routes â€” route exists but data removed from UI
-      âœ— GEBCO tile server (tiles.gebco.net) â€” unreachable/down
-      âœ— weather.gov/hfo/*.kml â€” all return 404 (deprecated by NWS)
+      ✗ /api/nws/harbor-approaches — route exists but data removed from UI
+      ✗ /api/nws/trade-routes — route exists but data removed from UI
+      ✗ GEBCO tile server (tiles.gebco.net) — unreachable/down
+      ✗ weather.gov/hfo/*.kml — all return 404 (deprecated by NWS)
 
     External WMS/tile overlays:
       Depth:          Esri Ocean Reference tiles (depth contours, labels, seafloor features)
@@ -1660,7 +1735,7 @@ Launch two separate Chromium windows via Openbox autostart:
     -> birdnet_go real-time classification -> SQLite detections
     GET /api/birdnet [CT108] -> CT112:8080/api/v2/detections -> dashboard panel
 
-    Native HA integration (planned â€” see pukalani_birdnet HACS section):
+    Native HA integration (planned — see pukalani_birdnet HACS section):
     CT112:8080 REST API -> pukalani_birdnet coordinator [HA]
       -> sensor.birdnet_species_today, sensor.birdnet_last_species, etc.
       -> Custom panel: detection list with review/lock/verify buttons
@@ -1673,21 +1748,21 @@ Launch two separate Chromium windows via Openbox autostart:
     Currently HA Energy Dashboard only (native HA).
     Future: GET /api/solar -> Enphase proxy; efficiency = enphase_W / pws_obs.solar_w_m2
 
-### 4.11 Project Manager â†” Home Assistant (NEW)
+### 4.11 Project Manager ↔ Home Assistant (NEW)
 
-> ðŸ”² **NOT YET IMPLEMENTED** â€” Build after PostgreSQL migration (section CT104/CT110).
+> 🔲 **NOT YET IMPLEMENTED** — Build after PostgreSQL migration (section CT104/CT110).
 
     Data flow:
 
     CT110 Express API (port 3001)
-      â†“ REST API calls (every 5 min)
+      ↓ REST API calls (every 5 min)
     pukalani_pm HACS integration [VM100 HA]
-      â†’ DataUpdateCoordinator polls:
-          GET /api/tasks        â†’ task counts, overdue detection
-          GET /api/vendors      â†’ vendor count
-          GET /api/assets       â†’ asset inventory, warranty expiry check
-          GET /api/maintenance  â†’ recent activity
-      â†’ Creates HA entities:
+      → DataUpdateCoordinator polls:
+          GET /api/tasks        → task counts, overdue detection
+          GET /api/vendors      → vendor count
+          GET /api/assets       → asset inventory, warranty expiry check
+          GET /api/maintenance  → recent activity
+      → Creates HA entities:
           sensor.pm_tasks_total
           sensor.pm_tasks_overdue
           sensor.pm_tasks_in_progress
@@ -1695,16 +1770,16 @@ Launch two separate Chromium windows via Openbox autostart:
           sensor.pm_warranties_expiring
           binary_sensor.pm_has_delayed
           binary_sensor.pm_warranty_alert
-      â†’ Registers services:
-          pukalani_pm.create_task â†’ POST /api/tasks (with optional ha_entity_id)
-          pukalani_pm.purge_project â†’ POST /api/purge
+      → Registers services:
+          pukalani_pm.create_task → POST /api/tasks (with optional ha_entity_id)
+          pukalani_pm.purge_project → POST /api/purge
 
     HA entity linking algorithm:
       When creating a task via pukalani_pm.create_task with entity_id parameter:
       1. Coordinator resolves entity_id via hass.states.get(entity_id)
       2. Stores entity_id in task record (ha_entity_id column)
       3. PM UI shows entity friendly_name and current state alongside task
-      4. Example: Task "Replace kitchen light" â†’ ha_entity_id: "light.kitchen_ceiling"
+      4. Example: Task "Replace kitchen light" → ha_entity_id: "light.kitchen_ceiling"
          PM UI shows: "Kitchen Ceiling (currently: off)" next to the task
 
     "Sold house" purge algorithm:
@@ -1718,32 +1793,32 @@ Launch two separate Chromium windows via Openbox autostart:
          VACUUM;
       4. Preserved: vendors, vendor_interactions, assets, warranties
       5. Integration refreshes all entities (counts drop to 0 for tasks)
-      6. HA entities remain registered â€” ready for new project
+      6. HA entities remain registered — ready for new project
 
 ### 4.12 Security Camera Pipeline (NEW)
 
 > Partially implemented (1 camera live). Full deployment pending 5 remaining cameras.
 
     Aqara G5 PoE / Doorbell PoE cameras (RTSP native)
-      â†’ direct RTSP stream to Frigate [CT113]
+      → direct RTSP stream to Frigate [CT113]
          rtsp://<user>:<pass>@<CAM_IP>:8554/1080p   (detect stream)
          rtsp://<user>:<pass>@<CAM_IP>:8554/1520p   (record stream, 2K)
-      â†’ Frigate processes:
+      → Frigate processes:
          1. Motion detection (built-in)
          2. Object detection via Coral USB TPU (~10ms inference)
             Objects tracked: person, car, cat, dog, bird, package
          3. Recording: 14-day retention for alerts/detections, 7-day for motion
          4. Snapshots: 14-day retention
-      â†’ MQTT publish to HA Mosquitto [VM100:1883]
+      → MQTT publish to HA Mosquitto [VM100:1883]
          Topics:
-           frigate/events          â€” new/update/end event lifecycle
-           frigate/reviews         â€” consolidated review items (alerts vs detections)
-           frigate/<camera>/person â€” per-camera per-object binary state
-           frigate/available       â€” Frigate online/offline status
-      â†’ HA Frigate Integration (HACS)
+           frigate/events          — new/update/end event lifecycle
+           frigate/reviews         — consolidated review items (alerts vs detections)
+           frigate/<camera>/person — per-camera per-object binary state
+           frigate/available       — Frigate online/offline status
+      → HA Frigate Integration (HACS)
          Creates: camera entities, motion binary_sensors, event sensors
          Media browser: review recordings, clips, snapshots
-      â†’ HA Automations (future â€” notification targets pending)
+      → HA Automations (future — notification targets pending)
          Trigger on MQTT frigate/reviews type=new
          Filter by camera, object label, zone, time of day
          Action: notify (when speakers/displays available)
@@ -1763,35 +1838,35 @@ Launch two separate Chromium windows via Openbox autostart:
 
 ### 4.13 Entertainment & Utility Apps (NEW)
 
-> ðŸ”² **NOT YET IMPLEMENTED**
+> 🔲 **NOT YET IMPLEMENTED**
 
-    Games (static SPAs â€” no backend data flow):
-      Browser â†’ GET /games/lux/ â†’ CT114 nginx â†’ static HTML/JS/CSS
-      Browser â†’ GET /games/trishsgames/ â†’ CT114 nginx â†’ static HTML/JS/CSS
+    Games (static SPAs — no backend data flow):
+      Browser → GET /games/lux/ → CT114 nginx → static HTML/JS/CSS
+      Browser → GET /games/trishsgames/ → CT114 nginx → static HTML/JS/CSS
       All state in browser localStorage. No server-side data.
 
     Apple Health Converter:
-      Browser â†’ POST /api/healthconverter/convert (multipart: export.xml)
-        â†’ CT114 FastAPI â†’ stream-parse XML (iterparse, no full load)
-        â†’ generate CSV files in temp dir
-        â†’ zip and stream back to browser
-        â†’ browser triggers download
-        â†’ server deletes temp session
+      Browser → POST /api/healthconverter/convert (multipart: export.xml)
+        → CT114 FastAPI → stream-parse XML (iterparse, no full load)
+        → generate CSV files in temp dir
+        → zip and stream back to browser
+        → browser triggers download
+        → server deletes temp session
       No data persisted on server. Stateless processing pipeline.
 
 ### 4.14 Kiosk Display (NEW)
 
-> ðŸ”² **NOT YET IMPLEMENTED**
+> 🔲 **NOT YET IMPLEMENTED**
 
     Proxmox host monitor
-      â†’ X11 session (xinit + openbox, auto-start via kiosk.service)
-      â†’ Chromium kiosk mode loads /opt/kiosk/index.html
-      â†’ Top iframe: http://192.168.1.108:8080 (Vessel Tracking Dashboard)
+      → X11 session (xinit + openbox, auto-start via kiosk.service)
+      → Chromium kiosk mode loads /opt/kiosk/index.html
+      → Top iframe: http://192.168.1.108:8080 (Vessel Tracking Dashboard)
          - Full mouse interaction: pan, zoom, click markers, range rings, trails
          - Polls vessel/aircraft/weather data via CT108 API
-      â†’ Bottom iframe: http://192.168.1.25:8080 (BirdNET-Go web UI)
+      → Bottom iframe: http://192.168.1.25:8080 (BirdNET-Go web UI)
          - Read-only display of recent detections and species overview
-      â†’ Display auto-starts on boot, recovers on crash (Restart=always)
+      → Display auto-starts on boot, recovers on crash (Restart=always)
 
 ---
 
@@ -1808,21 +1883,21 @@ Launch two separate Chromium windows via Openbox autostart:
       +-- DHCP           CT101  brain (Docker host)
       +-- 192.168.1.102  CT102  Airspace (ADS-B / tar1090 :80)
       +-- 192.168.1.103  CT103  Marine-ais (legacy, idle)
-      +-- 192.168.1.104  CT104  trackerDB (PostgreSQL :5432) â€” tracking_db + project_mgr
+      +-- 192.168.1.104  CT104  trackerDB (PostgreSQL :5432) — tracking_db + project_mgr
       +-- 192.168.1.105  CT105  tracker-engine (UDP :10110 in)
       +-- 192.168.1.106  CT106  sdr-engine (AIS-Catcher)
       +-- 192.168.1.108  CT108  dashboard (API :3001, nginx :80)
       +-- 192.168.1.109  CT109  alerts-engine (:3009)
       +-- 192.168.1.110  CT110  project-mgr (:3001)
       +-- 192.168.1.111  CT111  nrsc5-engine (:3011, standby)
-      +-- 192.168.1.25   CT112  birdnet (:8080) â€” consider static IP
+      +-- 192.168.1.25   CT112  birdnet (:8080) — consider static IP
       +-- 192.168.1.113  CT113  frigate (:5000 UI, :8554 RTSP, :8555 WebRTC)
-      +-- 192.168.1.114  CT114  utilities (:3114 â€” tools + games)
+      +-- 192.168.1.114  CT114  utilities (:3114 — tools + games)
       |
       +-- 192.168.1.32   Aqara G5 PoE Camera #1 (RTSP :8554)
       +-- PENDING         Aqara G5 PoE Camera #2-5 + Doorbell
       |
-      +-- 192.168.1.19   Mosquitto MQTT (:1883) â€” Frigate events
+      +-- 192.168.1.19   Mosquitto MQTT (:1883) — Frigate events
 
     Outbound endpoints:
       api.weather.gov                NWS alerts, observations
@@ -1877,54 +1952,54 @@ Launch two separate Chromium windows via Openbox autostart:
     https://github.com/gavinfischer-keenan/pukalanihomecontrol  (branch: main)
 
     pukalanihomecontrol/
-    â”œâ”€â”€ architecture.md             â† THIS DOCUMENT
-    â”œâ”€â”€ dashboard/
-    â”‚   â”œâ”€â”€ server/
-    â”‚   â”‚   â”œâ”€â”€ server.js           Express API (all routes documented in s2 CT108)
-    â”‚   â”‚   â”œâ”€â”€ nws-service.js      NWS/NOAA fetcher + disk cache module
-    â”‚   â”‚   â”œâ”€â”€ package.json
-    â”‚   â”‚   â””â”€â”€ tests/api.test.js   Jest integration tests
-    â”‚   â””â”€â”€ client/
-    â”‚       â”œâ”€â”€ src/
-    â”‚       â”‚   â”œâ”€â”€ App.jsx         Root component
-    â”‚       â”‚   â”œâ”€â”€ components/     45 React components (all listed in s2 CT108)
-    â”‚       â”‚   â””â”€â”€ __tests__/      Vitest unit tests (vessel + deadReckon)
-    â”‚       â”œâ”€â”€ vite.config.js      Vite + Vitest config
-    â”‚       â”œâ”€â”€ index.html
-    â”‚       â””â”€â”€ package.json
-    â”œâ”€â”€ tracker-engine/
-    â”‚   â”œâ”€â”€ tracker_engine.py
-    â”‚   â”œâ”€â”€ ais-collector.py
-    â”‚   â””â”€â”€ adsb-collector.py
-    â”œâ”€â”€ utilities/
-    â”‚   â”œâ”€â”€ app/                    FastAPI backend (PDF Maker, Shrinker, Health Converter)
-    â”‚   â”‚   â”œâ”€â”€ main.py
-    â”‚   â”‚   â”œâ”€â”€ requirements.txt
-    â”‚   â”‚   â””â”€â”€ tests/
-    â”‚   â””â”€â”€ frontend/               React frontend for tools landing page
-    â”œâ”€â”€ custom_components/          ðŸ”² PLANNED â€” HACS integrations for HA
-    â”‚   â”œâ”€â”€ pukalani_pm/            Project Manager HA integration
-    â”‚   â””â”€â”€ pukalani_birdnet/       BirdNET native HA integration
-    â”œâ”€â”€ scripts/
-    â”‚   â”œâ”€â”€ nightly-health-check.sh
-    â”‚   â”œâ”€â”€ sdr-scheduler.sh
-    â”‚   â”œâ”€â”€ kiosk/                  ðŸ”² PLANNED â€” Kiosk HTML + systemd service
-    â”‚   â”‚   â”œâ”€â”€ index.html
-    â”‚   â”‚   â””â”€â”€ kiosk.service
-    â”‚   â”œâ”€â”€ systemd/
-    â”‚   â”‚   â”œâ”€â”€ rtl-tcp-ais.service
-    â”‚   â”‚   â”œâ”€â”€ sdr-scheduler.service
-    â”‚   â”‚   â””â”€â”€ ais-catcher.service
-    â”‚   â””â”€â”€ udev/99-hawaii-usb.rules
-    â”œâ”€â”€ archive/          Old flat scripts (reference only)
-    â”œâ”€â”€ .gitignore
-    â””â”€â”€ README.md
+    ├── architecture.md             â† THIS DOCUMENT
+    ├── dashboard/
+    │   ├── server/
+    │   │   ├── server.js           Express API (all routes documented in s2 CT108)
+    │   │   ├── nws-service.js      NWS/NOAA fetcher + disk cache module
+    │   │   ├── package.json
+    │   │   └── tests/api.test.js   Jest integration tests
+    │   └── client/
+    │       ├── src/
+    │       │   ├── App.jsx         Root component
+    │       │   ├── components/     45 React components (all listed in s2 CT108)
+    │       │   └── __tests__/      Vitest unit tests (vessel + deadReckon)
+    │       ├── vite.config.js      Vite + Vitest config
+    │       ├── index.html
+    │       └── package.json
+    ├── tracker-engine/
+    │   ├── tracker_engine.py
+    │   ├── ais-collector.py
+    │   └── adsb-collector.py
+    ├── utilities/
+    │   ├── app/                    FastAPI backend (PDF Maker, Shrinker, Health Converter)
+    │   │   ├── main.py
+    │   │   ├── requirements.txt
+    │   │   └── tests/
+    │   └── frontend/               React frontend for tools landing page
+    ├── custom_components/          🔲 PLANNED — HACS integrations for HA
+    │   ├── pukalani_pm/            Project Manager HA integration
+    │   └── pukalani_birdnet/       BirdNET native HA integration
+    ├── scripts/
+    │   ├── nightly-health-check.sh
+    │   ├── sdr-scheduler.sh
+    │   ├── kiosk/                  🔲 PLANNED — Kiosk HTML + systemd service
+    │   │   ├── index.html
+    │   │   └── kiosk.service
+    │   ├── systemd/
+    │   │   ├── rtl-tcp-ais.service
+    │   │   ├── sdr-scheduler.service
+    │   │   └── ais-catcher.service
+    │   └── udev/99-hawaii-usb.rules
+    ├── archive/          Old flat scripts (reference only)
+    ├── .gitignore
+    └── README.md
 
     Related repositories (same GitHub account):
-      gavinfischer-keenan/ProjectManagement    â€” Project Manager (CT110)
-      gavinfischer-keenan/Alux2Win             â€” LUX game (CT114)
-      gavinfischer-keenan/TrishsGame           â€” Trish's Games (CT114)
-      gavinfischer-keenan/AppleHealthConverter  â€” Health Converter (CT114, needs web conversion)
+      gavinfischer-keenan/ProjectManagement    — Project Manager (CT110)
+      gavinfischer-keenan/Alux2Win             — LUX game (CT114)
+      gavinfischer-keenan/TrishsGame           — Trish's Games (CT114)
+      gavinfischer-keenan/AppleHealthConverter  — Health Converter (CT114, needs web conversion)
 
 ---
 
@@ -1932,7 +2007,7 @@ Launch two separate Chromium windows via Openbox autostart:
 
 For an AI agent rebuilding on new hardware. Follow in order, verify each step.
 
-### Step 0 â€” Assess Hardware
+### Step 0 — Assess Hardware
     lsusb                           # identify SDR dongles, Zigbee, mic, Coral
     udevadm info /dev/ttyUSB0       # get Zigbee serial (ATTRS{serial})
     udevadm info /dev/ttyUSB0 | grep DEVPATH  # get physical USB port
@@ -1943,13 +2018,13 @@ For an AI agent rebuilding on new hardware. Follow in order, verify each step.
     generic RTL2838 = ADS-B 1090 MHz.
     Google Coral USB Accelerator (18d1:9302) = Frigate AI inference.
 
-### Step 1 â€” Storage
+### Step 1 — Storage
     pvcreate /dev/sdX
     vgcreate bigdata /dev/sdX
     lvcreate -l 100%FREE --thinpool bigdata-pool bigdata
     # Register pool in Proxmox storage.cfg
 
-### Step 2 â€” Create Containers
+### Step 2 — Create Containers
     For each CT (104, 105, 106, 102, 108, 109, 110, 112, 113, 114):
     pct create <VMID> local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst \
       --hostname <name> --memory <MB> --cores <n> \
@@ -1957,7 +2032,7 @@ For an AI agent rebuilding on new hardware. Follow in order, verify each step.
       --rootfs <pool>:<GB> --unprivileged 1 --onboot 1
     Create 104 first (DB needed before collectors)
 
-### Step 3 â€” HAOS VM
+### Step 3 — HAOS VM
     bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/vm/haos-vm.sh)"
     qm set 100 --usb0 host=<physical-zigbee-port>   # e.g. 1-7.4
     qm start 100   # wait 3min then access http://192.168.1.19:8123
@@ -1965,7 +2040,7 @@ For an AI agent rebuilding on new hardware. Follow in order, verify each step.
     Install add-ons: Mosquitto MQTT broker
     Install HACS: follow hacs.xyz instructions
 
-### Step 4 â€” PostgreSQL (CT104)
+### Step 4 — PostgreSQL (CT104)
     apt-get install -y postgresql
     systemctl enable --now postgresql
     su - postgres -c "createdb tracking_db"
@@ -1981,12 +2056,12 @@ For an AI agent rebuilding on new hardware. Follow in order, verify each step.
     # GRANT ALL ON DATABASE project_mgr TO pm_user;
     # Apply project_mgr schema from section 2 CT104
 
-### Step 5 â€” ADS-B (CT102)
+### Step 5 — ADS-B (CT102)
     apt-get install -y dump1090-fa tar1090
     systemctl enable --now dump1090-fa tar1090
     # Verify: curl http://192.168.1.102/tar1090/data/aircraft.json | head
 
-### Step 6 â€” SDR Pipeline (host + CT106)
+### Step 6 — SDR Pipeline (host + CT106)
     # Host:
     apt-get install -y rtl-sdr
     cp scripts/udev/99-hawaii-usb.rules /etc/udev/rules.d/
@@ -2004,7 +2079,7 @@ For an AI agent rebuilding on new hardware. Follow in order, verify each step.
     systemctl enable --now ais-catcher
     # Verify: journalctl -u ais-catcher -f (shows NMEA vessel messages)
 
-### Step 7 â€” Tracker Engine (CT105)
+### Step 7 — Tracker Engine (CT105)
     apt-get install -y python3 python3-pip
     pip3 install asyncpg aiohttp requests
     # Deploy Python files to /opt/, service files to /etc/systemd/system/
@@ -2013,7 +2088,7 @@ For an AI agent rebuilding on new hardware. Follow in order, verify each step.
     systemctl enable --now ais-collector adsb-collector avia-collector env-collector tracker-engine
     # Verify: rows increasing in live_tracks
 
-### Step 8 â€” Dashboard (CT108)
+### Step 8 — Dashboard (CT108)
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash
     apt-get install -y nodejs nginx
     npm install -g pm2
@@ -2035,7 +2110,7 @@ For an AI agent rebuilding on new hardware. Follow in order, verify each step.
     nginx -t && systemctl restart nginx
     # Verify: http://192.168.1.108 loads map dashboard
 
-### Step 9 â€” BirdNET (CT112)
+### Step 9 — BirdNET (CT112)
     apt-get install -y docker.io && systemctl enable --now docker
     mkdir -p /opt/birdnet/config /opt/birdnet/data
     # Copy docker-compose.yml and config.yaml to /opt/birdnet/
@@ -2043,7 +2118,7 @@ For an AI agent rebuilding on new hardware. Follow in order, verify each step.
     cd /opt/birdnet && docker compose up -d
     # Verify: docker ps shows birdnet_go; http://<ct112-ip>:8080 loads
 
-### Step 10 â€” Health Monitoring
+### Step 10 — Health Monitoring
     cp scripts/nightly-health-check.sh /usr/local/bin/
     chmod +x /usr/local/bin/nightly-health-check.sh
     echo '0 12 * * * root /usr/local/bin/nightly-health-check.sh' > /etc/cron.d/hawaii-health-check
@@ -2051,7 +2126,7 @@ For an AI agent rebuilding on new hardware. Follow in order, verify each step.
     # Test: bash /usr/local/bin/nightly-health-check.sh
     # Verify: GET /api/health-report returns JSON
 
-### Step 11 â€” Frigate NVR + Cameras (CT113)
+### Step 11 — Frigate NVR + Cameras (CT113)
 
     # Create CT113 with Docker + USB + cgroup access:
     pct create 113 local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst \
@@ -2082,7 +2157,7 @@ For an AI agent rebuilding on new hardware. Follow in order, verify each step.
     # Add cameras: edit /opt/frigate/config/config.yml per camera template
     # docker compose restart after config changes
 
-### Step 12 â€” Utilities + Games (CT114)
+### Step 12 — Utilities + Games (CT114)
 
     # See CT114 section for full setup
     # After base utilities are running:
@@ -2106,25 +2181,25 @@ For an AI agent rebuilding on new hardware. Follow in order, verify each step.
     # Add lxml to requirements.txt
     # Update nginx: client_max_body_size 500M for health converter
 
-### Step 13 â€” HACS Integrations
+### Step 13 — HACS Integrations
 
     # Install HACS in HA (if not already):
     # Follow hacs.xyz instructions
 
     # Add pukalanihomecontrol repo as custom HACS repository:
-    # HACS â†’ Integrations â†’ â‹® â†’ Custom repositories
+    # HACS → Integrations → ⋮ → Custom repositories
     # URL: https://github.com/gavinfischer-keenan/pukalanihomecontrol
     # Category: Integration
 
     # Install pukalani_pm:
-    # HACS â†’ Integrations â†’ + â†’ search "Pukalani PM" â†’ Install
-    # HA â†’ Settings â†’ Integrations â†’ + â†’ Pukalani PM
+    # HACS → Integrations → + → search "Pukalani PM" → Install
+    # HA → Settings → Integrations → + → Pukalani PM
     # Enter PM API URL: http://192.168.1.110:3001
 
     # Install pukalani_birdnet:
     # Same process, enter BirdNET URL: http://192.168.1.25:8080
 
-### Step 14 â€” Kiosk Display (Host)
+### Step 14 — Kiosk Display (Host)
 
     # Follow kiosk.service setup in section 3
     # Verify: monitor shows split-screen dashboard after reboot
@@ -2142,13 +2217,13 @@ For an AI agent rebuilding on new hardware. Follow in order, verify each step.
 | Weather ok=false | Ecowitt station gap | Wait 2min; power-cycle GW2000 if persistent |
 | Ecowitt not pushing | Wrong port configured | GW2000 app -> Customized: port MUST be 3001 (not 4003, not 80) |
 | GW2000 lost config after reboot | Device reset clears Customized settings | Re-enter: IP=192.168.1.108, Path=/api/ecowitt, Port=3001, Protocol=Ecowitt, Interval=60s |
-| BirdNET zero detections | Normal 10pm-5am | WARN in nightly log â€” expected |
-| Enphase setup_in_progress | Auth timeout | HA â†’ Settings â†’ Integrations â†’ Enphase â†’ Re-authenticate |
+| BirdNET zero detections | Normal 10pm-5am | WARN in nightly log — expected |
+| Enphase setup_in_progress | Auth timeout | HA → Settings → Integrations → Enphase → Re-authenticate |
 | Build fails | Missing import or CSS | Check npm run build output; most common: forgotten CSS import |
 | Coral TPU not found on first boot | USB device not initialized yet | Frigate auto-retries; usually succeeds within 30s. Check: docker logs frigate |
 | Aqara RTSP CSeq errors | Camera firmware timestamp issues | Non-blocking warnings; recording and detection still function |
 | Aqara RTSP connection timeout | Camera went to sleep or network hiccup | Frigate auto-reconnects. If persistent: power-cycle camera |
-| Frigate detection_enabled=false | Detection manually disabled per-camera | Enable via Frigate UI or MQTT: frigate/<camera>/detect/set â†’ ON |
+| Frigate detection_enabled=false | Detection manually disabled per-camera | Enable via Frigate UI or MQTT: frigate/<camera>/detect/set → ON |
 | Kiosk blank screen | X11 failed to start | Check: systemctl status kiosk, journalctl -u kiosk. Verify GPU: ls /dev/dri/ |
 | Kiosk iframe blocked | Target app sets X-Frame-Options DENY | Use dual-Chromium fallback (see kiosk.service section) |
 
@@ -2168,7 +2243,7 @@ For an AI agent rebuilding on new hardware. Follow in order, verify each step.
 ---
 ## 12. 3D Visualization and Spatial Mapping
 
-> ðŸ”² **PLANNED â€” NOT YET IMPLEMENTED**
+> 🔲 **PLANNED — NOT YET IMPLEMENTED**
 > All subsections below define the target architecture for 3D visualization features.
 > Implementation requires the user to provide the 3D model files described in the
 > File Requirements Appendix (Section 12.8).
@@ -2180,7 +2255,7 @@ in a spatial context. There are two distinct 3D model pipelines:
 
 | Pipeline | Model Type | Purpose | HA Card |
 |----------|-----------|---------|---------|
-| **Floor Plan** | Interior-only wireframe GLB (no exterior walls, no textures) | Sensor overlay â€” place all sensors, alarms, and cameras on a spatial map | `custom:3d-floorplan` (HACS) |
+| **Floor Plan** | Interior-only wireframe GLB (no exterior walls, no textures) | Sensor overlay — place all sensors, alarms, and cameras on a spatial map | `custom:3d-floorplan` (HACS) |
 | **Property Model** | Full exterior GLB from drone photogrammetry | Layered property overview with toggleable visibility layers | `custom:3d-floorplan` (HACS) |
 
 Both will be displayed in the **Command Center** dashboard as dedicated views.
@@ -2192,7 +2267,7 @@ Both will be displayed in the **Command Center** dashboard as dedicated views.
 | 3D Renderer | Three.js (WebGL) | Runs client-side in the browser |
 | HA Integration | HACS Custom Card: `Hollako/Home-Assistant-3D-Floorplan` | Preferred. Drag-and-drop marker placement editor, GLB loading, entity bindings |
 | Fallback | HACS Custom Card: `adizanni/floor3d-card` | Alternative if Hollako doesn't meet needs |
-| File Format | `.glb` (glTF 2.0 Binary) | Single self-contained binary â€” mesh, materials, textures, UV maps |
+| File Format | `.glb` (glTF 2.0 Binary) | Single self-contained binary — mesh, materials, textures, UV maps |
 | File Storage | `/config/www/3d/` inside HAOS | Served at `/local/3d/<filename>.glb` in Lovelace cards |
 | Model Optimization | Blender (Decimate modifier) | Target: **<50k triangles** per model for smooth rendering |
 
@@ -2202,7 +2277,7 @@ Both will be displayed in the **Command Center** dashboard as dedicated views.
 
 The floor plan model is a **pure wireframe/architectural model** with:
 - No exterior walls or roof
-- No color or texture â€” white/grey material only
+- No color or texture — white/grey material only
 - Each room as a **named mesh object** in Blender (e.g., `master_bedroom`, `kitchen`, `laundry_room`, `utility_room`)
 - Doors and windows as **separate named mesh objects** (e.g., `front_door`, `kitchen_window_1`)
 - Floor, walls, and ceiling as separate layers that can be toggled
@@ -2218,7 +2293,7 @@ Each sensor type has a defined visual representation bound to HA entity states:
 | State | Visual | Icon | Animation |
 |-------|--------|------|-----------|
 | `off` (dry) | Green droplet | `mdi:water-check` | Static |
-| `on` (wet) | Red droplet, larger | `mdi:water-alert` | Pulsing scale 1.0â†’1.5x, 0.5s period |
+| `on` (wet) | Red droplet, larger | `mdi:water-alert` | Pulsing scale 1.0→1.5x, 0.5s period |
 
 **Entity pattern:** `binary_sensor.leak_*`
 **Placement:** On floor mesh at sensor physical location.
@@ -2230,7 +2305,7 @@ Each sensor type has a defined visual representation bound to HA entity states:
 | `on` (alarm) | Red fire icon | `mdi:fire` | Animated flame + red pulse |
 
 **Entity pattern:** `binary_sensor.smoke_*`, `binary_sensor.fire_*`
-**Trigger action:** ðŸ”² FUTURE â€” alarm notification (speakers, push, etc.) to be defined.
+**Trigger action:** 🔲 FUTURE — alarm notification (speakers, push, etc.) to be defined.
 
 ##### Presence Sensors (Room Occupancy)
 | State | Visual | Animation |
@@ -2251,13 +2326,13 @@ Each sensor type has a defined visual representation bound to HA entity states:
 
 **Acceptable ranges are PER-ROOM** (configured in the card YAML):
 
-| Room Category | Temp Range (Â°F) | Humidity Range (%) | Rationale |
+| Room Category | Temp Range (°F) | Humidity Range (%) | Rationale |
 |--------------|-----------------|-------------------|-----------|
-| Occupied Interior | 68â€“82 | 40â€“65 | Air-conditioned living spaces |
-| Laundry Room | 55â€“95 | 20â€“90 | Open to environment, wide tolerance |
-| Utility Room (Underhouse) | 60â€“90 | 30â€“80 | Heated/enclosed, moderate tolerance |
-| Garage / Carport | 55â€“100 | 20â€“95 | Fully open, very wide tolerance |
-| Bathroom | 65â€“85 | 40â€“80 | Shower humidity spikes expected |
+| Occupied Interior | 68–82 | 40–65 | Air-conditioned living spaces |
+| Laundry Room | 55–95 | 20–90 | Open to environment, wide tolerance |
+| Utility Room (Underhouse) | 60–90 | 30–80 | Heated/enclosed, moderate tolerance |
+| Garage / Carport | 55–100 | 20–95 | Fully open, very wide tolerance |
+| Bathroom | 65–85 | 40–80 | Shower humidity spikes expected |
 
 These ranges are stored in the Lovelace card configuration, not in HA entities.
 Example YAML:
@@ -2288,7 +2363,7 @@ rooms:
 | State | Visual | Icon | Animation |
 |-------|--------|------|-----------|
 | Good (AQI < 50) | Green cloud icon | `mdi:air-filter` | Static |
-| Moderate (AQI 50â€“100) | Yellow cloud icon | `mdi:air-filter` | Static |
+| Moderate (AQI 50–100) | Yellow cloud icon | `mdi:air-filter` | Static |
 | Poor (AQI > 100) | Red cloud icon | `mdi:weather-dust` | Pulsing red |
 
 **Entity pattern:** `sensor.air_quality_*`, `sensor.pm25_*`, `sensor.voc_*`
@@ -2325,19 +2400,19 @@ The full property 3D model is generated from drone photography via photogrammetr
 #### 12.4.1 Model Pipeline
 
 ```
-Drone Photos (200+ images, 70-80% overlap, nadir + 45Â° oblique)
-    â†“
+Drone Photos (200+ images, 70-80% overlap, nadir + 45° oblique)
+    ↓
 Photogrammetry Software (WebODM / RealityCapture / Meshroom)
-    â†“
+    ↓
 Raw mesh (.obj / .ply, typically 1M+ triangles)
-    â†“
+    ↓
 Blender Optimization:
-  - Decimate modifier â†’ target 30k-50k triangles
-  - Texture baking â†’ single 4096Ã—4096 texture atlas
+  - Decimate modifier → target 30k-50k triangles
+  - Texture baking → single 4096×4096 texture atlas
   - Normal recalculation
   - Named layer separation (see 12.4.2)
-    â†“
-Export as .glb â†’ /config/www/3d/property_exterior.glb
+    ↓
+Export as .glb → /config/www/3d/property_exterior.glb
 ```
 
 #### 12.4.2 Layer System
@@ -2385,9 +2460,9 @@ layers:
 
 #### 12.5.1 Concept
 
-A series of 360Â° panoramic photos taken from fixed vantage points on the roof.
+A series of 360° panoramic photos taken from fixed vantage points on the roof.
 Each panorama is a spherical image viewable in an interactive web viewer
-(click-and-drag to look around). 5â€“6 panoramas from different roof positions
+(click-and-drag to look around). 5–6 panoramas from different roof positions
 provide complete property coverage.
 
 #### 12.5.2 Photo Capture Requirements
@@ -2396,11 +2471,11 @@ For **each** vantage point, capture one of:
 
 | Method | What to Provide | Output Format | Notes |
 |--------|----------------|---------------|-------|
-| **360Â° camera** (Insta360, Ricoh Theta, etc.) | Single equirectangular image | `.jpg` (equirectangular projection) | Easiest method. One shot per position. |
-| **Manual panorama** (phone/camera) | 20â€“30 overlapping photos from one spot | Individual `.jpg` files | Must be stitched (Hugin, PTGui, or Google Photos) |
-| **Drone orbit** | 12â€“24 photos in a circle, camera aimed outward | Individual `.jpg` files | Can be stitched into equirectangular panorama |
+| **360° camera** (Insta360, Ricoh Theta, etc.) | Single equirectangular image | `.jpg` (equirectangular projection) | Easiest method. One shot per position. |
+| **Manual panorama** (phone/camera) | 20–30 overlapping photos from one spot | Individual `.jpg` files | Must be stitched (Hugin, PTGui, or Google Photos) |
+| **Drone orbit** | 12–24 photos in a circle, camera aimed outward | Individual `.jpg` files | Can be stitched into equirectangular panorama |
 
-**Preferred output format:** Single equirectangular `.jpg` per vantage point, minimum 8000Ã—4000 pixels.
+**Preferred output format:** Single equirectangular `.jpg` per vantage point, minimum 8000×4000 pixels.
 
 **File naming convention:**
 ```
@@ -2446,18 +2521,18 @@ A new tab in the Command Center dashboard:
 
 | Add-on | Status | Port 22 Exposed | Access Method |
 |--------|--------|----------------|---------------|
-| Terminal & SSH (`core_ssh`) | âœ… Running (v10.3.0) | âŒ Not mapped to LAN | Ingress only (web terminal in HA UI) |
+| Terminal & SSH (`core_ssh`) | ✅ Running (v10.3.0) | âŒ Not mapped to LAN | Ingress only (web terminal in HA UI) |
 | Advanced SSH (`a0d7b954_ssh`) | âŒ Not installed | N/A | N/A |
 
-**Current access:** `qm guest exec 100` from Proxmox host (works, but limited â€” no stdin piping, requires base64 for file transfer).
+**Current access:** `qm guest exec 100` from Proxmox host (works, but limited — no stdin piping, requires base64 for file transfer).
 
 #### Recommended: Expose SSH Port 22
 
 To enable direct SSH from the dev laptop to HAOS (faster file transfers, real-time logs, easier debugging):
 
-1. In HA UI â†’ Settings â†’ Apps â†’ Terminal & SSH â†’ Configuration:
+1. In HA UI → Settings → Apps → Terminal & SSH → Configuration:
    - Set a password or add authorized_keys (from Proxmox host's `~/.ssh/id_rsa.pub`)
-   - Under Network: map port `22/tcp` â†’ `22`
+   - Under Network: map port `22/tcp` → `22`
 2. Restart the add-on
 
 After configuration:
@@ -2469,21 +2544,21 @@ ssh hassio@192.168.1.19
 scp floorplan.glb hassio@192.168.1.19:/config/www/3d/floorplan.glb
 ```
 
-This is **strongly recommended** for the 3D model upload workflow, as GLB files can be large (5â€“50MB)
+This is **strongly recommended** for the 3D model upload workflow, as GLB files can be large (5–50MB)
 and base64 encoding via `qm guest exec` is fragile.
 
 ### 12.7 HACS Card Installation Plan
 
 | Card | HACS Repository | Install Method | Purpose |
 |------|----------------|---------------|---------|
-| 3D Floorplan | `Hollako/Home-Assistant-3D-Floorplan` | HACS â†’ Frontend â†’ Custom Repositories | Primary 3D sensor overlay viewer |
+| 3D Floorplan | `Hollako/Home-Assistant-3D-Floorplan` | HACS → Frontend → Custom Repositories | Primary 3D sensor overlay viewer |
 | Pannellum Panorama | Custom panel_iframe to CT114 | Deploy Pannellum.js to CT114 | Roof panorama viewer |
 
 Installation steps (to be executed during implementation):
 ```bash
 # 1. Install HACS card via HA API
 # POST /api/config/config_entries/flow with handler "hacs"
-# Or: manually add via HACS UI â†’ Frontend â†’ + â†’ Custom Repository
+# Or: manually add via HACS UI → Frontend → + → Custom Repository
 
 # 2. Create 3D file directory in HAOS
 ssh hassio@192.168.1.19 "mkdir -p /config/www/3d/panoramas"
@@ -2496,28 +2571,28 @@ scp property_exterior.glb hassio@192.168.1.19:/config/www/3d/property_exterior.g
 scp roof_position_*.jpg hassio@192.168.1.19:/config/www/3d/panoramas/
 ```
 
-### 12.8 File Requirements Appendix â€” "GIVE ME THESE FILES"
+### 12.8 File Requirements Appendix — "GIVE ME THESE FILES"
 
 > **Action Required:** The following files must be provided by the property owner.
 > All 3D models must be in `.glb` (glTF 2.0 Binary) format.
 > See column "How to Create" for tools and workflow.
 
-#### Required Files â€” Upload Status
+#### Required Files — Upload Status
 
 | # | File | Format | Size | HAOS Path | Status | Source |
 |---|------|--------|------|-----------|--------|--------|
-| 1 | `floorplan.glb` | GLB | 561 KB | `/config/www/3d/floorplan.glb` | âœ… UPLOADED | LIDAR scan â€” main house interior (from `7_17_2026.glb`) |
-| 2 | `property_exterior.glb` | GLB | 10.5 MB | `/config/www/3d/property_exterior.glb` | âœ… UPLOADED | Drone photogrammetry â€” exterior only (from `7_12_2026.glb`) |
-| 3 | `cabana_garage.glb` | GLB | 245 KB | `/config/www/3d/cabana_garage.glb` | âœ… UPLOADED | LIDAR scan â€” cabana & garage. Has phantom wall (fix later). (from `7_21_2026.glb`) |
-| 4 | `utility_room.glb` | GLB | 34 KB | `/config/www/3d/utility_room.glb` | âœ… UPLOADED | LIDAR scan â€” underhouse utility room (from `7_21_2026(1).glb`) |
-| 5 | `laundry_room.glb` | GLB | 38 KB | `/config/www/3d/laundry_room.glb` | âœ… UPLOADED | LIDAR scan â€” laundry room (from `7_21_2026(2).glb`) |
-| 6â€“11 | `roof_position_N.jpg` (Ã—5â€“6) | JPEG | TBD | `/config/www/3d/panoramas/` | â³ PENDING | Phone panorama mode (equirectangular). Directory created, awaiting images. |
+| 1 | `floorplan.glb` | GLB | 561 KB | `/config/www/3d/floorplan.glb` | ✅ UPLOADED | LIDAR scan — main house interior (from `7_17_2026.glb`) |
+| 2 | `property_exterior.glb` | GLB | 10.5 MB | `/config/www/3d/property_exterior.glb` | ✅ UPLOADED | Drone photogrammetry — exterior only (from `7_12_2026.glb`) |
+| 3 | `cabana_garage.glb` | GLB | 245 KB | `/config/www/3d/cabana_garage.glb` | ✅ UPLOADED | LIDAR scan — cabana & garage. Has phantom wall (fix later). (from `7_21_2026.glb`) |
+| 4 | `utility_room.glb` | GLB | 34 KB | `/config/www/3d/utility_room.glb` | ✅ UPLOADED | LIDAR scan — underhouse utility room (from `7_21_2026(1).glb`) |
+| 5 | `laundry_room.glb` | GLB | 38 KB | `/config/www/3d/laundry_room.glb` | ✅ UPLOADED | LIDAR scan — laundry room (from `7_21_2026(2).glb`) |
+| 6–11 | `roof_position_N.jpg` (×5–6) | JPEG | TBD | `/config/www/3d/panoramas/` | â³ PENDING | Phone panorama mode (equirectangular). Directory created, awaiting images. |
 
 All files accessible via HA web server at `/local/3d/<filename>`.
 
 Upload method: Chunked base64 transfer via `qm guest exec 100` through Proxmox host.
 Small files (<100KB): single base64 echo pipe.
-Large files (>100KB): SCP to Proxmox host â†’ base64 chunk script â†’ reassemble inside HAOS.
+Large files (>100KB): SCP to Proxmox host → base64 chunk script → reassemble inside HAOS.
 
 #### Optional / Future Files
 
@@ -2530,8 +2605,8 @@ Large files (>100KB): SCP to Proxmox host â†’ base64 chunk script â†’ 
 
 | File | Issue | Priority |
 |------|-------|----------|
-| `cabana_garage.glb` | Phantom wall present in model | Low â€” cosmetic, fix in Blender later |
-| `floorplan.glb` | Does not include laundry, utility, cabana, garage (those are separate files) | By design â€” composite view will stitch them |
+| `cabana_garage.glb` | Phantom wall present in model | Low — cosmetic, fix in Blender later |
+| `floorplan.glb` | Does not include laundry, utility, cabana, garage (those are separate files) | By design — composite view will stitch them |
 
 #### Blender Export Checklist (for all GLB files)
 
@@ -2555,5 +2630,5 @@ Large files (>100KB): SCP to Proxmox host â†’ base64 chunk script â†’ 
 
 *End of architecture document.*
 *Generated: 2026-07-21 from live Proxmox at 192.168.1.100*
-*Location: Pukalani, Maui, Hawaii â€” 21.2855N, 157.7969W*
+*Location: Pukalani, Maui, Hawaii — 21.2855N, 157.7969W*
 *Last updated: 2026-07-21 evening session*

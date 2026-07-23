@@ -47,26 +47,8 @@ const AIRPORT_COORDS = {
 
 // ── Google Geocoding fallback for unknown IATA codes ─────────────────────────
 // Called only when an airport IATA code is NOT in AIRPORT_COORDS above.
-// Result is cached in-process and also stored in flight_routes for future lookups.
-// Rate: ~1 call per new unknown airport, total cost effectively $0.
-async function geocodeAirport(iataCode) {
-  const key = process.env.GOOGLE_GEOCODING_KEY;
-  if (!key) return null;
-  try {
-    const query = encodeURIComponent(`${iataCode} airport`);
-    const url   = `https://maps.googleapis.com/maps/api/geocode/json?address=${query}&key=${key}`;
-    const res   = await axios.get(url, { timeout: 8000 });
-    if (res.data.status === 'OK' && res.data.results?.length) {
-      const loc = res.data.results[0].geometry.location;
-      console.log(`[geocode] ${iataCode} → ${loc.lat}, ${loc.lng}`);
-      return [loc.lat, loc.lng];
-    }
-    return null;
-  } catch (e) {
-    console.warn(`[geocode] ${iataCode} failed:`, e.message);
-    return null;
-  }
-}
+// Google Geocoding removed — using AIRPORT_COORDS hardcoded map only.
+// If an airport is not in the map, coordinates will be null (route drawn without arc endpoints).
 
 // ── Human-readable schedule label generator ──────────────────────────────
 function buildDaysLabel(daysOfWeek) {
@@ -263,8 +245,6 @@ async function lookupFlightRoute(pool, flightNumber) {
       // Resolve coordinates: hardcoded map first, Google geocoding as fallback
       let originCoords = AIRPORT_COORDS[origin] || null;
       let destCoords   = AIRPORT_COORDS[dest]   || null;
-      if (!originCoords && origin) { originCoords = await geocodeAirport(origin); }
-      if (!destCoords   && dest  ) { destCoords   = await geocodeAirport(dest);   }
 
       const row = {
         flight_number: upper,
@@ -659,6 +639,17 @@ function init(app, pool, express, multerLib, pathMod, fsMod) {
   });
 
   console.log('[known-entities] Service initialized — routes registered');
+
+  // ── Auto-fetch entity photos: 2 min after startup, then every 6 hours ──────
+  setTimeout(() => {
+    console.log('[photo-fetch] Starting initial auto-fetch for entities without photos...');
+    autoFetchAllPhotos(pool).catch(e => console.error('[photo-fetch] startup error:', e.message));
+  }, 2 * 60 * 1000);
+
+  setInterval(() => {
+    autoFetchAllPhotos(pool).catch(e => console.error('[photo-fetch] interval error:', e.message));
+  }, 6 * 60 * 60 * 1000);
+
   return { recordTrackPoint };
 }
 
@@ -728,45 +719,69 @@ async function visionCheckImage(localPath, entityType) {
 //   imgur.com                                                               (general)
 // Results from these sites don't need Vision API validation — they ARE ships/planes.
 async function searchEntityImages(entityType, identifier, name) {
-  const apiKey = process.env.GOOGLE_GEOCODING_KEY;
-  const cx     = process.env.GOOGLE_CSE_CX;
-  if (!apiKey || !cx) return [];
-
-  // Build a targeted query. Vessel name or aircraft registration is specific enough
-  // that authoritative sites will return the exact subject.
-  let query;
-  if (entityType === 'vessel') {
-    // Use vessel name in quotes for precision; fall back to MMSI if name is generic
-    const cleanName = name.replace(/[^\w\s-]/g, '').trim();
-    query = `"${cleanName}"`;
-  } else {
-    // Aircraft: registration (e.g. N85PF) is globally unique — very precise
-    const reg = name.replace(/[^\w-]/g, '').trim();
-    query = `"${reg}"`;
-  }
-
-  const encoded = encodeURIComponent(query);
-  const url = `https://www.googleapis.com/customsearch/v1` +
-    `?key=${apiKey}&cx=${cx}&q=${encoded}` +
-    `&searchType=image&num=8&imgType=photo&safe=active&imgSize=medium`;
+  // No API key needed — use direct source APIs
+  // Aircraft: api.planespotters.net (free JSON API)
+  // Vessels:  shipspotting.com search scrape
+  const UA = 'PukalaniMonitor/1.0 (+https://github.com/gavinfischer-keenan/pukalanihomecontrol)';
+  const results = [];
 
   try {
-    const res   = await axios.get(url, { timeout: 15000 });
-    const items = res.data.items || [];
-    console.log(`[photo-search] "${name}" (${entityType}) → ${items.length} results`);
-    return items.map(i => ({
-      url:       i.link,
-      thumb:     i.image?.thumbnailLink,
-      title:     i.title,
-      domain:    (new URL(i.link)).hostname.replace(/^www\./, ''),
-      contextUrl: i.image?.contextLink,
-    }));
-  } catch(e) {
-    if (e.response?.status === 429) console.warn('[photo-search] Rate limited — will retry next cycle');
-    else if (e.response?.status === 403) console.warn('[photo-search] API quota/key issue:', e.response?.data?.error?.message);
-    else console.warn(`[photo-search] Error for "${name}":`, e.message);
-    return [];
+    if (entityType === 'aircraft') {
+      // name = registration (e.g. N85PF) from autoFetchAllPhotos query
+      const reg = name.replace(/[^A-Z0-9-]/gi, '').toUpperCase();
+      if (!reg) return [];
+      const url = `https://api.planespotters.net/pub/photos/reg/${reg}`;
+      const resp = await axios.get(url, {
+        timeout: 10000,
+        headers: { 'User-Agent': UA }
+      });
+      const photos = resp.data.photos || [];
+      for (const p of photos.slice(0, 3)) {
+        const imageUrl = p.thumbnail_large?.src || p.thumbnail?.src;
+        if (imageUrl) {
+          results.push({
+            url: imageUrl,
+            title: `${reg} — photo by ${p.photographer || 'planespotters.net'}`,
+            domain: 'planespotters.net',
+          });
+        }
+      }
+      console.log(`[photo-search] ${reg} (aircraft) → ${results.length} images via planespotters.net`);
+
+    } else if (entityType === 'vessel') {
+      // Vessel: try shipspotting.com search
+      const vesselName = name.replace(/[^\w\s-]/g, '').trim();
+      const ssUrl = `https://www.shipspotting.com/photos/search/?searchQuery=${encodeURIComponent(vesselName)}`;
+      try {
+        const r = await axios.get(ssUrl, {
+          timeout: 12000,
+          headers: { 'User-Agent': UA, 'Accept': 'text/html' }
+        });
+        // Extract CDN image URLs from HTML
+        const matches = (r.data.match(/https?:\/\/[^"' ]*(?:shipspotting\.com|ssphotos)[^"' ]*\.(?:jpg|jpeg|png)/gi) || []);
+        const unique = [...new Set(matches)].filter(u => !u.includes('logo') && !u.includes('avatar'));
+        for (const imgUrl of unique.slice(0, 3)) {
+          results.push({ url: imgUrl, title: `${vesselName} — ShipSpotting.com`, domain: 'shipspotting.com' });
+        }
+      } catch(e2) { /* scrape failed */ }
+
+      // If shipspotting found nothing, try marinetraffic photo URL by MMSI
+      if (results.length === 0 && /^\d{9}$/.test(String(identifier))) {
+        const mtUrl = `https://photos.marinetraffic.com/ais/showphoto.aspx?mmsi=${identifier}&size=thumb`;
+        try {
+          const r = await axios.get(mtUrl, { timeout: 8000, responseType: 'arraybuffer', headers: { 'User-Agent': UA }, maxRedirects: 5 });
+          const ct = (r.headers['content-type'] || '');
+          if (ct.includes('image/') && r.data.length > 5000) {
+            results.push({ url: mtUrl, title: `${name} — MarineTraffic photo`, domain: 'marinetraffic.com', isDirectImage: true });
+          }
+        } catch(e3) { /* no MT photo */ }
+      }
+      console.log(`[photo-search] ${vesselName} (vessel) → ${results.length} images`);
+    }
+  } catch(err) {
+    console.warn(`[photo-search] Error for "${name}":`, err.message);
   }
+  return results;
 }
 
 // Store up to 3 validated images for an entity
@@ -817,10 +832,10 @@ async function fetchPhotosForEntity(db, entityType, identifier, name) {
     await db.query(
       `INSERT INTO entity_photos
          (entity_type, identifier, filename, display_order, caption, status, source, vision_labels, original_url)
-       VALUES ($1,$2,$3,$4,$5,'potential','google_image_search',$6,$7)
+       VALUES ($1,$2,$3,$4,$5,'potential',$6,$7,$8)
        ON CONFLICT DO NOTHING`,
       [entityType, identifier, path_mod.basename(tmpPath), displayOrder,
-       caption, JSON.stringify(labels), img.url]
+       caption, 'google_image_search', JSON.stringify(labels), img.url]
     );
     console.log(`[photo-fetch] Stored potential photo ${stored+1}/3 for ${name}`);
     stored++;
@@ -844,7 +859,7 @@ async function autoFetchAllPhotos(db) {
         )
       UNION ALL
       SELECT a.icao_hex AS identifier, 'aircraft' AS entity_type,
-             COALESCE(a.friendly_name, a.registration, a.icao_hex) AS name
+             COALESCE(a.registration, a.icao_hex) AS name  -- registration needed for planespotters.net
       FROM aircraft_info a
       WHERE (a.auto_detected = true OR a.is_pinned = true)
         AND NOT EXISTS (

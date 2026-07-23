@@ -306,6 +306,7 @@ function App() {
               aircraft={layers.acTrails?.enabled && layers.aircraft?.enabled ? aircraft : []}
               vessels={layers.vesselTrails?.enabled && layers.vessels?.enabled ? vessels : []}
               apiBase={API_BASE}
+              selected={selected}
             />
           </ErrorBoundary>
         )}
