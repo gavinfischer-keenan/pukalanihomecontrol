@@ -1,15 +1,16 @@
-<!-- doc: services.md | topic: Service Map | last-updated: 2026-07-23 -->
+<!-- doc: services.md | topic: Service Map | last-updated: 2026-07-24 -->
 
 # Service Map
 
 ## Host & VM
-* **Host**: tl-tcp-ais.service (:1234 rtl_tcp for AIS SDR), sdr-scheduler.service
+* **Host**: `rtl-tcp-ais.service` (:1234 rtl_tcp for AIS SDR), `sdr-scheduler.service`, `enphase_watchdog.sh`
 * **VM100**: Home Assistant (:8123) with Enphase Envoy, Ecowitt GW2000, ZHA, ESPHome.
 
 ## Data & Engine Containers
-* **CT102 (airspace)**: dump1090-fa (ADS-B decoder), tar1090 (web :80, data at /tar1090/data/aircraft.json)
-* **CT104 (trackerDB)**: PostgreSQL 17 (:5432) -> tracking_db
-* **CT105 (tracker-engine)**: ais-collector (UDP :10110), adsb-collector, avia-collector, env-collector, tracker-engine, satellite_collector.py via cron (GOES-18 + NEXRAD every 10 min)
+* **CT101 (brain)**: AI Agent / Brain Host
+* **CT102 (airspace)**: dump1090-fa (ADS-B decoder), tar1090 (web :80, data at `/tar1090/data/aircraft.json`)
+* **CT104 (trackerDB)**: PostgreSQL 17 (:5432) -> `tracking_db`
+* **CT105 (tracker-engine)**: `ais-collector` (UDP :10110), `adsb-collector`, `avia-collector`, `env-collector`, tracker-engine, satellite_collector.py via cron (GOES-18 + NEXRAD every 10 min), AISHub Cache HTTP server (:3105)
 * **CT106 (sdr-engine)**: AIS-Catcher (connects host:1234, UDP to CT105:10110)
 * **CT109 (alerts-api)**: Alerts REST API (:3009)
 
@@ -24,4 +25,4 @@
 - **Port**: 3105
 - **Endpoints**: `/api/aishub-nearby` (JSON), `/health`
 - **Purpose**: Serves in-memory AISHub vessel cache to dashboard
-- **Process**: Thread inside ais-collector.py (not a separate service)
+- **Process**: Thread inside `ais-collector.py` (not a separate service)
