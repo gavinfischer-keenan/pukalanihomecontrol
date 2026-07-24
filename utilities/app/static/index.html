@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pukalani Utilities</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      min-height: 100vh;
+      color: #e2e8f0;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: #64748b;
+      text-decoration: none;
+      font-size: 0.85rem;
+      margin-bottom: 1.5rem;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: #94a3b8; }
+
+    .header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .header-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header p {
+      color: #94a3b8;
+      font-size: 1rem;
+      margin-top: 0.3rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .card {
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      border-radius: 16px;
+      padding: 2rem;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent-start), var(--accent-end));
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(148, 163, 184, 0.25);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .card:hover::before { opacity: 1; }
+
+    .card-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      margin-bottom: 1.2rem;
+      background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .card h3 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #f1f5f9;
+      margin-bottom: 0.5rem;
+    }
+
+    .card p {
+      color: #94a3b8;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .card-arrow {
+      position: absolute;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      color: #475569;
+      font-size: 1.2rem;
+      transition: all 0.3s;
+    }
+
+    .card:hover .card-arrow {
+      color: #94a3b8;
+      transform: translateX(4px);
+    }
+
+    .badge-new {
+      display: inline-block;
+      background: linear-gradient(135deg, #f59e0b, #ef4444);
+      color: #fff;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      margin-left: 0.5rem;
+      vertical-align: middle;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    /* Tool-specific accent colors */
+    .card--pdf { --accent-start: #3b82f6; --accent-end: #6366f1; }
+    .card--shrinker { --accent-start: #ec4899; --accent-end: #f43f5e; }
+    .card--health { --accent-start: #10b981; --accent-end: #14b8a6; }
+    .card--chrono { --accent-start: #f59e0b; --accent-end: #7c3aed; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a href="javascript:history.back()" class="back-link">← Back to Dashboard</a>
+
+    <div class="header">
+      <div class="header-icon">🏠</div>
+      <h1>Pukalani Utilities</h1>
+      <p>Home automation helper tools</p>
+    </div>
+
+    <div class="grid">
+      <!-- Photo Chronologizer — featured first, separate port -->
+      <a href="http://192.168.1.114:7777" class="card card--chrono">
+        <div class="card-icon">📸</div>
+        <h3>Photo Chronologizer <span class="badge-new">New</span></h3>
+        <p>Sort scanned photos chronologically using face recognition and age estimation. Find one person across thousands of photos and organize them by age.</p>
+        <span class="card-arrow">→</span>
+      </a>
+
+      <a href="/tools/pdfmaker/" class="card card--pdf">
+        <div class="card-icon">📄</div>
+        <h3>PDF Maker</h3>
+        <p>Merge images, text, and other documents into a single optimized PDF.</p>
+        <span class="card-arrow">→</span>
+      </a>
+
+      <a href="/tools/shrinker/" class="card card--shrinker">
+        <div class="card-icon">📉</div>
+        <h3>PDF Shrinker</h3>
+        <p>Compress your large PDF files to save space without losing too much quality.</p>
+        <span class="card-arrow">→</span>
+      </a>
+
+      <a href="/tools/health_converter.html" class="card card--health">
+        <div class="card-icon">❤️</div>
+        <h3>Apple Health Converter</h3>
+        <p>Convert Apple Health export XML files into organized CSV spreadsheets for analysis.</p>
+        <span class="card-arrow">→</span>
+      </a>
+    </div>
+  </div>
+</body>
+</html>

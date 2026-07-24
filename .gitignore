@@ -1,0 +1,29 @@
+# Environment files with secrets
+.env
+*.env
+!.env.example
+
+# Node modules
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Build artifacts
+dist/
+build/
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

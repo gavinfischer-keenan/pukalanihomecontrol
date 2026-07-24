@@ -35,15 +35,19 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ─── Config ──────────────────────────────────────────────────────────────────
-DB_HOST     = "192.168.1.104"
-DB_NAME     = "tracking_db"
-DB_USER     = "tracker"
-DB_PASS     = "pukalani"
+from dotenv import load_dotenv
+import os
+load_dotenv("/opt/.env")
+
+DB_HOST     = os.environ.get("DB_HOST", "192.168.1.104")
+DB_NAME     = os.environ.get("DB_NAME", "tracking_db")
+DB_USER     = os.environ.get("DB_USER", "tracker")
+DB_PASS     = os.environ.get("DB_PASSWORD", "pukalani")
 
 UDP_IP      = "0.0.0.0"
-UDP_PORT    = 10110
+UDP_PORT    = int(os.environ.get("AIS_UDP_PORT", "10110"))
 
-TAR1090_URL = "http://192.168.1.102/tar1090/data/aircraft.json"
+TAR1090_URL = os.environ.get("ADSB_URL", "http://192.168.1.102/tar1090/data/aircraft.json")
 ADSB_INTERVAL = 5   # seconds between ADS-B polls
 
 AISHUB_URL = "https://data.aishub.net/ws.php?username=AH_2828_A392C354&format=1&output=json&compress=0"
@@ -531,6 +535,8 @@ def run_ais_listener():
 # ─── Entry point ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     logger.info("Tracker Engine starting up.")
+    logger.info("NOTE: AIS UDP listener is DISABLED here — ais-collector.py owns UDP :10110.")
+    logger.info("This process handles: ADS-B polling (tar1090) + AISHub API polling only.")
 
     # ADS-B runs in a daemon thread (exits when main thread exits)
     adsb_thread = threading.Thread(target=poll_adsb, name="adsb", daemon=True)
@@ -540,5 +546,12 @@ if __name__ == "__main__":
     aishub_thread = threading.Thread(target=poll_aishub, name="aishub", daemon=True)
     aishub_thread.start()
 
-    # AIS listener is the main blocking loop
-    run_ais_listener()
+    # AIS UDP listener REMOVED — ais-collector.py owns UDP :10110 exclusively.
+    # Having two processes share SO_REUSEADDR on the same UDP port splits packets
+    # between them and breaks multi-part NMEA buffering. All AIS decoding is done
+    # by ais-collector.py which also handles source_type tagging, AISHub relay,
+    # multi-part buffering, route detection, and destination prediction.
+    logger.info("Tracker Engine running (ADS-B + AISHub threads). Sleeping main thread.")
+    import time as _time
+    while True:
+        _time.sleep(60)

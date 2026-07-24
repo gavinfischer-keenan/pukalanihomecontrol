@@ -1,0 +1,15 @@
+{
+  "name": "nrsc5-engine",
+  "version": "1.0.0",
+  "description": "HD Radio data ingestion engine — traffic, gas, weather, POI, EAS",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": {
+    "express": "^4.18.0",
+    "cors": "^2.8.6",
+    "ws": "^8.16.0",
+    "better-sqlite3": "^9.4.0",
+    "axios": "^1.7.0",
+    "dotenv": "^16.0.0"
+  }
+}

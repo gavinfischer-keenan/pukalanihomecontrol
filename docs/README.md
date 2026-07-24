@@ -5,7 +5,7 @@
 **Purpose:** Modular, AI-friendly documentation for the Pukalani Home Control system. Each file is self-contained.
 
 ## Quick Reference
-* **Location:** Pukalani, Maui, Hawaii — 21.2855°N, 157.7969°W
+* **Location:** Pukalani, Maui, Hawaii
 * **Repository:** https://github.com/gavinfischer-keenan/pukalanihomecontrol
 * **Host IP:** 192.168.1.100 (Gateway: 192.168.1.1)
 
@@ -23,6 +23,8 @@
 | [credentials.md](credentials.md) | Credentials, tokens, and secrets |
 | [reconstruction.md](reconstruction.md) | Step-by-step rebuild playbook |
 | [troubleshooting.md](troubleshooting.md) | Known issues and fixes |
+| [maintenance.md](maintenance.md) | Daily maintenance, health checks, PM2 management |
+| [helper-apps.md](helper-apps.md) | Helper applications (Photo Chrono, PDF tools, NRSC-5, Project Manager) |
 
 ## IP & Port Quick Reference
 See [containers.md](containers.md) for IPs and [services.md](services.md) for ports.

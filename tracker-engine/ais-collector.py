@@ -46,13 +46,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ─── Config ───────────────────────────────────────────────────────────────────
-DB_HOST  = "192.168.1.104"
-DB_NAME  = "tracking_db"
-DB_USER  = "tracker"
-DB_PASS  = "pukalani"
+from dotenv import load_dotenv
+import os
+load_dotenv("/opt/.env")
+
+DB_HOST  = os.environ.get("DB_HOST", "192.168.1.104")
+DB_NAME  = os.environ.get("DB_NAME", "tracking_db")
+DB_USER  = os.environ.get("DB_USER", "tracker")
+DB_PASS  = os.environ.get("DB_PASSWORD", "pukalani")
 
 UDP_IP   = "0.0.0.0"
-UDP_PORT = 10110
+UDP_PORT = int(os.environ.get("AIS_UDP_PORT", "10110"))
 
 # ─── Local antenna ────────────────────────────────────────────────────────────
 # Set False while hardware is offline. Set True when new USB AIS receiver arrives.
