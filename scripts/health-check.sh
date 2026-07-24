@@ -120,3 +120,21 @@ else
 fi
 
 log "--- Health check complete ---"
+
+# 9. AIS receiver health (cross-check with AISHub)
+ais_health=$(pct exec 105 -- cat /tmp/ais-receiver-health 2>/dev/null)
+if [ -z "$ais_health" ]; then
+  ok "AIS receiver cross-check OK" "ais_hw"
+else
+  fail "ais_hw" "AIS receiver: $ais_health" ""
+fi
+
+# 10. AIS radio pipeline — check rtl_tcp + AIS-catcher producing data
+ais_msgs=$(pct exec 106 -- journalctl -u ais-catcher --no-pager -n 1 2>/dev/null | grep -oP 'received: \K[0-9]+')
+if [ -n "$ais_msgs" ] && [ "$ais_msgs" -gt 0 ] 2>/dev/null; then
+  ok "AIS radio receiving ($ais_msgs msgs/min)" "ais_radio"
+else
+  # Check how many consecutive zero-message minutes
+  fail "ais_radio" "AIS radio: 0 messages received" \
+    "systemctl restart rtl-tcp-ais && sleep 3 && pct exec 106 -- systemctl restart ais-catcher"
+fi
