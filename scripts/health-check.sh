@@ -110,4 +110,13 @@ else
     "ip link set nic0 down; sleep 2; ip link set nic0 up"
 fi
 
+
+# 9. AIS receiver health (cross-check with AISHub)
+ais_health=$(pct exec 105 -- cat /tmp/ais-receiver-health 2>/dev/null)
+if [ -z "$ais_health" ]; then
+  ok "AIS receiver healthy (cross-check)" "ais_hw"
+else
+  fail "ais_hw" "AIS receiver issue: $ais_health" ""
+fi
+
 log "--- Health check complete ---"

@@ -109,3 +109,38 @@ All critical services have `Restart=always`:
 
 ## Manual Health Check
 Run on demand: `bash /opt/hawaii-tracker/scripts/health-check.sh && tail -30 /var/log/health-check.log`
+
+## AISHub Integration (v1.3.0)
+
+### Architecture: Enrich-Only Pattern
+AISHub data is stored **in memory only** — it never writes to `live_tracks`:
+
+```
+AISHub API (30nm radius, every 120s)
+    ├── Memory cache (_aishub_cache dict, ~30 vessels)
+    ├── Enrich entities table (UPDATE only, never INSERT)
+    ├── Serve /api/aishub-nearby on :3105 for dashboard
+    └── AIS Receiver Health Check (cross-reference)
+```
+
+- **API Key**: `AH_2828_A392C354`
+- **Bounding Box**: 30nm around Pukalani (20.785-21.786°N, 158.334-157.260°W)
+- **Poll Interval**: 120 seconds
+- **Cache Expiry**: 10 minutes
+- **Cache HTTP**: `http://192.168.1.105:3105/api/aishub-nearby`
+
+### Data Flow Rules
+1. AISHub vessels → memory cache only (never to `live_tracks`)
+2. Dashboard shows AISHub-only vessels as normal boats without trails
+3. When local AIS receives a vessel → enriches `entities` with AISHub metadata
+4. Vessels never seen locally → no DB records, no frequent visitor tracking
+
+### AIS Receiver Health Check
+Cross-references AISHub with local antenna:
+- If 3+ vessels within 15nm on AISHub but NONE heard locally → flag hardware issue
+- Writes `/tmp/ais-receiver-health` on CT105
+- Picked up by health-check.sh every 5 minutes
+- Checks: SDR dongle, rtl-tcp-ais, ais-forwarder, UDP:10110
+
+### AISStream.io
+**Disabled** (v1.3.0) — was duplicating AISHub's role and bloating the database.

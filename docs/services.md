@@ -19,3 +19,9 @@
 * **CT112 (birdnet)**: BirdNET-Go Docker (:8080). Audio: lav mic + Cam1 + Cam2
 * **CT113 (nvr)**: Frigate NVR Docker (:5000). Cameras: Cam1, Cam2. Uses Coral TPU.
 * **CT114 (utilities)**: display-server (Node.js :3000), corner-kiosk (Chromium), photo-chrono (:7777), nrsc5-engine (:3011), PDF tools (:3114)
+
+## AISHub Cache Server (CT105)
+- **Port**: 3105
+- **Endpoints**: `/api/aishub-nearby` (JSON), `/health`
+- **Purpose**: Serves in-memory AISHub vessel cache to dashboard
+- **Process**: Thread inside ais-collector.py (not a separate service)
