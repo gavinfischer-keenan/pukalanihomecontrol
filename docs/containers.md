@@ -21,3 +21,20 @@
 * CT103 was destroyed (legacy AIS bridge).
 * CT107 (alerts-engine) was destroyed — alerts consolidated into CT109.
 * CT111 (nrsc5-engine) was destroyed — migrated to CT114.
+
+## Startup Order
+
+All containers have `onboot: 1` and are ordered for dependency-safe boot:
+
+| Order | VMID | Name | Reason |
+|-------|------|------|--------|
+| 1 | 104 | trackerDB | Database must be available first |
+| 2 | 102 | Airspace | ADS-B data source |
+| 2 | 106 | sdr-engine | AIS data source |
+| 3 | 105 | tracker-engine | Needs DB + data sources |
+| 3 | 109 | alerts-engine | Needs DB |
+| 4 | 108 | dashboard | Needs all data flowing |
+| 5 | 112 | birdnet | Independent, heavy |
+| 5 | 113 | frigate | Independent, heavy |
+| 6 | 114 | utilities | Non-critical |
+| 6 | 110 | project-mgr | Non-critical |

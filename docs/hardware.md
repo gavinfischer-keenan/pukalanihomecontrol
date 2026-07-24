@@ -31,3 +31,24 @@
 | HDMI-1 | Unused | - |
 | HDMI-2 | Planned | Main TV |
 | HDMI-3 | Active | Corner monitor (1920x1080 kiosk) |
+
+## BIOS Settings (Intel NUC)
+
+### After Power Failure → Power On
+**CRITICAL**: Must be set for automatic recovery from power outages.
+- Press **F2** during POST → **Power** → **Secondary Power Settings**
+- Set "After Power Failure" to **"Power On"**
+
+### Hardware Watchdog
+- iTCO watchdog enabled via systemd
+- `RuntimeWatchdogSec=30` — reboots on 30s kernel hang
+- `RebootWatchdogSec=10min` — reboot timeout limit
+
+### NIC Stability (e1000e)
+- Intel I225 NIC can experience "Hardware Unit Hang"
+- TSO/GSO disabled: `ethtool -K nic0 tso off gso off`
+- Persisted in `/etc/network/interfaces` as `post-up` command
+
+### USB SSD
+- SMART monitoring available via `smartctl -a /dev/sda`
+- Weekly short self-test recommended: `smartctl -t short /dev/sda`
