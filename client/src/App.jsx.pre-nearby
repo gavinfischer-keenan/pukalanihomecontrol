@@ -11,6 +11,10 @@ import BuoyLayer          from './components/BuoyLayer';
 import SurfLayer          from './components/SurfLayer';
 import TideLayer          from './components/TideLayer';
 import MetarLayer         from './components/MetarLayer';
+// HD_RADIO_DISABLED: import HDRadarLayer        from './components/HDRadarLayer';
+// HD_RADIO_DISABLED: import HDTrafficLayer      from './components/HDTrafficLayer';
+// HD_RADIO_DISABLED: import HDGasLayer          from './components/HDGasLayer';
+// HD_RADIO_DISABLED: import HDRadioStatusPanel  from './components/HDRadioStatusPanel';
 import SunMoonPanel       from './components/SunMoonPanel';
 import TideChartModal     from './components/TideChartModal';
 import ATISBar            from './components/ATISBar';
@@ -29,6 +33,8 @@ import Legend             from './components/Legend';
 import ErrorBoundary      from './components/ErrorBoundary';
 // NWS/NOAA is a fully separate app at /nws/ — no imports here
 import FrequentVisitorsSidebar from './components/FrequentVisitorsSidebar';
+import RouteCorridorLayer from './components/RouteCorridorLayer';
+import FlightRouteLayer from './components/FlightRouteLayer';
 
 const OAHU_CENTER = [21.3069, -157.8583];
 const HOME_BASE   = { lat: 21.2861516, lon: -157.7935187, label: '3786 Pukalani Pl' };
@@ -163,7 +169,6 @@ function KioskZoomCycler() {
 function App() {
   const [aircraft,       setAircraft]       = useState([]);
   const [vessels,        setVessels]        = useState([]);
-  const [nearbyVessels, setNearbyVessels] = useState([]);
   const [selected,       setSelected]       = useState(null);
   const [tideStation,    setTideStation]    = useState(null);
   const [layers, setLayers] = useState(DEFAULT_LAYERS);
@@ -188,6 +193,10 @@ function App() {
   const buoys      = usePollWhenEnabled(`${API_BASE}/api/buoys`,       60000,  layers.surf?.enabled);
   const tides      = usePollWhenEnabled(`${API_BASE}/api/tides`,       120000, layers.tides.enabled);
   const metars     = usePollWhenEnabled(`${API_BASE}/api/metar`,       300000, layers.metar.enabled);
+  // HD_RADIO_DISABLED: const hdRadarData   = usePollWhenEnabled(`${API_BASE}/api/hdradio/radar`,   300000, layers.hdRadar?.enabled);
+  // HD_RADIO_DISABLED: const hdTrafficData = usePollWhenEnabled(`${API_BASE}/api/hdradio/traffic`, 120000, layers.hdTraffic?.enabled);
+  // HD_RADIO_DISABLED: const hdGasData     = usePollWhenEnabled(`${API_BASE}/api/hdradio/gas`,     300000, layers.hdGas?.enabled);
+  // HD_RADIO_DISABLED: const hdHealth      = usePollWhenEnabled(`${API_BASE}/api/hdradio/health`,   60000, layers.hdRadio?.enabled);
 
   // Aircraft — 2s poll
   useEffect(() => {
@@ -224,20 +233,6 @@ function App() {
     const t = setInterval(go, 10000);
     return () => clearInterval(t);
   }, []);
-
-  // Nearby AISHub vessels — 30s poll (in-memory cache, no DB)
-  useEffect(() => {
-    const go = async () => {
-      try {
-        const data = await fetch(`${API_BASE}/api/vessels/nearby`).then(r => r.json());
-        setNearbyVessels(Array.isArray(data) ? data : []);
-      } catch { setNearbyVessels([]); }
-    };
-    go();
-    const t = setInterval(go, 30000);
-    return () => clearInterval(t);
-  }, []);
-
 
   // Vessel predictions — 60s poll (predictor runs every 10 min, no need to hammer)
   const [vesselPredictions, setVesselPredictions] = useState({});
@@ -354,13 +349,7 @@ function App() {
         {/* Aviation */}
         {layers.metar.enabled && <ErrorBoundary><MetarLayer metars={metars} selected={selected} onSelect={handleSelectEntity} /></ErrorBoundary>}
         {layers.vessels.enabled && (
-          <ErrorBoundary><VesselLayer vessels={[...vessels, ...nearbyVessels.map(n => ({
-              entity_id: n.mmsi, vessel_name: n.name, vessel_type: n.type,
-              callsign: n.callsign, destination: n.destination,
-              lat: n.lat, lon: n.lon, speed: n.speed,
-              heading: n.heading === 511 ? null : n.heading,
-              nav_status: n.nav_status, source_type: 'aishub', _type: 'vessel'
-            }))]} selected={selected} showLabels={showLabels} onSelect={handleSelectEntity} predictions={vesselPredictions} /></ErrorBoundary>
+          <ErrorBoundary><VesselLayer vessels={vessels} selected={selected} showLabels={showLabels} onSelect={handleSelectEntity} predictions={vesselPredictions} /></ErrorBoundary>
         )}
         {layers.aircraft.enabled && (
           <ErrorBoundary><AircraftLayer aircraft={aircraft} selected={selected} showLabels={showLabels} onSelect={handleSelectEntity} /></ErrorBoundary>
@@ -404,7 +393,6 @@ function App() {
         visible={showFrequentSidebar}
         onClose={() => setShowFrequentSidebar(false)}
         onSelectEntity={setSelectedFrequentEntity}
-        liveVessels={vessels}
       />}
 
       {/* ── Frequent Visitors toggle button ── */}

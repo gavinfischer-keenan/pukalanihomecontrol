@@ -70,7 +70,7 @@ function mergeTrail(dbPoints, liveBuffer) {
 }
 
 // ── Build polyline segments from merged point array ───────────────────────────
-function buildAndAddSegments(points, colorFn, weight, opacity, map, addToMap = true) {
+function buildAndAddSegments(points, colorFn, weight, opacity, map) {
   const segs = [];
   for (let i = 1; i < points.length; i++) {
     const p1 = points[i - 1], p2 = points[i];
@@ -78,7 +78,7 @@ function buildAndAddSegments(points, colorFn, weight, opacity, map, addToMap = t
     const seg = L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
       color: colorFn(p2), weight, opacity, interactive: false,
     });
-    if (addToMap) seg.addTo(map);
+    seg.addTo(map);
     segs.push(seg);
   }
   return segs;
@@ -190,11 +190,11 @@ export default function TrailLayer({ aircraft, vessels, apiBase, selected }) {
     vLinesRef.current[id] = [];
     if (points.length < 2) return;
 
-    const selInfo = getSelectedInfo(selected);
-    const shouldShow = !selInfo || (selInfo.type === 'vessel' && selInfo.id === id);
+    // All vessel/boat trails are black — makes them easy to distinguish from aircraft
     vLinesRef.current[id] = buildAndAddSegments(
-      points, () => '#000000', 2.5, 0.80, map, shouldShow
+      points, () => '#000000', 2.5, 0.80, map
     );
+    syncTrailVisibility();
   };
 
   // ── Render aircraft trail from merged data ──────────────────────────────────
@@ -205,11 +205,10 @@ export default function TrailLayer({ aircraft, vessels, apiBase, selected }) {
     acLinesRef.current[id] = [];
     if (points.length < 2) return;
 
-    const selInfo = getSelectedInfo(selected);
-    const shouldShow = !selInfo || (selInfo.type === 'aircraft' && selInfo.id === id);
     acLinesRef.current[id] = buildAndAddSegments(
-      points, p => altColor(p.altitude), 1.5, 0.65, map, shouldShow
+      points, p => altColor(p.altitude), 1.5, 0.65, map
     );
+    syncTrailVisibility();
   };
 
   // ── Aircraft effect ────────────────────────────────────────────────────────
@@ -317,21 +316,19 @@ export default function TrailLayer({ aircraft, vessels, apiBase, selected }) {
     if (trailTimerRef.current) clearInterval(trailTimerRef.current);
 
     trailTimerRef.current = setInterval(async () => {
-      // Aircraft — refresh DB cache
+      // Aircraft
       for (const id of Object.keys(acDbRef.current)) {
+        delete acDbRef.current[id];
         await fetchTodayTrail(id, true);
         if (acDbRef.current[id]) {
           const merged = mergeTrail(acDbRef.current[id], LIVE_CACHE[id]);
           renderAcTrail(id, merged);
         }
       }
-      // Vessels — refresh DB cache
+      // Vessels — DB cache cleared; re-rendered on next vessels prop cycle
       for (const id of Object.keys(vDbRef.current)) {
+        delete vDbRef.current[id];
         await fetchTodayTrail(id, false);
-        if (vDbRef.current[id]) {
-          const merged = mergeTrail(vDbRef.current[id], LIVE_CACHE[id]);
-          renderVesselTrail(id, null, merged);
-        }
       }
     }, TRAIL_REFRESH_MS);
 
@@ -385,6 +382,8 @@ export default function TrailLayer({ aircraft, vessels, apiBase, selected }) {
         }
       }
 
+      // Sync visibility for any newly added projection/anim markers
+      syncTrailVisibility();
     }, ANIM_INTERVAL_MS);
 
     return () => clearInterval(animTimerRef.current);

@@ -73,7 +73,7 @@ export function EcowittFloatingPanel({ data, stale, onClose }) {
     <div className="pws-floating-panel glass">
       {/* Header */}
       <div className="pws-popup-header">
-        <span className="pws-popup-title">🏠 Pukalani Wittboy Pro</span>
+        <span className="pws-popup-title">🏠 Pukalani Ecowitt</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           {stale && <span className="pws-popup-stale">⚠ stale</span>}
           {d?.obs_time && (

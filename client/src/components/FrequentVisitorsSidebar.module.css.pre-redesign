@@ -3,6 +3,7 @@
    Dark glassmorphism sidebar docked to the RIGHT of the map.
    ============================================================ */
 
+/* ─── Design tokens ──────────────────────────────────────── */
 :root {
   --fvs-glass-bg:         rgba(10, 14, 22, 0.82);
   --fvs-glass-border:     rgba(255, 255, 255, 0.08);
@@ -21,10 +22,11 @@
   --fvs-radius:           14px;
   --fvs-radius-sm:        8px;
   --fvs-shadow:           0 8px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06);
-  --fvs-width:            380px;
+  --fvs-width:            320px;
   --fvs-transition:       transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ─── Sidebar container ──────────────────────────────────── */
 .sidebar {
   position: absolute;
   top: 80px;
@@ -36,7 +38,7 @@
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  pointer-events: none;
+  pointer-events: none;            /* children opt-in */
   transform: translateX(0);
   transition: var(--fvs-transition);
 }
@@ -45,6 +47,7 @@
   transform: translateX(calc(var(--fvs-width) - 2px));
 }
 
+/* ─── Collapse tab ───────────────────────────────────────── */
 .collapseTab {
   pointer-events: all;
   position: relative;
@@ -73,6 +76,7 @@
   color: var(--fvs-text-primary);
 }
 
+/* ─── Main panel ─────────────────────────────────────────── */
 .panel {
   pointer-events: all;
   flex: 1;
@@ -88,6 +92,7 @@
   font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
 }
 
+/* ─── Header ─────────────────────────────────────────────── */
 .header {
   display: flex;
   align-items: center;
@@ -128,6 +133,7 @@
   background: rgba(255,255,255,0.08);
 }
 
+/* ─── Filter tabs ────────────────────────────────────────── */
 .filterTabs {
   display: flex;
   gap: 4px;
@@ -161,6 +167,7 @@
   font-weight: 600;
 }
 
+/* ─── Search ─────────────────────────────────────────────── */
 .searchWrapper {
   position: relative;
   display: flex;
@@ -212,13 +219,13 @@
 }
 .searchClear:hover { color: var(--fvs-text-primary); }
 
+/* ─── Entity list ────────────────────────────────────────── */
 .entityList {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.12) transparent;
-  padding: 10px 12px;
 }
 
 .entityList::-webkit-scrollbar { width: 4px; }
@@ -228,155 +235,93 @@
   border-radius: 4px;
 }
 
-/* ─── Entity Card ─────────────────────────────────────────── */
-.entityCard {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--fvs-glass-border);
-  border-radius: var(--fvs-radius);
-  margin-bottom: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-  overflow: hidden;
-  cursor: pointer;
-  position: relative;
-  transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
-}
-
-.entityCard:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0,0,0,0.4);
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.entityCardSelected {
-  border: 1px solid var(--fvs-accent);
-  background: var(--fvs-row-selected) !important;
-}
-
-.cardPhoto {
-  width: 100%;
-  height: 140px;
-  object-fit: cover;
-  display: block;
-}
-
-.cardPhotoPlaceholder {
-  width: 100%;
-  height: 140px;
-  background: linear-gradient(135deg, #1e293b, #0f172a);
+/* ─── Entity row ─────────────────────────────────────────── */
+.entityRow {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 48px;
+  gap: 8px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--fvs-row-border);
+  cursor: pointer;
+  transition: background 0.15s;
+  position: relative;
 }
 
-.cardContent {
-  padding: 12px;
+.entityRow:hover {
+  background: var(--fvs-row-hover);
 }
 
-.cardHeader {
+.entityRowSelected {
+  background: var(--fvs-row-selected) !important;
+  border-left: 2px solid var(--fvs-accent);
+}
+
+.entityIconCol {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  width: 22px;
 }
 
-.cardIdentity {
+.entityTypeIcon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.entityThumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  object-fit: cover;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.entityInfo {
   flex: 1;
   min-width: 0;
 }
 
-.cardNameRow {
+.entityNameRow {
   display: flex;
   align-items: center;
-  margin-bottom: 2px;
+  gap: 4px;
 }
 
-.cardName {
-  font-size: 16px;
-  font-weight: 600;
+.entityName {
+  font-size: 12.5px;
+  font-weight: 500;
   color: var(--fvs-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.liveDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  display: inline-block;
-  background: #22c55e;
-  box-shadow: 0 0 6px #22c55e;
-  margin-left: 8px;
+.entityBadges {
+  display: flex;
+  gap: 2px;
   flex-shrink: 0;
 }
 
-.offlineDot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  display: inline-block;
-  background: #64748b;
-  margin-left: 8px;
-  flex-shrink: 0;
-}
-
-.cardTypeLine {
+.pinnedBadge,
+.autoBadge {
   font-size: 11px;
-  opacity: 0.8;
-  color: var(--fvs-text-secondary);
-  margin-bottom: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1;
+  opacity: 0.85;
 }
 
-.cardNavLine {
-  font-size: 11px;
-  color: var(--fvs-text-primary);
-  margin-bottom: 8px;
-}
-
-.cardDestination {
-  font-size: 11px;
-  font-style: italic;
-  color: var(--fvs-accent);
-  margin-bottom: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.cardDestOffline {
-  font-size: 11px;
-  font-style: italic;
-  color: var(--fvs-text-muted);
-  margin-bottom: 8px;
-}
-
-.cardFrequency {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  border-top: 1px solid var(--fvs-row-border);
-  padding-top: 8px;
-  margin-top: 4px;
-}
-
-.freqLeft {
-  display: flex;
-  flex-direction: column;
-}
-
-.freqDaysLabel {
+.entityDaysLabel {
   font-size: 10.5px;
   color: var(--fvs-text-muted);
   font-style: italic;
+  margin-top: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.freqTimeLabel {
+.entityTimeLabel {
   font-size: 10px;
   color: var(--fvs-text-secondary);
   margin-top: 1px;
@@ -385,40 +330,28 @@
   text-overflow: ellipsis;
 }
 
-.freqRight {
+.entityMeta {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
-.visitsBadge {
+.seenDaysBadge {
   font-size: 10px;
   font-weight: 600;
   color: var(--fvs-seen-badge-text);
   background: var(--fvs-seen-badge);
   border-radius: 5px;
-  padding: 2px 6px;
-  margin-bottom: 4px;
+  padding: 2px 5px;
   white-space: nowrap;
 }
 
-.lastSeenText {
+.lastSeen {
   font-size: 10px;
   color: var(--fvs-text-muted);
   white-space: nowrap;
-}
-
-.cardBadges {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
-  margin-left: 8px;
-}
-
-.pinnedBadge,
-.autoBadge {
-  font-size: 14px;
-  line-height: 1;
 }
 
 /* ─── Loading spinner ────────────────────────────────────── */
@@ -447,6 +380,7 @@
   40%           { opacity: 1;   transform: scale(1.1);  }
 }
 
+/* ─── Empty state ────────────────────────────────────────── */
 .emptyState {
   padding: 32px 20px;
   text-align: center;
@@ -455,6 +389,7 @@
   line-height: 1.6;
 }
 
+/* ─── Pin section ────────────────────────────────────────── */
 .pinSection {
   flex-shrink: 0;
   padding: 10px 12px 12px;
@@ -479,6 +414,7 @@
   border-color: rgba(59, 158, 255, 0.45);
 }
 
+/* Pin form */
 .pinForm {
   display: flex;
   flex-direction: column;

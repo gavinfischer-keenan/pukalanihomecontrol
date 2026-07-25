@@ -193,7 +193,8 @@ function makeVesselLabel(vessel, color, vclass, prediction) {
   const mmsi      = String(vessel.entity_id || '');
   const known     = KNOWN_VESSELS[mmsi];
   const knownName = known ? known.name : null;
-  const name      = (vessel.vessel_name || knownName || mmsi || '???').trim().toUpperCase();
+  const name      = (vessel.vessel_name || knownName || vessel.callsign || '???').trim().toUpperCase();
+  const isMmsi    = /^\d+$/.test(name);
 
   // Two-line header for military / coast guard
   const prefix = known?.prefix || null;
@@ -220,7 +221,11 @@ function makeVesselLabel(vessel, color, vclass, prediction) {
   if (prefix) {
     lines += `<div class="ac-label-line" style="font-size:9px;opacity:0.7;letter-spacing:0.5px">${prefix}</div>`;
   }
-  lines += `<div class="ac-label-line">${name}</div>`;
+  if (isMmsi) {
+    lines += `<div class="ac-label-line" style="font-size:10px;opacity:0.6">${name}</div>`;
+  } else {
+    lines += `<div class="ac-label-line">${name}</div>`;
+  }
   if (vtype) {
     lines += `<div class="ac-label-line" style="font-size:9px;opacity:0.75">${vtype}</div>`;
   }

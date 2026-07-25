@@ -103,16 +103,16 @@ app.use(express.json());
 
 const pool = new Pool({
   connectionTimeoutMillis: 5000,
-  statement_timeout: 8000,
+  statement_timeout: 30000,
   idle_in_transaction_session_timeout: 10000,
-  user: 'tracker',
-  host: '192.168.1.104',
-  database: 'tracking_db',
-  password: 'pukalani',
-  port: 5432,
+  user: process.env.DB_USER || 'tracker',
+  host: process.env.DB_HOST || '192.168.1.104',
+  database: process.env.DB_NAME || 'tracking_db',
+  password: process.env.DB_PASSWORD || 'pukalani',
+  port: parseInt(process.env.DB_PORT) || 5432,
 });
 
-const TAR1090_URL = 'http://192.168.1.102/tar1090/data/aircraft.json';
+const TAR1090_URL = process.env.TAR1090_URL || 'http://192.168.1.102/tar1090/data/aircraft.json';
 
 // --- Aircraft: direct proxy to tar1090 for sub-second latency ---
 app.get('/api/aircraft', async (req, res) => {
@@ -182,6 +182,30 @@ app.get('/api/vessels', async (req, res) => {
   }
 });
 
+
+// GET /api/vessels/nearby — AISHub cache: vessels near us but not yet in DB
+app.get('/api/vessels/nearby', async (req, res) => {
+  try {
+    const http = require('http');
+    const data = await new Promise((resolve, reject) => {
+      http.get('http://192.168.1.105:3105/api/aishub-nearby', { timeout: 5000 }, (r) => {
+        let d = '';
+        r.on('data', c => d += c);
+        r.on('end', () => { try { resolve(JSON.parse(d)); } catch { resolve([]); } });
+      }).on('error', () => resolve([]));
+    });
+    // Filter out vessels already known to our DB in last 30 min
+    const known = await pool.query(
+      "SELECT entity_id FROM entities WHERE entity_type='VESSEL' AND last_seen > NOW() - INTERVAL '30 minutes'"
+    );
+    const knownSet = new Set(known.rows.map(r => r.entity_id));
+    const nearby = data.filter(v => v.mmsi && !knownSet.has(v.mmsi));
+    res.json(nearby);
+  } catch (err) {
+    console.error('nearby error:', err.message);
+    res.json([]);
+  }
+});
 
 
 
@@ -497,7 +521,7 @@ app.post('/api/ecowitt', express.urlencoded({ extended: true }), async (req, res
 
     // -- Forward payload to Home Assistant --
     // (Do this async so it doesn't block our DB insert)
-    const haUrl = 'http://192.168.1.19:8123/api/webhook/5de76fbee15b641d309d042238b47326';
+    const haUrl = process.env.HA_WEBHOOK_URL || 'http://192.168.1.19:8123/api/webhook/5de76fbee15b641d309d042238b47326';
     fetch(haUrl, {
       method: 'POST',
       headers: {
@@ -1082,16 +1106,3 @@ app.get('/api/birdnet', async (req, res) => {
 // const NRSC5_ENGINE_URL = 'http://192.168.1.111:3011';
 // const hdRoutes = ['traffic','gas','weather','eas','poi','news','sports','stocks','status','snapshot','health','lots','radar'];
 // hdRoutes.forEach(function(route) {
-//   app.get('/api/hdradio/' + route, async function(req, res) {
-//     try {
-//       const response = await axios.get(NRSC5_ENGINE_URL + '/api/' + route, { timeout: 5000 });
-//       res.json(response.data);
-//     } catch(err) { res.json(route === 'snapshot' ? {} : []); }
-//   });
-// });
-// app.post('/api/hdradio/scheduler', async function(req, res) {
-//   try {
-//     const response = await axios.post(NRSC5_ENGINE_URL + '/api/scheduler', req.body, { timeout: 5000 });
-//     res.json(response.data);
-//   } catch(err) { res.json({ ok: false, error: err.message }); }
-// });

@@ -90,99 +90,63 @@ function PinForm({ apiBase, onDone }) {
 }
 
 // ---------------------------------------------------------------------------
-// EntityCard
+// EntityRow
 // ---------------------------------------------------------------------------
 
-function EntityCard({ entity, apiBase, selected, onClick, liveMatch }) {
-  const displayName = entity.friendly_name || entity.name || 'Unknown Vessel';
-  const photoUrl = entity.first_photo
-    ? `${apiBase}/uploads/entities/${entity.entity_type}/${entity.identifier}/${entity.first_photo}`
-    : null;
-
-  // Type line
-  const dims = [entity.length ? `${entity.length}m` : null, entity.width ? `${entity.width}m` : null].filter(Boolean).join('×');
-  const typeParts = [
-    entity.type_label || entity.vessel_type || entity.entity_type,
-    entity.callsign || entity.identifier,
-    dims || null
-  ].filter(Boolean);
-  const typeStr = typeParts.join(' · ');
-
-  // Live Nav Status
-  let navStr = '';
-  if (liveMatch) {
-    const spd = liveMatch.speed != null ? `${Math.round(liveMatch.speed)}kt` : '';
-    const hdg = liveMatch.heading != null ? `${Math.round(liveMatch.heading)}°` : '';
-    const navLabels = { 0: 'UW', 1: 'ANCHOR', 5: 'MOORED', 6: 'AGROUND', 15: '' };
-    const st = liveMatch.nav_status != null ? (navLabels[liveMatch.nav_status] ?? '') : '';
-    navStr = [spd, hdg, st].filter(Boolean).join(' · ');
-  }
-
-  // Destination
-  let destStr = '';
-  let isLiveDest = false;
-  if (liveMatch) {
-    if (liveMatch.destination) {
-      destStr = `→ ${liveMatch.destination.toUpperCase()}`;
-      isLiveDest = true;
-      if (liveMatch.eta) {
-        destStr += ` (ETA: ${liveMatch.eta})`;
-      }
-    } else {
-      destStr = 'No destination set';
-    }
-  } else {
-    destStr = 'Not currently tracked';
-  }
+function EntityRow({ entity, apiBase, selected, onClick }) {
+  const displayName = entity.friendly_name || entity.name || entity.identifier;
+  const photoUrl =
+    entity.first_photo
+      ? `${apiBase}/uploads/entities/${entity.entity_type}/${entity.identifier}/${entity.first_photo}`
+      : null;
 
   return (
     <div
-      className={`${styles.entityCard} ${selected ? styles.entityCardSelected : ''}`}
+      className={`${styles.entityRow} ${selected ? styles.entityRowSelected : ''}`}
       onClick={() => onClick(entity)}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && onClick(entity)}
+      aria-selected={selected}
     >
-      {photoUrl ? (
-        <img className={styles.cardPhoto} src={photoUrl} alt={displayName} />
-      ) : (
-        <div className={styles.cardPhotoPlaceholder}>
-          {entityIcon(entity.entity_type)}
-        </div>
-      )}
+      {/* Left: icon + photo */}
+      <div className={styles.entityIconCol}>
+        <span className={styles.entityTypeIcon}>{entityIcon(entity.entity_type)}</span>
+        {photoUrl && (
+          <img
+            className={styles.entityThumb}
+            src={photoUrl}
+            alt={displayName}
+            width={16}
+            height={16}
+            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          />
+        )}
+      </div>
 
-      <div className={styles.cardContent}>
-        <div className={styles.cardHeader}>
-          <div className={styles.cardIdentity}>
-            <div className={styles.cardNameRow}>
-              <span className={styles.cardName}>{displayName}</span>
-              <span className={liveMatch ? styles.liveDot : styles.offlineDot} title={liveMatch ? 'Live now' : 'Offline'} />
-            </div>
-            <div className={styles.cardTypeLine}>{typeStr}</div>
-            {navStr && <div className={styles.cardNavLine}>{navStr}</div>}
-          </div>
-          <div className={styles.cardBadges}>
+      {/* Center: name + labels */}
+      <div className={styles.entityInfo}>
+        <div className={styles.entityNameRow}>
+          <span className={styles.entityName}>{displayName}</span>
+          <span className={styles.entityBadges}>
             {entity.is_pinned && <span className={styles.pinnedBadge} title="Pinned">⭐</span>}
             {entity.auto_detected && <span className={styles.autoBadge} title="Auto-detected">🤖</span>}
-          </div>
+          </span>
         </div>
+        {entity.days_label && (
+          <div className={styles.entityDaysLabel}>{entity.days_label}</div>
+        )}
+        {entity.time_label && (
+          <div className={styles.entityTimeLabel}>{entity.time_label}</div>
+        )}
+      </div>
 
-        <div className={isLiveDest ? styles.cardDestination : styles.cardDestOffline}>
-          {destStr}
-        </div>
-
-        <div className={styles.cardFrequency}>
-          <div className={styles.freqLeft}>
-            {entity.days_label && <div className={styles.freqDaysLabel}>{entity.days_label}</div>}
-            {entity.time_label && <div className={styles.freqTimeLabel}>{entity.time_label}</div>}
-          </div>
-          <div className={styles.freqRight}>
-            {entity.seen_days != null && (
-              <span className={styles.visitsBadge}>{entity.seen_days} visits</span>
-            )}
-            <span className={styles.lastSeenText}>Last seen: {relativeTime(entity.last_seen)}</span>
-          </div>
-        </div>
+      {/* Right: seen_days + last_seen */}
+      <div className={styles.entityMeta}>
+        {entity.seen_days != null && (
+          <span className={styles.seenDaysBadge}>{entity.seen_days} days</span>
+        )}
+        <span className={styles.lastSeen}>{relativeTime(entity.last_seen)}</span>
       </div>
     </div>
   );
@@ -192,7 +156,158 @@ function EntityCard({ entity, apiBase, selected, onClick, liveMatch }) {
 // FrequentVisitorsSidebar
 // ---------------------------------------------------------------------------
 
-export default function FrequentVisitorsSidebar({ apiBase, onSelectEntity, visible, onClose, liveVessels = [] }) {
+
+// ── EntityPhotoPanel ─────────────────────────────────────────────────────────
+// Shows photos (confirmed + potential) for the selected entity.
+// Potential photos have a warning banner + confirm/reject buttons.
+function EntityPhotoPanel({ entity, apiBase }) {
+  const [photos, setPhotos] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const loadPhotos = useCallback(async () => {
+    if (!entity) return;
+    setLoading(true);
+    try {
+      const r = await fetch(`${apiBase}/api/known-entities/${entity.entity_type}/${entity.identifier}/photos`);
+      const d = await r.json();
+      setPhotos(d.photos || []);
+    } catch(e) { /* silently ignore */ }
+    finally { setLoading(false); }
+  }, [entity, apiBase]);
+
+  useEffect(() => { loadPhotos(); }, [loadPhotos]);
+
+  const confirmPhoto = async (photoId) => {
+    await fetch(`${apiBase}/api/known-entities/${entity.entity_type}/${entity.identifier}/photos/${photoId}/confirm`, { method: 'PUT' });
+    setPhotos(p => p.map(ph => ph.id === photoId ? { ...ph, status: 'confirmed' } : ph));
+  };
+
+  const rejectPhoto = async (photoId) => {
+    await fetch(`${apiBase}/api/known-entities/${entity.entity_type}/${entity.identifier}/photos/${photoId}/reject`, { method: 'PUT' });
+    setPhotos(p => p.filter(ph => ph.id !== photoId));
+  };
+
+  if (!entity) return null;
+
+  const confirmed  = photos.filter(p => p.status === 'confirmed');
+  const potential  = photos.filter(p => p.status === 'potential');
+
+  return (
+    <div style={{ marginTop: '12px' }}>
+      {/* Confirmed photos */}
+      {confirmed.length > 0 && (
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
+          {confirmed.map(photo => (
+            <img
+              key={photo.id}
+              src={`${apiBase}${photo.url}`}
+              alt={photo.caption || entity.name}
+              style={{
+                width: '80px', height: '60px', objectFit: 'cover',
+                borderRadius: '6px', border: '1px solid rgba(255,255,255,0.15)',
+              }}
+              title={photo.caption || ''}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Potential photos */}
+      {potential.length > 0 && (
+        <div>
+          <div style={{
+            fontSize: '10px', color: '#f97316', fontWeight: 700,
+            letterSpacing: '0.05em', marginBottom: '6px',
+            textTransform: 'uppercase',
+          }}>
+            ⚠️ Potential Pictures — Not Confirmed
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {potential.map(photo => (
+              <div key={photo.id} style={{
+                border: '1px solid rgba(249,115,22,0.4)',
+                borderRadius: '8px', overflow: 'hidden',
+                background: 'rgba(249,115,22,0.06)',
+              }}>
+                {/* Warning banner */}
+                <div style={{
+                  background: 'rgba(249,115,22,0.85)',
+                  color: '#fff', fontSize: '10px', fontWeight: 700,
+                  padding: '2px 8px', textAlign: 'center',
+                  letterSpacing: '0.08em',
+                }}>
+                  ⚠ AUTO-FOUND · NOT CONFIRMED
+                </div>
+                {/* Image */}
+                <img
+                  src={`${apiBase}${photo.url}`}
+                  alt={photo.caption || entity.name}
+                  style={{
+                    width: '100%', maxHeight: '120px', objectFit: 'cover',
+                    display: 'block',
+                  }}
+                />
+                {/* Caption */}
+                {photo.caption && (
+                  <div style={{
+                    fontSize: '10px', color: 'rgba(255,255,255,0.45)',
+                    padding: '3px 8px', lineHeight: 1.3,
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                  }}>
+                    {photo.caption}
+                  </div>
+                )}
+                {/* Confirm / Reject buttons */}
+                <div style={{ display: 'flex', gap: '6px', padding: '6px 8px' }}>
+                  <button
+                    onClick={() => confirmPhoto(photo.id)}
+                    style={{
+                      flex: 1, background: 'rgba(34,197,94,0.2)',
+                      border: '1px solid rgba(34,197,94,0.5)',
+                      borderRadius: '5px', color: '#22c55e',
+                      fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                      padding: '4px 0',
+                    }}
+                    title="This is the right vessel/aircraft — keep photo"
+                  >
+                    ✓ Confirm
+                  </button>
+                  <button
+                    onClick={() => rejectPhoto(photo.id)}
+                    style={{
+                      flex: 1, background: 'rgba(239,68,68,0.15)',
+                      border: '1px solid rgba(239,68,68,0.4)',
+                      borderRadius: '5px', color: '#ef4444',
+                      fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                      padding: '4px 0',
+                    }}
+                    title="Wrong picture — remove and never show again"
+                  >
+                    ✗ Reject
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {loading && (
+        <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '11px', textAlign: 'center', padding: '8px' }}>
+          Loading photos…
+        </div>
+      )}
+
+      {!loading && photos.length === 0 && (
+        <div style={{ color: 'rgba(255,255,255,0.2)', fontSize: '11px', textAlign: 'center', padding: '8px' }}>
+          No photos yet — auto-search runs ~2 min after startup
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function FrequentVisitorsSidebar({ apiBase, onSelectEntity, visible, onClose }) {
   const [collapsed, setCollapsed] = useState(false);
   const [entities, setEntities] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -202,12 +317,17 @@ export default function FrequentVisitorsSidebar({ apiBase, onSelectEntity, visib
   const [showPinForm, setShowPinForm] = useState(false);
   const intervalRef = useRef(null);
 
+  // ---------------------------------------------------------------------------
+  // Data fetching
+  // ---------------------------------------------------------------------------
+
   const fetchEntities = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`${apiBase}/api/known-entities`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      // Sort: pinned first, then auto_detected, then by last_seen desc
       const sorted = [...(data.entities || data)].sort((a, b) => {
         if (a.is_pinned && !b.is_pinned) return -1;
         if (!a.is_pinned && b.is_pinned) return 1;
@@ -230,6 +350,10 @@ export default function FrequentVisitorsSidebar({ apiBase, onSelectEntity, visib
     return () => clearInterval(intervalRef.current);
   }, [visible, fetchEntities]);
 
+  // ---------------------------------------------------------------------------
+  // Filtering
+  // ---------------------------------------------------------------------------
+
   const filtered = entities.filter((e) => {
     if (filter === FILTER_AIRCRAFT && e.entity_type !== 'aircraft') return false;
     if (filter === FILTER_VESSEL && e.entity_type !== 'vessel') return false;
@@ -242,6 +366,10 @@ export default function FrequentVisitorsSidebar({ apiBase, onSelectEntity, visib
     return true;
   });
 
+  // ---------------------------------------------------------------------------
+  // Handlers
+  // ---------------------------------------------------------------------------
+
   function handleSelect(entity) {
     const key = `${entity.entity_type}:${entity.identifier}`;
     setSelectedId(key);
@@ -253,6 +381,10 @@ export default function FrequentVisitorsSidebar({ apiBase, onSelectEntity, visib
     fetchEntities();
   }
 
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+
   if (!visible) return null;
 
   return (
@@ -261,6 +393,7 @@ export default function FrequentVisitorsSidebar({ apiBase, onSelectEntity, visib
       role="complementary"
       aria-label="Frequent visitors"
     >
+      {/* Collapse/expand tab */}
       <button
         className={styles.collapseTab}
         onClick={() => setCollapsed((c) => !c)}
@@ -270,8 +403,10 @@ export default function FrequentVisitorsSidebar({ apiBase, onSelectEntity, visib
         {collapsed ? '▶' : '◀'}
       </button>
 
+      {/* Main panel — hidden when collapsed */}
       {!collapsed && (
         <div className={styles.panel}>
+          {/* Header */}
           <div className={styles.header}>
             <span className={styles.headerTitle}>
               <span className={styles.headerIcon}>📍</span>
@@ -282,6 +417,7 @@ export default function FrequentVisitorsSidebar({ apiBase, onSelectEntity, visib
             </button>
           </div>
 
+          {/* Filter tabs */}
           <div className={styles.filterTabs} role="tablist">
             {[
               { key: FILTER_ALL, label: 'All' },
@@ -300,6 +436,7 @@ export default function FrequentVisitorsSidebar({ apiBase, onSelectEntity, visib
             ))}
           </div>
 
+          {/* Search */}
           <div className={styles.searchWrapper}>
             <span className={styles.searchIcon}>🔍</span>
             <input
@@ -316,6 +453,7 @@ export default function FrequentVisitorsSidebar({ apiBase, onSelectEntity, visib
             )}
           </div>
 
+          {/* Entity list */}
           <div className={styles.entityList}>
             {loading && entities.length === 0 ? (
               <div className={styles.spinner} aria-label="Loading">
@@ -332,21 +470,20 @@ export default function FrequentVisitorsSidebar({ apiBase, onSelectEntity, visib
             ) : (
               filtered.map((entity) => {
                 const key = `${entity.entity_type}:${entity.identifier}`;
-                const liveMatch = liveVessels.find(v => String(v.entity_id) === String(entity.identifier));
                 return (
-                  <EntityCard
+                  <EntityRow
                     key={key}
                     entity={entity}
                     apiBase={apiBase}
                     selected={selectedId === key}
                     onClick={handleSelect}
-                    liveMatch={liveMatch}
                   />
                 );
               })
             )}
           </div>
 
+          {/* Pin section */}
           <div className={styles.pinSection}>
             {showPinForm ? (
               <PinForm apiBase={apiBase} onDone={handlePinDone} />
