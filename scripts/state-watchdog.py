@@ -109,7 +109,7 @@ def check_zha():
 def check_containers():
     """Check that all expected containers are running."""
     expected = {104, 105, 106, 108, 109, 110, 112, 113, 114}
-    output = run("pct list 2>/dev/null | awk 'NR>1 {print $1, $2}'")
+    output = run("/usr/sbin/pct list 2>/dev/null | awk 'NR>1 {print $1, $2}'")
     running = set()
     stopped = set()
     for line in output.split("\n"):
@@ -128,7 +128,7 @@ def check_containers():
 
 def check_postgres():
     """Check PostgreSQL row counts."""
-    output = run("pct exec 104 -- psql -U ais_user -d ais_tracking -t -c \"SELECT count(*) FROM vessels;\" 2>/dev/null")
+    output = run("/usr/sbin/pct exec 104 -- psql -U ais_user -d ais_tracking -t -c \"SELECT count(*) FROM vessels;\" 2>/dev/null")
     try:
         return int(output.strip())
     except:
@@ -136,7 +136,7 @@ def check_postgres():
 
 def check_ais_flow():
     """Check if AIS messages are flowing."""
-    output = run("pct exec 105 -- journalctl -u ais-collector --since '15 min ago' --no-pager 2>/dev/null | grep -c 'Inserted\\|position\\|AISHub' || echo 0")
+    output = run("/usr/sbin/pct exec 105 -- journalctl -u ais-collector --since '15 min ago' --no-pager 2>/dev/null | grep -c 'Inserted\\|position\\|AISHub' || echo 0")
     try:
         return int(output.strip())
     except:
