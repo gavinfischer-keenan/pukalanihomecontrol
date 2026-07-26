@@ -1,0 +1,38 @@
+{
+  "updated": "2026-07-25T16:46:21-10:00",
+  "note": "Central camera IP registry. Update IPs here then run: bash /opt/hawaii-tracker/scripts/update-camera-ips.sh",
+  "cameras": {
+    "front_garden_cam": {
+      "ip": "192.168.1.7",
+      "mac": "18:C2:3C:5A:A8:C2",
+      "port": 8554,
+      "rtsp_path_1080p": "/1080p",
+      "rtsp_path_1520p": "/1520p",
+      "creds": "772:885"
+    },
+    "back_deck_cam": {
+      "ip": "192.168.1.9",
+      "mac": "18:C2:3C:5A:AA:E9",
+      "port": 8554,
+      "rtsp_path_1080p": "/1080p",
+      "rtsp_path_1520p": "/1520p",
+      "creds": "294:698"
+    },
+    "front_stairs_cam": {
+      "ip": "192.168.1.8",
+      "mac": "18:C2:3C:5A:BD:AE",
+      "port": 8554,
+      "rtsp_path_1080p": "/1080p",
+      "rtsp_path_1520p": "/1520p",
+      "creds": "741:574"
+    },
+    "front_doorbell_cam": {
+      "ip": "192.168.1.4",
+      "mac": "18:C2:3C:7A:03:00",
+      "port": 8554,
+      "rtsp_path_main": "/ch2",
+      "rtsp_path_sub": "/ch1",
+      "creds": "549:322"
+    }
+  }
+}
