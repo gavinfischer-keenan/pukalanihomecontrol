@@ -300,15 +300,82 @@ function VesselEditForm({ mmsi, apiBase, initialData, onClose, onSaved }) {
           </div>
         ))}
 
-        {/* Photo upload */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <label style={{ fontSize: 10, color: '#78909c', letterSpacing: '0.05em' }}>Photo (upload)</label>
+        {/* Photo upload + paste */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <label style={{ fontSize: 10, color: '#78909c', letterSpacing: '0.05em' }}>Photo</label>
           <input
             ref={fileRef}
             type="file"
             accept="image/*"
             style={{ ...inputStyle, padding: '4px 6px', cursor: 'pointer' }}
           />
+          <div
+            onPaste={(e) => {
+              const items = e.clipboardData?.items;
+              if (!items) return;
+              for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                  e.preventDefault();
+                  const blob = item.getAsFile();
+                  const dt = new DataTransfer();
+                  dt.items.add(new File([blob], `paste_${Date.now()}.png`, { type: blob.type }));
+                  if (fileRef.current) fileRef.current.files = dt.files;
+                  // Show preview
+                  const preview = e.currentTarget.querySelector('img');
+                  const url = URL.createObjectURL(blob);
+                  if (preview) { preview.src = url; preview.style.display = 'block'; }
+                  else {
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.style.cssText = 'max-width:100%;max-height:120px;border-radius:6px;margin-top:4px;object-fit:cover;border:1px solid rgba(255,255,255,0.15);';
+                    e.currentTarget.appendChild(img);
+                  }
+                  // Update label
+                  const lbl = e.currentTarget.querySelector('span');
+                  if (lbl) lbl.textContent = '\u2705 Image pasted! Ready to save.';
+                  break;
+                }
+              }
+            }}
+            onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#00bcd4'; }}
+            onDragLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)';
+              const file = e.dataTransfer?.files?.[0];
+              if (file && file.type.startsWith('image/')) {
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                if (fileRef.current) fileRef.current.files = dt.files;
+                const preview = e.currentTarget.querySelector('img');
+                const url = URL.createObjectURL(file);
+                if (preview) { preview.src = url; preview.style.display = 'block'; }
+                else {
+                  const img = document.createElement('img');
+                  img.src = url;
+                  img.style.cssText = 'max-width:100%;max-height:120px;border-radius:6px;margin-top:4px;object-fit:cover;border:1px solid rgba(255,255,255,0.15);';
+                  e.currentTarget.appendChild(img);
+                }
+                const lbl = e.currentTarget.querySelector('span');
+                if (lbl) lbl.textContent = '\u2705 Image dropped! Ready to save.';
+              }
+            }}
+            tabIndex={0}
+            style={{
+              border: '2px dashed rgba(255,255,255,0.15)',
+              borderRadius: 8,
+              padding: '12px 8px',
+              textAlign: 'center',
+              cursor: 'pointer',
+              transition: 'border-color 0.2s',
+              background: 'rgba(0,188,212,0.04)',
+              outline: 'none',
+            }}
+          >
+            <span style={{ fontSize: 11, color: '#78909c' }}>
+              {String.fromCodePoint(0x1F4CB)} Paste image here (Ctrl+V) or drag & drop
+            </span>
+          </div>
         </div>
 
         {error && (

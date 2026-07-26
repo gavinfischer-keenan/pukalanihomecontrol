@@ -9,3 +9,22 @@ body {
   width: 100vw;
   height: 100vh;
 }
+
+/* ── Bathymetry sounding labels — NOAA chart style ── */
+.bathy-sounding {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+.bathy-sounding span {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-style: italic;
+  color: rgba(70, 130, 180, 0.85);
+  text-shadow:
+    0 0 2px rgba(0, 0, 0, 0.7),
+    0 0 4px rgba(0, 0, 0, 0.3);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  pointer-events: none;
+}

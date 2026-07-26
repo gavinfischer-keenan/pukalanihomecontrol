@@ -91,14 +91,17 @@ export const VESSEL_CLASS_COLOR = {
 };
 
 // ─── SVG shapes by vessel class ─────────────────────────────────────────────
-export function makeVesselSvg(vclass, color, heading, isSelected) {
+export function makeVesselSvg(vclass, color, heading, isSelected, isAishub = false) {
   const rot  = (heading === 511 || heading == null) ? 0 : heading;
   const sel  = isSelected ? `stroke="#ffaa00" stroke-width="1.5"` : '';
   const glow = isSelected
     ? `filter: drop-shadow(0 0 8px ${color});`
     : `filter: drop-shadow(0 0 3px ${color}88);`;
+  const aishubRing = isAishub
+    ? `<circle cx="0" cy="0" r="13" fill="none" stroke="#00bfff" stroke-width="1.2" stroke-dasharray="3,2" opacity="0.7"/>`
+    : '';
   const wrap = (inner, w=28, h=28) =>
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="-14 -14 28 28" style="transform:rotate(${rot}deg); ${glow}">${inner}</svg>`;
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="-14 -14 28 28" style="transform:rotate(${rot}deg); ${glow}">${aishubRing}${inner}</svg>`;
 
   switch (vclass) {
     // ── Cargo / Tanker: wide boxy ship silhouette ─────────────────────────
@@ -227,7 +230,11 @@ function makeVesselLabel(vessel, color, vclass, prediction) {
     lines += `<div class="ac-label-line">${name}</div>`;
   }
   if (vtype) {
-    lines += `<div class="ac-label-line" style="font-size:9px;opacity:0.75">${vtype}</div>`;
+    if (vessel.source_type === 'aishub') {
+      lines += `<div class="ac-label-line" style="font-size:9px;opacity:0.75">${vtype} <span style="color:#00bfff;font-size:8px;border:1px solid #00bfff;border-radius:2px;padding:0 2px;margin-left:2px">AIS</span></div>`;
+    } else {
+      lines += `<div class="ac-label-line" style="font-size:9px;opacity:0.75">${vtype}</div>`;
+    }
   }
   if (spd || navStr) {
     lines += `<div class="ac-label-line">${[spd, navStr].filter(Boolean).join(' · ')}</div>`;
@@ -322,7 +329,8 @@ export default function VesselLayer({ vessels, selected, showLabels, onSelect, p
       // Server already filters out vessels > 30 min old.
       // Fade: fresh=1.0, 15min=0.75, 29min=0.55 (gentle visual cue for ageing)
       const ageSec  = vessel.age_seconds || 0;
-      const opacity = Math.max(0.55, 1.0 - (ageSec / 1800) * 0.45);
+      const baseOpacity = vessel.source_type === 'aishub' ? 0.7 : 1.0;
+      const opacity = Math.max(0.55, baseOpacity - (ageSec / 1800) * 0.45);
 
       // Store fix data for the animation loop
       // recorded_at comes from the API as an ISO string; convert to ms epoch
@@ -343,7 +351,8 @@ export default function VesselLayer({ vessels, selected, showLabels, onSelect, p
         isSelected,
       };
 
-      const iconHtml = makeVesselSvg(vclass, color, heading, isSelected);
+      const isAishub = vessel.source_type === 'aishub';
+      const iconHtml = makeVesselSvg(vclass, color, heading, isSelected, isAishub);
       const icon     = L.divIcon({ className: '', html: iconHtml, iconSize: [28, 28], iconAnchor: [14, 14] });
 
       if (markersRef.current[entity_id]) {

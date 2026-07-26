@@ -26,7 +26,7 @@
 }
 
 .sidebar {
-  position: absolute;
+  position: fixed;
   top: 80px;
   right: 0;
   width: var(--fvs-width);
@@ -170,7 +170,7 @@
 }
 
 .searchIcon {
-  position: absolute;
+  position: fixed;
   left: 9px;
   font-size: 12px;
   opacity: 0.4;
@@ -199,7 +199,7 @@
 }
 
 .searchClear {
-  position: absolute;
+  position: fixed;
   right: 7px;
   background: none;
   border: none;

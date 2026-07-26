@@ -387,19 +387,13 @@ function App() {
         {/* Aviation */}
         {layers.metar.enabled && <ErrorBoundary><MetarLayer metars={metars} selected={selected} onSelect={handleSelectEntity} /></ErrorBoundary>}
         {layers.vessels.enabled && (
-          <ErrorBoundary><VesselLayer vessels={(() => {
-              const localIds = new Set(vessels.map(v => String(v.entity_id)));
-              const deduped = nearbyVessels
-                .filter(n => !localIds.has(String(n.mmsi)))
-                .map(n => ({
-                  entity_id: n.mmsi, vessel_name: n.name, vessel_type: n.type,
-                  callsign: n.callsign, destination: n.destination,
-                  lat: n.lat, lon: n.lon, speed: n.speed,
-                  heading: n.heading === 511 ? null : n.heading,
-                  nav_status: n.nav_status, source_type: 'aishub', _type: 'vessel'
-                }));
-              return [...vessels, ...deduped];
-            })()} selected={selected} showLabels={showLabels} onSelect={handleSelectEntity} predictions={vesselPredictions} /></ErrorBoundary>
+          <ErrorBoundary><VesselLayer vessels={[...vessels, ...nearbyVessels.map(n => ({
+              entity_id: n.mmsi, vessel_name: n.name, vessel_type: n.type,
+              callsign: n.callsign, destination: n.destination,
+              lat: n.lat, lon: n.lon, speed: n.speed,
+              heading: n.heading === 511 ? null : n.heading,
+              nav_status: n.nav_status, source_type: 'aishub', _type: 'vessel'
+            }))]} selected={selected} showLabels={showLabels} onSelect={handleSelectEntity} predictions={vesselPredictions} /></ErrorBoundary>
         )}
         {layers.aircraft.enabled && (
           <ErrorBoundary><AircraftLayer aircraft={aircraft} selected={selected} showLabels={showLabels} onSelect={handleSelectEntity} /></ErrorBoundary>

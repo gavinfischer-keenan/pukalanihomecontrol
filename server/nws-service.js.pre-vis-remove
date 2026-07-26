@@ -180,6 +180,43 @@ const LOOPS = [
     intervalMs: 11 * 60 * 1000,
   },
 
+  // ── NWS HFO Regional Loops (11-frame, ~30-min update) ──
+  {
+    id: 'hfo_state_vis',
+    name: 'Statewide Visible',
+    group: 'NWS HFO Regional',
+    icon: '🌺',
+    url: 'https://www.weather.gov/images/hfo/satellite/State_VIS_loop.gif',
+    file: 'hfo_state_vis.gif',
+    intervalMs: 32 * 60 * 1000,  // ~30-min upstream, +2min lag
+  },
+  {
+    id: 'hfo_oahu_vis',
+    name: 'Oahu & Maui Visible',
+    group: 'NWS HFO Regional',
+    icon: '🏝️',
+    url: 'https://www.weather.gov/images/hfo/satellite/Oahu-Maui_VIS_loop.gif',
+    file: 'hfo_oahu_vis.gif',
+    intervalMs: 32 * 60 * 1000,
+  },
+  {
+    id: 'hfo_hi_vis',
+    name: 'Big Island Visible',
+    group: 'NWS HFO Regional',
+    icon: '🌋',
+    url: 'https://www.weather.gov/images/hfo/satellite/Hawaii_VIS_loop.gif',
+    file: 'hfo_hi_vis.gif',
+    intervalMs: 32 * 60 * 1000,
+  },
+  {
+    id: 'hfo_kauai_vis',
+    name: 'Kauai Visible',
+    group: 'NWS HFO Regional',
+    icon: '🌿',
+    url: 'https://www.weather.gov/images/hfo/satellite/Kauai_VIS_loop.gif',
+    file: 'hfo_kauai_vis.gif',
+    intervalMs: 32 * 60 * 1000,
+  },
   {
     id: 'hfo_ir',
     name: 'Hawaii Infrared',

@@ -2,6 +2,8 @@ import { useState } from 'react';
 import NWSLoopsGrid      from './NWSLoopsGrid';
 import NWSForecastPanel  from './NWSForecastPanel';
 import NWSMap            from './NWSMap';
+import NWSStormsPanel    from './NWSStormsPanel';
+import './NWSStormsPanel.css';
 import './NWSApp.css';
 
 const API_BASE = `http://${window.location.hostname}:3001`;
@@ -92,7 +94,7 @@ export default function NWSApp() {
         {/* STORMS */}
         {tab === 'storms' && (
           <div className="nwsapp-content">
-            {/* HurricanePanel removed - not applicable to Hawaii */}
+            <NWSStormsPanel apiBase={API_BASE} />
           </div>
         )}
 

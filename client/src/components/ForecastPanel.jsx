@@ -165,7 +165,7 @@ export default function ForecastPanel({ visible, onClose }) {
             </a>
             <a
               className="fp-climate-link"
-              href="https://www.cpc.ncep.noaa.gov/products/predictions/ONI/ONI_change.shtml"
+              href="https://www.climate.gov/enso"
               target="_blank"
               rel="noreferrer"
             >

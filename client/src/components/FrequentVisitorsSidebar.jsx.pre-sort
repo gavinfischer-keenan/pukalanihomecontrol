@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styles from './FrequentVisitorsSidebar.module.css';
 
 // ---------------------------------------------------------------------------
@@ -208,7 +208,14 @@ export default function FrequentVisitorsSidebar({ apiBase, onSelectEntity, visib
       const res = await fetch(`${apiBase}/api/known-entities`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      setEntities([...(data.entities || data)]);
+      const sorted = [...(data.entities || data)].sort((a, b) => {
+        if (a.is_pinned && !b.is_pinned) return -1;
+        if (!a.is_pinned && b.is_pinned) return 1;
+        if (a.auto_detected && !b.auto_detected) return -1;
+        if (!a.auto_detected && b.auto_detected) return 1;
+        return new Date(b.last_seen || 0) - new Date(a.last_seen || 0);
+      });
+      setEntities(sorted);
     } catch (err) {
       console.error('[FrequentVisitorsSidebar] fetch error:', err);
     } finally {
@@ -223,48 +230,17 @@ export default function FrequentVisitorsSidebar({ apiBase, onSelectEntity, visib
     return () => clearInterval(intervalRef.current);
   }, [visible, fetchEntities]);
 
-  /* Build a Set of live entity identifiers for O(1) lookup */
-  const liveIdSet = useMemo(
-    () => new Set(liveVessels.map(v => String(v.entity_id))),
-    [liveVessels]
-  );
-
-  const filtered = useMemo(() => {
-    const list = entities.filter((e) => {
-      if (filter === FILTER_AIRCRAFT && e.entity_type !== 'aircraft') return false;
-      if (filter === FILTER_VESSEL && e.entity_type !== 'vessel') return false;
-      if (search.trim()) {
-        const q = search.toLowerCase();
-        const name = (e.friendly_name || e.name || '').toLowerCase();
-        const id = (e.identifier || '').toLowerCase();
-        if (!name.includes(q) && !id.includes(q)) return false;
-      }
-      return true;
-    });
-
-    /* Sort: pinned → on-screen → frequency (seen_days) → last_seen */
-    list.sort((a, b) => {
-      /* Pinned always first */
-      if (a.is_pinned && !b.is_pinned) return -1;
-      if (!a.is_pinned && b.is_pinned) return 1;
-
-      /* Currently on screen second */
-      const aLive = liveIdSet.has(String(a.identifier));
-      const bLive = liveIdSet.has(String(b.identifier));
-      if (aLive && !bLive) return -1;
-      if (!aLive && bLive) return 1;
-
-      /* Then by visit frequency (most visits first) */
-      const aFreq = a.seen_days || 0;
-      const bFreq = b.seen_days || 0;
-      if (bFreq !== aFreq) return bFreq - aFreq;
-
-      /* Finally by last seen (most recent first) */
-      return new Date(b.last_seen || 0) - new Date(a.last_seen || 0);
-    });
-
-    return list;
-  }, [entities, filter, search, liveIdSet]);
+  const filtered = entities.filter((e) => {
+    if (filter === FILTER_AIRCRAFT && e.entity_type !== 'aircraft') return false;
+    if (filter === FILTER_VESSEL && e.entity_type !== 'vessel') return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const name = (e.friendly_name || e.name || '').toLowerCase();
+      const id = (e.identifier || '').toLowerCase();
+      if (!name.includes(q) && !id.includes(q)) return false;
+    }
+    return true;
+  });
 
   function handleSelect(entity) {
     const key = `${entity.entity_type}:${entity.identifier}`;

@@ -1038,66 +1038,8 @@ try {
 // NWS/NOAA caching service
 nwsService.init(app, express);
 
-
-// --- Project Manager DB ---
-const pmPool = new Pool({
-  host: '192.168.1.104',
-  port: 5432,
-  database: 'project_mgr',
-  user: 'pm_user',
-  password: 'pukalani_pm',
-});
-
-app.get('/api/pm/summary', async (req, res) => {
-  try {
-    const totalTasksReq = await pmPool.query("SELECT COUNT(*) FROM tasks WHERE task_type = 'task'");
-    const openTasksReq = await pmPool.query("SELECT COUNT(*) FROM tasks WHERE status != 'Completed' AND status != 'Cancelled' AND task_type = 'task'");
-    const overdueTasksReq = await pmPool.query("SELECT COUNT(*) FROM tasks WHERE status NOT IN ('Completed', 'Cancelled') AND target_date_finish < CURRENT_DATE AND task_type = 'task'");
-    const warrantiesReq = await pmPool.query("SELECT COUNT(*) FROM warranties");
-    const warrantiesSoonReq = await pmPool.query("SELECT COUNT(*) FROM warranties WHERE end_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '30 days'");
-    const maintenanceDueReq = await pmPool.query("SELECT COUNT(*) FROM maintenance WHERE date_when_fixed IS NULL");
-    
-    res.json({
-      total_tasks: parseInt(totalTasksReq.rows[0].count),
-      open_tasks: parseInt(openTasksReq.rows[0].count),
-      overdue_tasks: parseInt(overdueTasksReq.rows[0].count),
-      warranties: parseInt(warrantiesReq.rows[0].count),
-      warranty_expiring_soon: parseInt(warrantiesSoonReq.rows[0].count),
-      maintenance_due: parseInt(maintenanceDueReq.rows[0].count)
-    });
-  } catch (err) {
-    console.error('pm summary error:', err.message);
-    res.status(500).json({ error: 'DB error' });
-  }
-});
-
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Hawaii API Server running on port ${PORT}`);
-
-  // ── Aircraft sighting poller — runs every 60s ──────────────────
-  // Fetches live aircraft from tar1090 and records sightings
-  // so frequent visitors (helicopters, etc.) get auto-detected
-  const aircraftSightingPoll = async () => {
-    try {
-      const resp = await axios.get(TAR1090_URL, { timeout: 3000 });
-      const aircraft = resp.data?.aircraft || [];
-      let recorded = 0;
-      for (const ac of aircraft) {
-        if (!ac.hex || ac.hex === '000000') continue;
-        if (!ac.lat || !ac.lon) continue; // skip MLAT-only with no position
-        await recordAircraftSighting(ac.hex, ac.r || null, ac.t || null);
-        recorded++;
-      }
-      if (recorded > 0) {
-        console.log(`[aircraft-sightings] Recorded ${recorded} sightings`);
-      }
-    } catch (e) {
-      // tar1090 unavailable — non-fatal
-    }
-  };
-  // Run immediately then every 60 seconds
-  aircraftSightingPoll();
-  setInterval(aircraftSightingPoll, 60000);
 });
 ﻿// ============================================================
 // ALERTS PROXY — forwards to alerts-engine CT 109

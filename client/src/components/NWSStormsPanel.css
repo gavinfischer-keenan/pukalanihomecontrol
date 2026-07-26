@@ -1,0 +1,119 @@
+.storms-panel {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.storms-header { margin-bottom: 20px; }
+.storms-header h2 { margin: 0 0 4px 0; font-size: 22px; color: #e2e8f0; }
+.storms-meta { font-size: 13px; color: #718096; }
+
+.storms-empty {
+  text-align: center; padding: 60px 20px;
+  color: #a0aec0; font-size: 16px;
+}
+.storms-empty-icon { font-size: 48px; margin-bottom: 16px; }
+.storms-link {
+  display: inline-block; margin-top: 12px;
+  color: #63b3ed; text-decoration: none; font-size: 14px;
+}
+.storms-link:hover { text-decoration: underline; }
+
+.storms-grid {
+  display: flex; flex-direction: column; gap: 16px;
+}
+
+.storm-card {
+  background: rgba(26,32,44,0.85);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-left: 4px solid #ffc000;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  transition: transform 0.15s;
+}
+.storm-card:hover { transform: translateY(-2px); }
+
+.storm-cone {
+  flex: 0 0 320px;
+  background: #0d1117;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.storm-cone img {
+  width: 100%; height: auto;
+  object-fit: contain;
+  max-height: 260px;
+}
+
+.storm-info {
+  flex: 1; padding: 16px 20px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+
+.storm-name-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.storm-icon { font-size: 24px; }
+.storm-name { margin: 0; font-size: 20px; color: #f7fafc; font-weight: 700; }
+.storm-class {
+  font-size: 11px; font-weight: 700; color: #fff;
+  padding: 2px 8px; border-radius: 4px; text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.storm-stats {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
+}
+.storm-stat {
+  background: rgba(255,255,255,0.04);
+  border-radius: 6px; padding: 8px 10px;
+  display: flex; flex-direction: column;
+}
+.storm-stat-label { font-size: 10px; color: #718096; text-transform: uppercase; letter-spacing: 0.5px; }
+.storm-stat-value { font-size: 15px; color: #e2e8f0; font-weight: 600; margin-top: 2px; }
+
+.storm-distance {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  font-size: 14px; color: #cbd5e0;
+}
+.storm-dist-value { font-weight: 700; color: #f7fafc; }
+.storm-threat {
+  font-size: 10px; font-weight: 700; color: #fff;
+  padding: 2px 8px; border-radius: 3px; text-transform: uppercase;
+  margin-left: auto;
+}
+
+.storm-links {
+  display: flex; gap: 12px;
+}
+.storm-links a {
+  color: #63b3ed; text-decoration: none; font-size: 13px;
+  padding: 4px 10px; border-radius: 4px;
+  background: rgba(99,179,237,0.1);
+  transition: background 0.15s;
+}
+.storm-links a:hover { background: rgba(99,179,237,0.25); }
+
+.storms-footer {
+  margin-top: 24px; padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  display: flex; gap: 8px; justify-content: center;
+  font-size: 13px; color: #718096;
+}
+.storms-footer a { color: #63b3ed; text-decoration: none; }
+.storms-footer a:hover { text-decoration: underline; }
+
+.storms-loading, .storms-error {
+  text-align: center; padding: 60px 20px;
+  color: #a0aec0; font-size: 16px;
+}
+
+@media (max-width: 768px) {
+  .storm-card { flex-direction: column; }
+  .storm-cone { flex: none; }
+  .storm-stats { grid-template-columns: repeat(2, 1fr); }
+}
