@@ -13,7 +13,7 @@ from datetime import date
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger("ha-sensor-pusher")
 
-HA_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI5NTA1OTg3MjZkNGE0MzM1YjgwODA1ZGE3MzBlZmZmZCIsImlhdCI6MTc4MzY3MTEzMywiZXhwIjoyMDk5MDMxMTMzfQ.WNlKbZsQIhXN8z2AIHKbA8dDL1XkL7bR-TwTo0Tn9Fo"
+HA_TOKEN = open('/root/.ha_token').read().strip()
 HA_URL = "http://192.168.1.19:8123"
 PM_URL = "http://192.168.1.110:3001"
 BIRDNET_URL = "http://192.168.1.25:8080"
