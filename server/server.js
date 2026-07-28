@@ -21,34 +21,6 @@ app.use(cors({
   credentials: true,
 }));
 
-// ── Winds Aloft — server-side pre-fetch cache (30 min) ───────────────────────
-let windsAloftCache = { data: null, raw: null, fetchedAt: 0 };
-const WINDS_TTL_MS = 30 * 60 * 1000;
-
-async function prefetchWindsAloft() {
-  const now = Date.now();
-  if (windsAloftCache.raw && (now - windsAloftCache.fetchedAt) < WINDS_TTL_MS) return;
-
-  for (const fcst of ['06', '12', '24', '00']) {
-    for (const level of ['low', 'high']) {
-      try {
-        const url = `https://aviationweather.gov/api/data/windtemp?region=hawaii&level=${level}&fcst=${fcst}&format=raw`;
-        const r = await axios.get(url, { timeout: 15000, responseType: 'text' });
-        const txt = typeof r.data === 'string' ? r.data : JSON.stringify(r.data);
-        if (txt.includes('HNL') || txt.includes('OGG') || txt.includes('ITO')) {
-          if (!windsAloftCache.raw) windsAloftCache.raw = {};
-          windsAloftCache.raw[level] = txt;
-          windsAloftCache.fetchedAt = now;
-          console.log(`[winds-aloft] cached fcst=${fcst} level=${level} @ ${new Date().toISOString()}`);
-        }
-      } catch (e) { /* try next */ }
-    }
-  }
-}
-
-// Pre-fetch immediately and every 30 minutes
-prefetchWindsAloft().catch(console.error);
-setInterval(() => prefetchWindsAloft().catch(console.error), WINDS_TTL_MS);
 
 // ── Airport status — server-side proxy (avoids browser CORS) ─────────────────
 let airportStatusCache = { data: null, fetchedAt: 0 };
@@ -222,13 +194,10 @@ app.get('/api/trails/:id', async (req, res) => {
     let result;
 
     if (req.query.today === 'true' || (!req.query.minutes && !req.query.session)) {
-      // Default: everything from midnight Hawaii time today
+      // Default: today's trail from track_history (1 point/min, warm tier)
       result = await pool.query(`
-        SELECT
-          ST_X(location::geometry) as lon,
-          ST_Y(location::geometry) as lat,
-          altitude, speed, heading, recorded_at
-        FROM live_tracks
+        SELECT lon, lat, speed, heading, recorded_at
+        FROM track_history
         WHERE entity_id = $1
           AND recorded_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Pacific/Honolulu')
                               AT TIME ZONE 'Pacific/Honolulu'
@@ -236,13 +205,9 @@ app.get('/api/trails/:id', async (req, res) => {
       `, [req.params.id]);
 
     } else if (req.query.session === 'true') {
-      // Since first detection today (same as today but semantically cleaner)
       result = await pool.query(`
-        SELECT
-          ST_X(location::geometry) as lon,
-          ST_Y(location::geometry) as lat,
-          altitude, speed, heading, recorded_at
-        FROM live_tracks
+        SELECT lon, lat, speed, heading, recorded_at
+        FROM track_history
         WHERE entity_id = $1
           AND recorded_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Pacific/Honolulu')
                               AT TIME ZONE 'Pacific/Honolulu'
@@ -253,11 +218,8 @@ app.get('/api/trails/:id', async (req, res) => {
       // Legacy minutes mode (max 720 = 12 hours)
       const minutes = Math.min(parseInt(req.query.minutes || '60'), 720);
       result = await pool.query(`
-        SELECT
-          ST_X(location::geometry) as lon,
-          ST_Y(location::geometry) as lat,
-          altitude, speed, heading, recorded_at
-        FROM live_tracks
+        SELECT lon, lat, speed, heading, recorded_at
+        FROM track_history
         WHERE entity_id = $1
           AND recorded_at > NOW() - ($2 || ' minutes')::INTERVAL
         ORDER BY recorded_at ASC;
@@ -485,23 +447,7 @@ app.get('/api/metar', async (req, res) => {
 });
 
 // ============================================================
-// WINDS ALOFT
 // ============================================================
-app.get('/api/winds-aloft', async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT DISTINCT ON (station, level_ft)
-        station, valid_time, level_ft, wind_dir, wind_spd, wind_tmp_c
-      FROM winds_aloft
-      WHERE valid_time > NOW() - INTERVAL '6 hours'
-      ORDER BY station, level_ft, valid_time DESC;
-    `);
-    res.json(result.rows);
-  } catch (err) {
-    console.error('winds aloft error:', err.message);
-    res.json([]);
-  }
-});
 
 // ============================================================
 // ECOWITT PWS — HP2564 Wittboy Pro + WS90
@@ -1127,10 +1073,6 @@ app.get('/api/alerts/health', async (req, res) => {
 });
 
 // ── Winds Aloft proxy endpoint ────────────────────────────────────────────────
-app.get('/api/winds-aloft-raw', (req, res) => {
-  if (!windsAloftCache.raw) return res.json({ ok: false, data: null, fetchedAt: 0 });
-  res.json({ ok: true, data: windsAloftCache.raw, fetchedAt: windsAloftCache.fetchedAt });
-});
 
 // ── Airport status proxy endpoint ─────────────────────────────────────────────
 app.get('/api/airport-status', (req, res) => {
