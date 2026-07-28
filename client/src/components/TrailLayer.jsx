@@ -5,7 +5,7 @@ import { altColor } from './AircraftLayer';
 import { VESSEL_CLASS_COLOR, classifyVessel } from './VesselLayer';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const PROJ_MINUTES     = 30 / 60;   // Forward projection horizon (hours)
+const PROJ_HORIZON_SEC = 20 * 60;   // Forward projection: 20 minutes (in seconds)
 const ANIM_INTERVAL_MS = 1000;      // Dead-reckoning animation tick (ms)
 const TRAIL_REFRESH_MS = 5 * 60 * 1000;  // Re-fetch DB trails every 5 min
 const LIVE_BUFFER_MS   = 90 * 1000;      // Live ring buffer window (bridges DB lag)
@@ -19,9 +19,11 @@ const vesselTimeout = (lat, lon) => {
   const dLat  = (lat - HOME_LAT) * NM_PER_DEG_LAT;
   const dLon  = (lon - HOME_LON) * NM_PER_DEG_LAT * Math.cos(HOME_LAT * Math.PI / 180);
   const range = Math.sqrt(dLat * dLat + dLon * dLon);
-  if (range < 12) return 180000;
-  if (range < 20) return  90000;
-  return 60000;
+  // Keep projection lines visible long enough to match AIS reporting gaps
+  // Nearby vessels report frequently but still have gaps; distant ones report less often
+  if (range < 12) return 30 * 60 * 1000;   // 30 min for nearby
+  if (range < 30) return 20 * 60 * 1000;   // 20 min for mid-range
+  return 10 * 60 * 1000;                    // 10 min for distant
 };
 
 // ── Dead reckoning ────────────────────────────────────────────────────────────
@@ -91,7 +93,7 @@ export default function TrailLayer({ aircraft, vessels, apiBase, selected }) {
   // Layer refs
   const vLinesRef    = useRef({});
   const vProjRef     = useRef({});
-  const vAnimRef     = useRef({});
+  const vProjPastRef = useRef({});
   const vStateRef    = useRef({});
 
   const acLinesRef   = useRef({});
@@ -147,13 +149,13 @@ export default function TrailLayer({ aircraft, vessels, apiBase, selected }) {
       }
     });
 
-    // Vessel anim markers
-    Object.entries(vAnimRef.current).forEach(([id, marker]) => {
+    // Vessel past projection lines
+    Object.entries(vProjPastRef.current).forEach(([id, line]) => {
       const shouldShow = !selInfo || (selInfo.type === 'vessel' && selInfo.id === id);
       if (shouldShow) {
-        if (!map.hasLayer(marker)) map.addLayer(marker);
+        if (!map.hasLayer(line)) map.addLayer(line);
       } else {
-        if (map.hasLayer(marker)) map.removeLayer(marker);
+        if (map.hasLayer(line)) map.removeLayer(line);
       }
     });
   };
@@ -267,7 +269,7 @@ export default function TrailLayer({ aircraft, vessels, apiBase, selected }) {
         vLinesRef.current[id].forEach(l => map.removeLayer(l));
         delete vLinesRef.current[id];
         if (vProjRef.current[id]) { map.removeLayer(vProjRef.current[id]); delete vProjRef.current[id]; }
-        if (vAnimRef.current[id]) { map.removeLayer(vAnimRef.current[id]); delete vAnimRef.current[id]; }
+        if (vProjPastRef.current[id]) { map.removeLayer(vProjPastRef.current[id]); delete vProjPastRef.current[id]; }
         delete vStateRef.current[id];
         delete LIVE_CACHE[id];
         delete vDbRef.current[id];
@@ -339,6 +341,9 @@ export default function TrailLayer({ aircraft, vessels, apiBase, selected }) {
   }, [map, apiBase]);  // eslint-disable-line
 
   // ── Dead-reckoning animation (vessels) ────────────────────────────────────
+  // Draws two-segment projection line:
+  //   BLACK dashed = last AIS fix → current dead-reckoned position (past)
+  //   RED dashed   = current dead-reckoned position → future projection (ahead)
   useEffect(() => {
     if (animTimerRef.current) clearInterval(animTimerRef.current);
 
@@ -351,7 +356,7 @@ export default function TrailLayer({ aircraft, vessels, apiBase, selected }) {
 
         if (now - lastUpdate > timeout) {
           if (vProjRef.current[id]) { map.removeLayer(vProjRef.current[id]); delete vProjRef.current[id]; }
-          if (vAnimRef.current[id]) { map.removeLayer(vAnimRef.current[id]); delete vAnimRef.current[id]; }
+          if (vProjPastRef.current[id]) { map.removeLayer(vProjPastRef.current[id]); delete vProjPastRef.current[id]; }
           delete vStateRef.current[id];
           continue;
         }
@@ -360,28 +365,31 @@ export default function TrailLayer({ aircraft, vessels, apiBase, selected }) {
         const canProject = speed > 0.5 && heading != null && heading < 360 && !isMooredOrAnchored;
 
         if (canProject) {
-          const endPt = deadReckon(lat, lon, speed, heading, PROJ_MINUTES * 3600);
+          // Current dead-reckoned position (where vessel is NOW)
+          const drNow = deadReckon(lat, lon, speed, heading, ageSec);
+          // Future projection endpoint
+          const endPt = deadReckon(lat, lon, speed, heading, PROJ_HORIZON_SEC);
 
+          // BLACK segment: AIS fix → current DR position (already traveled)
+          if (!vProjPastRef.current[id]) {
+            vProjPastRef.current[id] = L.polyline([[lat, lon], [drNow.lat, drNow.lon]], {
+              color: '#000000', weight: 2, opacity: 0.7, dashArray: '4, 6', interactive: false,
+            }).addTo(map);
+          } else {
+            vProjPastRef.current[id].setLatLngs([[lat, lon], [drNow.lat, drNow.lon]]);
+          }
+
+          // RED segment: current DR position → future projection (ahead)
           if (!vProjRef.current[id]) {
-            vProjRef.current[id] = L.polyline([[lat, lon], [endPt.lat, endPt.lon]], {
+            vProjRef.current[id] = L.polyline([[drNow.lat, drNow.lon], [endPt.lat, endPt.lon]], {
               color: '#e74c3c', weight: 1.5, opacity: 0.8, dashArray: '4, 6', interactive: false,
             }).addTo(map);
           } else {
-            vProjRef.current[id].setLatLngs([[lat, lon], [endPt.lat, endPt.lon]]);
-          }
-
-          const animPt  = deadReckon(lat, lon, speed, heading, ageSec);
-          const dotHtml = `<div style="width:10px;height:10px;border-radius:50%;background:#e74c3c;border:2px solid white;box-shadow:0 0 6px rgba(231,76,60,0.8);transform:translate(-5px,-5px)"></div>`;
-          const dotIcon = L.divIcon({ className: '', html: dotHtml, iconSize: [10, 10] });
-
-          if (!vAnimRef.current[id]) {
-            vAnimRef.current[id] = L.marker([animPt.lat, animPt.lon], { icon: dotIcon, interactive: false }).addTo(map);
-          } else {
-            vAnimRef.current[id].setLatLng([animPt.lat, animPt.lon]).setIcon(dotIcon);
+            vProjRef.current[id].setLatLngs([[drNow.lat, drNow.lon], [endPt.lat, endPt.lon]]);
           }
         } else {
           if (vProjRef.current[id]) { map.removeLayer(vProjRef.current[id]); delete vProjRef.current[id]; }
-          if (vAnimRef.current[id]) { map.removeLayer(vAnimRef.current[id]); delete vAnimRef.current[id]; }
+          if (vProjPastRef.current[id]) { map.removeLayer(vProjPastRef.current[id]); delete vProjPastRef.current[id]; }
         }
       }
 
@@ -394,8 +402,8 @@ export default function TrailLayer({ aircraft, vessels, apiBase, selected }) {
   useEffect(() => {
     const acLines = acLinesRef.current;
     const vLines  = vLinesRef.current;
-    const vProj   = vProjRef.current;
-    const vAnim   = vAnimRef.current;
+    const vProj     = vProjRef.current;
+    const vProjPast = vProjPastRef.current;
 
     return () => {
       clearInterval(animTimerRef.current);
@@ -403,11 +411,11 @@ export default function TrailLayer({ aircraft, vessels, apiBase, selected }) {
       Object.values(acLines).flat().forEach(l => map.removeLayer(l));
       Object.values(vLines).flat().forEach(l => map.removeLayer(l));
       Object.values(vProj).forEach(l => map.removeLayer(l));
-      Object.values(vAnim).forEach(m => map.removeLayer(m));
+      Object.values(vProjPast).forEach(l => map.removeLayer(l));
       acLinesRef.current = {};
       vLinesRef.current  = {};
-      vProjRef.current   = {};
-      vAnimRef.current   = {};
+      vProjRef.current     = {};
+      vProjPastRef.current = {};
       vStateRef.current  = {};
     };
   }, [map]);
