@@ -603,7 +603,7 @@ export default function DetailPanel({ entity, onClose, apiBase }) {
   };
 
   const headerMap = {
-    aircraft: { title: (entity.flight||'').trim() || entity.hex?.toUpperCase(), sub: entity.hex?.toUpperCase(), icon: '✈️' },
+    aircraft: { title: (entity.r||'').trim() || (entity.flight||'').trim() || entity.hex?.toUpperCase(), sub: entity.hex?.toUpperCase(), icon: '✈️' },
     vessel:   { title: entity.vessel_name || (KNOWN_VESSELS[entity.entity_id] ? KNOWN_VESSELS[entity.entity_id].name : entity.entity_id), sub: `MMSI ${entity.entity_id}`, icon: '⛵' },
     buoy:     { title: entity.name || entity.buoy_id,          sub: `NDBC ${entity.buoy_id}`,   icon: '🔵' },
     tide:     { title: entity.name || entity.station_id,       sub: `CO-OPS ${entity.station_id}`, icon: '〰️' },
@@ -698,6 +698,8 @@ export default function DetailPanel({ entity, onClose, apiBase }) {
         <>
           <Section title="IDENTIFICATION">
             <Row label="Callsign"   value={(entity.flight||'').trim() || '—'} />
+            <Row label="Registration" value={(entity.r||'').trim() || entityInfo?.registration || '—'} />
+            <Row label="Aircraft"    value={entity.desc || entity.t || entityInfo?.aircraft_type || '—'} />
             <Row label="ICAO Hex"   value={entity.hex?.toUpperCase()} />
             <Row label="Squawk"     value={entity.squawk} />
             <Row label="Category"   value={entity.category} />
