@@ -157,7 +157,7 @@ export function makeAircraftSvg(ac_class, color, heading, isSelected, isMLAT) {
   const glowSel = `filter: drop-shadow(0 0 8px ${color});`;
   const glowNorm = `filter: drop-shadow(0 0 3px ${color}88);`;
   const glow = isSelected ? glowSel : glowNorm;
-  const sel  = isSelected ? `stroke="#ffaa00" stroke-width="1.5"` : '';
+  const sel  = isSelected ? `stroke="#ffaa00" stroke-width="1.5"` : `stroke="black" stroke-width="0.8" paint-order="fill"`;
   const opacity = isMLAT ? '0.7' : '1';
   const rot = heading || 0;
   const wrap = (inner, w=36, h=36, vBox='-18 -18 36 36') =>
