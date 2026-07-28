@@ -59,6 +59,60 @@ for CT in 112 113; do
 done
 log "  Done"
 
+
+# ── 3b. Data Retention Policies ──
+log "[3b/9] Data retention..."
+
+# PWS: downsample to hourly for data > 24h, keep forever
+PWS_DEL=$(pct exec 104 -- su - postgres -c "psql -d tracking_db -t -c \"
+DELETE FROM pws_obs
+WHERE id NOT IN (
+  SELECT DISTINCT ON (station_id, date_trunc('hour', obs_time)) id
+  FROM pws_obs ORDER BY station_id, date_trunc('hour', obs_time), obs_time ASC
+) AND obs_time < NOW() - INTERVAL '24 hours';
+SELECT COUNT(*) FROM pws_obs;\"" 2>/dev/null | tail -1 | tr -d ' ')
+log "  PWS: downsampled, ${PWS_DEL} rows kept"
+
+# Tide: keep only latest per station
+pct exec 104 -- su - postgres -c "psql -d tracking_db -c \"
+DELETE FROM tide_water_level WHERE id NOT IN (
+  SELECT DISTINCT ON (station_id) id FROM tide_water_level ORDER BY station_id, obs_time DESC
+);\"" 2>/dev/null
+log "  Tide: latest only"
+
+# Buoy: keep only latest per station
+pct exec 104 -- su - postgres -c "psql -d tracking_db -c \"
+DELETE FROM buoy_obs WHERE id NOT IN (
+  SELECT DISTINCT ON (buoy_id) id FROM buoy_obs ORDER BY buoy_id, obs_time DESC
+);\"" 2>/dev/null
+log "  Buoy: latest only"
+
+# METAR: keep only latest per ICAO
+pct exec 104 -- su - postgres -c "psql -d tracking_db -c \"
+DELETE FROM metar_obs WHERE id NOT IN (
+  SELECT DISTINCT ON (icao) id FROM metar_obs ORDER BY icao, obs_time DESC
+);\"" 2>/dev/null
+log "  METAR: latest only"
+
+# Vessel predictions: keep 7 days
+pct exec 104 -- su - postgres -c "psql -d tracking_db -c \"
+DELETE FROM vessel_predictions WHERE updated_at < NOW() - INTERVAL '7 days';\"" 2>/dev/null
+log "  Vessel predictions: 7-day retention"
+
+# Entities: prune unseen > 90 days (not in sightings)
+ENT_DEL=$(pct exec 104 -- su - postgres -c "psql -d tracking_db -t -c \"
+DELETE FROM entities WHERE last_seen < NOW() - INTERVAL '90 days'
+  AND entity_id NOT IN (SELECT DISTINCT entity_id FROM vessel_sightings)
+  AND entity_id NOT IN (SELECT DISTINCT entity_id FROM aircraft_sightings);
+SELECT COUNT(*) FROM entities;\"" 2>/dev/null | tail -1 | tr -d ' ')
+log "  Entities: pruned, ${ENT_DEL} remain"
+
+# REINDEX hot tables (prevent bloat recurrence)
+pct exec 104 -- su - postgres -c "psql -d tracking_db -c 'REINDEX TABLE live_tracks; REINDEX TABLE entities;'" 2>/dev/null
+log "  REINDEX: live_tracks, entities"
+
+log "  Done"
+
 # ── 4. PostgreSQL VACUUM ANALYZE ──
 log "[4/9] PostgreSQL VACUUM ANALYZE..."
 pct exec 104 -- su - postgres -c 'psql -d tracking_db -c "VACUUM ANALYZE;"' 2>/dev/null && log "  tracking_db: OK" || log "  tracking_db: SKIP"
