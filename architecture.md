@@ -12,7 +12,7 @@ The Hawaii Tracker is a distributed edge computing system running on a Proxmox V
 - **CT101 (brain)**: Internal processing logic.
 - **CT102 (Airspace)**: `dump1090`/`tar1090` at 192.168.1.102 (ADS-B receiver).
 - **CT103 (Marine-ais)**: USB serial bridge (deprecated in favor of ais-host-forwarder).
-- **CT104 (trackerDB)**: PostgreSQL tracking_db (192.168.1.104). Uses `tracker` / `pukalani`. Cron: `track-history-sampler.sh` (every minute, downsamples `live_tracks` → `track_history`), `db-maintenance.sh` (daily 4am, prunes old data + VACUUM).
+- **CT104 (trackerDB)**: PostgreSQL host (192.168.1.104). Databases: `tracking_db` (vessel/aircraft tracking), `expense_db` (expense & tax tracking). Uses `tracker` / `pukalani`. Cron: `track-history-sampler.sh` (every minute, downsamples `live_tracks` → `track_history`), `db-maintenance.sh` (daily 4am, prunes old data + VACUUM).
 - **CT105 (tracker-engine)**: Two Python services:
   - `tracker-engine.service`: ADS-B polling from tar1090 (CT102) every 5s → `live_tracks`. AISHub polling **disabled** (ais-collector owns it).
   - `ais-collector.service`: Local AIS NMEA decoder (UDP :10110), AISHub API integration (120s interval → in-memory cache → HTTP :3105/api/aishub-nearby), AIS receiver health monitoring, destination prediction, hourly destination tracker thread (tracks `vessel_info.track_dest_return=true` vessels via AISHub → `track_history` with `source_type='aishub_tracked'`).
@@ -23,6 +23,7 @@ The Hawaii Tracker is a distributed edge computing system running on a Proxmox V
 - **CT111 (nrsc5-engine)**: HD Radio / TMC pipeline.
 - **CT112 (birdnet)**: Docker `birdnet_go` (port 8080) acoustic analysis with RTSP audio stream ingestion.
 - **CT113 (frigate)**: Docker Frigate NVR v0.17 with Google Coral USB Edge TPU acceleration. Object detection: person, car, cat, dog, bird, package.
+- **CT115 (expense-tracker)**: Expense & Tax Tracking — Node.js API (port 3001) & React/Vite Client (DHCP IP, will be staticized). Tracks house improvement and travel expenses for reimbursement with tax categorization. No HA integration. PostgreSQL `expense_db` on CT104. GitHub: `gavinfischer-keenan/ExpenseTaxTracking`.
 - **VM100 (haos-18.1)**: Home Assistant OS at 192.168.1.19. Primary event & alert emitter.
 
 ## Network Topology & IPs
