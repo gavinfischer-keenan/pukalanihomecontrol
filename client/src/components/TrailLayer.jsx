@@ -192,11 +192,12 @@ export default function TrailLayer({ aircraft, vessels, apiBase, selected }) {
     vLinesRef.current[id] = [];
     if (points.length < 2) return;
 
-    const selInfo = getSelectedInfo(selected);
-    const shouldShow = !selInfo || (selInfo.type === 'vessel' && selInfo.id === id);
+    // Always add to map — syncTrailVisibility handles show/hide on selection
     vLinesRef.current[id] = buildAndAddSegments(
-      points, () => '#000000', 2.5, 0.80, map, shouldShow
+      points, () => '#000000', 2.5, 0.80, map, true
     );
+    // Immediately sync visibility if something is selected
+    syncTrailVisibility();
   };
 
   // ── Render aircraft trail from merged data ──────────────────────────────────
@@ -207,11 +208,12 @@ export default function TrailLayer({ aircraft, vessels, apiBase, selected }) {
     acLinesRef.current[id] = [];
     if (points.length < 2) return;
 
-    const selInfo = getSelectedInfo(selected);
-    const shouldShow = !selInfo || (selInfo.type === 'aircraft' && selInfo.id === id);
+    // Always add to map — syncTrailVisibility handles show/hide on selection
     acLinesRef.current[id] = buildAndAddSegments(
-      points, p => altColor(p.altitude), 1.5, 0.65, map, shouldShow
+      points, p => altColor(p.altitude), 1.5, 0.65, map, true
     );
+    // Immediately sync visibility if something is selected
+    syncTrailVisibility();
   };
 
   // ── Aircraft effect ────────────────────────────────────────────────────────
