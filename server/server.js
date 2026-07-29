@@ -196,7 +196,7 @@ app.get('/api/trails/:id', async (req, res) => {
     if (req.query.today === 'true' || (!req.query.minutes && !req.query.session)) {
       // Default: today's trail from track_history (1 point/min, warm tier)
       result = await pool.query(`
-        SELECT lon, lat, speed, heading, recorded_at
+        SELECT lon, lat, speed, heading, recorded_at, source_type
         FROM track_history
         WHERE entity_id = $1
           AND recorded_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Pacific/Honolulu')
@@ -206,7 +206,7 @@ app.get('/api/trails/:id', async (req, res) => {
 
     } else if (req.query.session === 'true') {
       result = await pool.query(`
-        SELECT lon, lat, speed, heading, recorded_at
+        SELECT lon, lat, speed, heading, recorded_at, source_type
         FROM track_history
         WHERE entity_id = $1
           AND recorded_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Pacific/Honolulu')
@@ -218,7 +218,7 @@ app.get('/api/trails/:id', async (req, res) => {
       // Legacy minutes mode (max 720 = 12 hours)
       const minutes = Math.min(parseInt(req.query.minutes || '60'), 720);
       result = await pool.query(`
-        SELECT lon, lat, speed, heading, recorded_at
+        SELECT lon, lat, speed, heading, recorded_at, source_type
         FROM track_history
         WHERE entity_id = $1
           AND recorded_at > NOW() - ($2 || ' minutes')::INTERVAL
@@ -831,6 +831,21 @@ app.get('/api/vessel-info/:mmsi/seen-days', async (req, res) => {
     );
     res.json({ count: rows.length, days: rows.map(r => r.seen_day) });
   } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── PUT toggle track-to-destination ─────────────────────────────────────────
+app.put('/api/vessel-info/:mmsi/track-dest', express.json(), async (req, res) => {
+  try {
+    const { enabled } = req.body;
+    await pool.query(
+      'UPDATE vessel_info SET track_dest_return = $1 WHERE mmsi = $2',
+      [!!enabled, req.params.mmsi]
+    );
+    res.json({ ok: true, track_dest_return: !!enabled });
+  } catch (e) {
+    console.error('track-dest toggle error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });

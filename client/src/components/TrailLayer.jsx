@@ -60,14 +60,14 @@ const LIVE_CACHE = {};  // { id: [{ lat, lon, altitude, time }] }
 function mergeTrail(dbPoints, liveBuffer) {
   if (!dbPoints || !dbPoints.length) {
     return (liveBuffer || []).map(p => ({
-      lat: p.lat, lon: p.lon, altitude: p.altitude,
+      lat: p.lat, lon: p.lon, altitude: p.altitude, source_type: 'ais',
     }));
   }
   const lastDbTime = new Date(dbPoints[dbPoints.length - 1].recorded_at).getTime();
   const freshLive  = (liveBuffer || []).filter(p => p.time > lastDbTime + 5000);
   return [
-    ...dbPoints.map(p => ({ lat: p.lat, lon: p.lon, altitude: p.altitude })),
-    ...freshLive.map(p => ({ lat: p.lat, lon: p.lon, altitude: p.altitude })),
+    ...dbPoints.map(p => ({ lat: p.lat, lon: p.lon, altitude: p.altitude, source_type: p.source_type || 'ais' })),
+    ...freshLive.map(p => ({ lat: p.lat, lon: p.lon, altitude: p.altitude, source_type: 'ais' })),
   ];
 }
 
@@ -192,11 +192,75 @@ export default function TrailLayer({ aircraft, vessels, apiBase, selected }) {
     vLinesRef.current[id] = [];
     if (points.length < 2) return;
 
-    // Always add to map — syncTrailVisibility handles show/hide on selection
-    vLinesRef.current[id] = buildAndAddSegments(
-      points, () => '#000000', 2.5, 0.80, map, true
-    );
-    // Immediately sync visibility if something is selected
+    // Split into local vs AISHub-tracked segments
+    const localPts = [];
+    const aishubPts = [];
+    let currentLocal = [];
+    let currentAishub = [];
+
+    for (const p of points) {
+      if (p.source_type === 'aishub_tracked') {
+        if (currentLocal.length > 0) {
+          localPts.push(currentLocal);
+          // Bridge: carry last local point into AISHub segment for continuity
+          currentAishub = [currentLocal[currentLocal.length - 1]];
+          currentLocal = [];
+        }
+        currentAishub.push(p);
+      } else {
+        if (currentAishub.length > 0) {
+          aishubPts.push(currentAishub);
+          // Bridge: carry last AISHub point into local segment
+          currentLocal = [currentAishub[currentAishub.length - 1]];
+          currentAishub = [];
+        }
+        currentLocal.push(p);
+      }
+    }
+    if (currentLocal.length > 0) localPts.push(currentLocal);
+    if (currentAishub.length > 0) aishubPts.push(currentAishub);
+
+    const allSegs = [];
+
+    // Render local segments (solid black)
+    for (const seg of localPts) {
+      if (seg.length >= 2) {
+        allSegs.push(...buildAndAddSegments(seg, () => '#000000', 2.5, 0.80, map, true));
+      }
+    }
+
+    // Render AISHub-tracked segments (dotted light blue)
+    for (const seg of aishubPts) {
+      if (seg.length >= 2) {
+        for (let i = 1; i < seg.length; i++) {
+          const p1 = seg[i-1], p2 = seg[i];
+          if (!p1.lat || !p1.lon || !p2.lat || !p2.lon) continue;
+          const line = L.polyline([[p1.lat, p1.lon], [p2.lat, p2.lon]], {
+            color: '#4fc3f7', weight: 2, opacity: 0.7,
+            dashArray: '6, 8', interactive: false,
+          });
+          line.addTo(map);
+          allSegs.push(line);
+        }
+      }
+    }
+
+    // Add course vector from last AISHub point (2-3nm dotted line)
+    const lastPoint = points[points.length - 1];
+    if (lastPoint.source_type === 'aishub_tracked' && lastPoint.heading && lastPoint.heading < 360) {
+      const hdgRad = lastPoint.heading * (Math.PI / 180);
+      const distDeg = 2.5 / NM_PER_DEG_LAT;  // ~2.5nm
+      const endLat = lastPoint.lat + distDeg * Math.cos(hdgRad);
+      const endLon = lastPoint.lon + (distDeg * Math.sin(hdgRad)) / Math.cos(lastPoint.lat * Math.PI / 180);
+      const courseVec = L.polyline(
+        [[lastPoint.lat, lastPoint.lon], [endLat, endLon]],
+        { color: '#4fc3f7', weight: 1.5, opacity: 0.6, dashArray: '4, 6', interactive: false }
+      );
+      courseVec.addTo(map);
+      allSegs.push(courseVec);
+    }
+
+    vLinesRef.current[id] = allSegs;
     syncTrailVisibility();
   };
 

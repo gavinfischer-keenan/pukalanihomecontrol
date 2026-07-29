@@ -236,6 +236,7 @@ function VesselEditForm({ mmsi, apiBase, initialData, onClose, onSaved }) {
   const [saving, setSaving]   = useState(false);
   const [error, setError]     = useState(null);
   const fileRef               = useRef();
+  const [trackDest, setTrackDest] = useState(!!initialData?.track_dest_return);
 
   function handleChange(key, val) {
     setForm(prev => ({ ...prev, [key]: val }));
@@ -299,6 +300,35 @@ function VesselEditForm({ mmsi, apiBase, initialData, onClose, onSaved }) {
             )}
           </div>
         ))}
+
+        {/* Track to destination — only for frequent visitors */}
+        {initialData?.auto_detected && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+            <input
+              type="checkbox"
+              id="trackDest"
+              checked={trackDest}
+              onChange={async (e) => {
+                const enabled = e.target.checked;
+                setTrackDest(enabled);
+                try {
+                  await fetch(`${apiBase}/api/vessel-info/${mmsi}/track-dest`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ enabled }),
+                  });
+                } catch (err) {
+                  console.error('track-dest toggle failed:', err);
+                  setTrackDest(!enabled); // revert on failure
+                }
+              }}
+              style={{ width: 16, height: 16, accentColor: '#4fc3f7' }}
+            />
+            <label htmlFor="trackDest" style={{ fontSize: 12, color: '#4fc3f7', cursor: 'pointer' }}>
+              🛰️ Track to destination and return (hourly AISHub updates)
+            </label>
+          </div>
+        )}
 
         {/* Photo upload + paste */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

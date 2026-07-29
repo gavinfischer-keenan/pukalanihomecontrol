@@ -84,9 +84,9 @@ export default function ReferenceObjects({ position }) {
 
   return (
     <>
-      <TricolorSpoke bearing={126} lengthMi={25} label="Left edge of ocean view" />
+      <TricolorSpoke bearing={130} lengthMi={25} label="Left edge of ocean view" />
       <Spoke bearing={151} lengthMi={25} color="#ffffff" label="White apartment building (The Regency)" />
-      <TricolorSpoke bearing={252} lengthMi={25} label="Waikiki high rises end / Ala Moana" />
+      <TricolorSpoke bearing={247} lengthMi={25} label="Waikiki high rises end / Ala Moana" />
       <Sector startBearing={195} endBearing={215} lengthMi={25} color="#f44336" label="Diamond Head (View Blocked)" />
     </>
   );
