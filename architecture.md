@@ -19,7 +19,7 @@ The Hawaii Tracker is a distributed edge computing system running on a Proxmox V
 - **CT106 (sdr-engine)**: Software Defined Radio orchestration.
 - **CT108 (dashboard)**: Node.js API (port 3001) & React/Vite Client (port 8080). (192.168.1.108)
 - **CT109 (alerts-engine)**: Webhooks and alerting rules (port 3009) receiving system events strictly from Home Assistant (VM100).
-- **CT110 (project-mgr)**: Git/project administration.
+- **CT110 (project-mgr)**: Hawaii Project Manager — Node.js API (port 3001) & React/Vite Client (192.168.1.110). Vendor/Owner CRM, task tracking, Gantt timeline, daily tasks, maintenance log, event log, shopping list. GitHub: `gavinfischer-keenan/ProjectManagement`.
 - **CT111 (nrsc5-engine)**: HD Radio / TMC pipeline.
 - **CT112 (birdnet)**: Docker `birdnet_go` (port 8080) acoustic analysis with RTSP audio stream ingestion.
 - **CT113 (frigate)**: Docker Frigate NVR v0.17 with Google Coral USB Edge TPU acceleration. Object detection: person, car, cat, dog, bird, package.
