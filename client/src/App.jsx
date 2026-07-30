@@ -134,28 +134,33 @@ function usePollWhenEnabled(url, interval, enabled) {
 }
 
 
-// ── Kiosk Zoom Cycler (auto-cycles zoom when in iframe) ──────
+// ── Kiosk Zoom Controller (freezes zoom when in iframe) ──────
+// URL params: ?zoom=13 (fixed zoom level), ?center=21.24,-157.79
 function KioskZoomCycler() {
   const map = useMap();
   useEffect(() => {
     const inIframe = window.self !== window.top;
     if (!inIframe) return;
 
-    const ZOOM_LEVELS = [
-      { zoom: 13, center: [21.24,   -157.79]   },
-      { zoom: 14, center: [21.24,   -157.79]   },
-      { zoom: 15, center: [21.24,   -157.79]   },
-    ];
-    let idx = 0;
+    // Parse URL params for fixed zoom/center
+    const params = new URLSearchParams(window.location.search);
+    const fixedZoom = parseInt(params.get('zoom'));
+    const centerParam = params.get('center');
+    const center = centerParam
+      ? centerParam.split(',').map(Number)
+      : [21.24, -157.79];
 
-    const cycle = () => {
-      idx = (idx + 1) % ZOOM_LEVELS.length;
-      const { zoom, center } = ZOOM_LEVELS[idx];
-      map.flyTo(center, zoom, { duration: 1.5 });
-    };
-
-    const timer = setInterval(cycle, 15000);
-    return () => clearInterval(timer);
+    if (fixedZoom && !isNaN(fixedZoom)) {
+      // Fixed zoom mode — set once, disable user interaction
+      map.setView(center, fixedZoom, { animate: false });
+      map.dragging.disable();
+      map.touchZoom.disable();
+      map.doubleClickZoom.disable();
+      map.scrollWheelZoom.disable();
+      map.boxZoom.disable();
+      map.keyboard.disable();
+    }
+    // No cycling — kiosk displays stay at their fixed zoom
   }, [map]);
 
   return null;
