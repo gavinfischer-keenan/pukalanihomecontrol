@@ -103,3 +103,26 @@ the RTL-SDR Blog V4 USB bulk transfer (`worker cond timeout`).
 
 **Lesson**: Never allow runtime sample rate renegotiation between rtl_tcp and its clients.
 The initial rate must match what the client will request.
+
+### Resilience System (2026-07-29)
+
+Three-layer resilience system for automated recovery from network/USB disruptions:
+
+#### 1. Health Banner (`client/src/components/HealthBanner.jsx`)
+- Polls `/api/health` every 60 seconds
+- Displays amber/red degradation banners when AIS, ADS-B, or database are offline
+- Dismissible but returns on next poll if still degraded
+- Glassmorphism styling with slide-down animation
+
+#### 2. SDR Scheduler USB Escalation (`/opt/sdr-scheduler/sdr-scheduler.sh`)
+- Failure counter tracking in `/tmp/sdr-watchdog-failures`
+- Escalation: Failures 1-2 → service restart; Failure 3 → USB IOCTL hard reset + HA notification; Failure 5+ → critical alert (physical replug needed)
+- `USBDEVFS_RESET` ioctl via python3 + sysfs unbind/rebind
+- Auto-resets failure counter when messages start flowing
+
+#### 3. Network Recovery Nanny (`/opt/hawaii-nanny/network-recovery.sh`)
+- Systemd timer runs every 2 minutes on Proxmox host
+- Checks: gateway ping, DNS resolution, container connectivity, service health, USB device audit
+- Auto-recovery: restarts networking/services, full recovery on gateway state change
+- HA notifications for USB device loss and network disruptions
+- State tracking in `/tmp/hawaii-nanny/` (gateway, usb_blog_v4, usb_adsb)

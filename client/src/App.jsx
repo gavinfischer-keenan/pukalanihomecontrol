@@ -27,6 +27,7 @@ import EcowittLayer, { EcowittFloatingPanel } from './components/EcowittLayer';
 import MapEventTracker    from './components/MapEventTracker';
 import Legend             from './components/Legend';
 import ErrorBoundary      from './components/ErrorBoundary';
+import HealthBanner       from './components/HealthBanner';
 // NWS/NOAA is a fully separate app at /nws/ — no imports here
 import FrequentVisitorsSidebar from './components/FrequentVisitorsSidebar';
 import BathySoundings from './components/BathySoundings';
@@ -322,6 +323,7 @@ function App() {
 
   return (
     <div className="app-root">
+      <HealthBanner />
       <MapContainer
         center={OAHU_CENTER} zoom={10} className="main-map"
         zoomControl={false} maxBounds={[[17.5,-163],[25,-152]]} minZoom={7} maxZoom={17}
