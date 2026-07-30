@@ -88,6 +88,36 @@ The Hawaii Tracker is a distributed edge computing system running on a Proxmox V
 - **Dual Projection Controller (`display-projection-app`)**: Multi-display React web application supporting Virtual Box Layout selection (1-Up, 2-Up, 3-Up, 4-Up), per-widget configuration panels, box content assignment, live screen mirrors, and Home Assistant alert rendering.
 - **CT114 Services**: `display-server` (port 3000, camera grid kiosk), `utilities` (port 3114, PDF Maker/Shrinker), `photo-chrono` (port 7777, Photo Chronologizer), `nrsc5-engine` (HD Radio).
 
+
+### Display Remote Overhaul (v2)
+
+The display server remote (`http://192.168.1.114:3000/#remote`) supports the following features:
+
+**Views Available**:
+- **📹 Camera Grid** — Frigate camera feeds via go2rtc MJPEG with snapshot fallback
+- **🚢 Vessel Tracker** — Live Hawaii Dashboard map centered on Pukalani (21.2855, -157.7969), 25nm ring at screen bottom
+- **🌤️ Weather Loops** — Full-screen NOAA satellite imagery cycler with configurable per-loop dwell time (10-120s, default 30s). Sources from dashboard API `/api/nws/loops`.
+- **🏠 House Status** — Coming Soon placeholder
+
+**Removed Views**: BirdNET Detections, Aircraft Radar
+
+**Layout Modes**: Full Screen, 2-Up Side by Side, 2-Up Stacked, 3-Up (Top Big), 3-Up (Left Big), 4-Up Grid, **Cycle Mode**
+
+**Per-Slot Camera Selection**: Each layout slot with cameras assigned gets its own independent camera picker (bug fix — previously all slots shared one camera list).
+
+**Cycle Mode**: Full-screen auto-cycling through a configurable list of views. Each cycle step has:
+- Independent view type selection
+- Per-view configuration (camera selection, weather dwell time, etc.)
+- Configurable dwell time per step (5-600 seconds)
+- Reorderable via up/down arrows
+- Smooth crossfade transitions between steps
+
+**State Structure**: Cycle steps stored as `${displayId}CycleSteps` array in the shared state JSON. Per-slot configs stored as `${displayId}SlotConfigs.${slotId}`.
+
+**Tests**: `/opt/display-server/tests/display-server.test.js` — 14 tests covering views, per-slot config, cycle mode, weather dwell, state structure. Run: `cd /opt/display-server && npx vitest run`
+
+**Source**: Version-controlled at `infra/ct114-display-server/` in the dashboard repo.
+
 ## Auto-Recovery & Health Monitoring
 - **Service Watchdog** (`/opt/service-watchdog.sh` on Proxmox host, cron */5): Monitors critical services on CT105 (tracker-engine, ais-collector), CT108 (port 3001 API), CT114 (display-server, utilities, photo-chrono, nrsc5-engine), and host (corner-kiosk dual HDMI). Checks both Chromium processes (main TV + corner) and HDMI-1 xrandr status. Auto-restarts dead services, re-enables disconnected displays, and refreshes kiosk browsers on display-server recovery.
 - **DB Auto-Reconnect**: `tracker-engine` and `ais-collector` catch `psycopg2.InterfaceError`/`OperationalError` in polling loops, safely close dead connections, and re-establish via `get_db_connection()` with exponential backoff.
