@@ -6,7 +6,7 @@ The Hawaii Tracker is a distributed edge computing system running on a Proxmox V
 ## Proxmox Host
 - **IP**: 192.168.1.100
 - **Roles**: Hypervisor, hardware passthrough, cron health checks, USB handling, dual HDMI output display driver.
-- **Physical HDMI Kiosk**: `corner-kiosk.service` (systemd) runs X11 + Chromium kiosk on tty1 loading `http://192.168.1.8:3000/#corner`.
+- **Physical HDMI Kiosk**: `corner-kiosk.service` (systemd) runs X11 + Chromium kiosk on tty1 loading `http://192.168.1.114:3000/#corner`.
 
 ## Virtual Machines & Containers
 - **CT101 (brain)**: Internal processing logic.
@@ -65,9 +65,11 @@ The Hawaii Tracker is a distributed edge computing system running on a Proxmox V
 - **Google Coral Edge TPU**: USB accelerator (`Bus 002, Device 005, ID 18d1:9302`) passed through to CT113 via LXC cgroup (`c 189:* rwm`). Real-time inference at 320×320 for person, car, cat, dog, bird, package detection.
 - **Zigbee Dongle (Sonoff 3.0 Plus V2)**: Passed to VM100 (HAOS). Fixed at physical USB path `1-6.3`.
 - **AIS Receiver (Qudinip CP210x)**: Host bound via udev symlink `/dev/ttyAIS`. `ais-host-forwarder` reads serial and sends UDP.
-- **Dell Host Dual HDMI Outputs**:
-  - **HDMI 1 (Small Monitor in Corner)**: Chromium kiosk (`corner-kiosk.service`) loading `http://192.168.1.8:3000/#corner`. Virtual Box Layout Engine with per-widget configuration.
-  - **HDMI 2 (Main TV in Room)**: Virtual Box Layout Engine. Awaiting HDMI cable connection.
+- **Dell Host Dual HDMI Outputs** (both managed by `corner-kiosk.service` via `/opt/corner-kiosk/start-kiosk.sh`):
+  - **HDMI-1 (Corner Monitor, 1920x1080)**: Chromium kiosk loading `http://192.168.1.114:3000/#corner`. User data: `/tmp/chromium-corner-data`. Window position: 3840,0.
+  - **HDMI-3 (Main TV, 3840x2160)**: Chromium kiosk loading `http://192.168.1.114:3000/#maintv`. User data: `/tmp/chromium-kiosk-user-data`. Window position: 0,0.
+  - **Virtual framebuffer**: 5760x2160 (HDMI-3 left + HDMI-1 right).
+  - **Recovery**: `service-watchdog.sh` (cron */5) monitors both Chromium processes and HDMI-1 xrandr status. `network-recovery.sh` (systemd timer, every 2min) restarts kiosk on full recovery. Both detect and re-enable HDMI-1 if reconnected.
 
 ## Data & Media Pipelines
 1. **Camera Audio Pipeline**: Aqara RTSP streams (`rtsp://...192.168.1.32:8554/1080p` and `rtsp://...192.168.1.33:8554/1080p`) → FFmpeg audio decode → BirdNET Go (CT112) → Acoustic species detection → SQLite DB & SSE real-time stream.
@@ -87,7 +89,7 @@ The Hawaii Tracker is a distributed edge computing system running on a Proxmox V
 - **CT114 Services**: `display-server` (port 3000, camera grid kiosk), `utilities` (port 3114, PDF Maker/Shrinker), `photo-chrono` (port 7777, Photo Chronologizer), `nrsc5-engine` (HD Radio).
 
 ## Auto-Recovery & Health Monitoring
-- **Service Watchdog** (`/opt/service-watchdog.sh` on Proxmox host, cron */5): Monitors critical services on CT105 (tracker-engine, ais-collector), CT108 (port 3001 API), and CT114 (display-server, utilities, photo-chrono, nrsc5-engine). Auto-restarts dead services and logs to `/var/log/service-watchdog.log`. Refreshes kiosk browser on display-server recovery.
+- **Service Watchdog** (`/opt/service-watchdog.sh` on Proxmox host, cron */5): Monitors critical services on CT105 (tracker-engine, ais-collector), CT108 (port 3001 API), CT114 (display-server, utilities, photo-chrono, nrsc5-engine), and host (corner-kiosk dual HDMI). Checks both Chromium processes (main TV + corner) and HDMI-1 xrandr status. Auto-restarts dead services, re-enables disconnected displays, and refreshes kiosk browsers on display-server recovery.
 - **DB Auto-Reconnect**: `tracker-engine` and `ais-collector` catch `psycopg2.InterfaceError`/`OperationalError` in polling loops, safely close dead connections, and re-establish via `get_db_connection()` with exponential backoff.
 - **DB Maintenance** (`/opt/db-maintenance.sh` on CT104, cron 0 4 daily): Prunes `live_tracks` (AIS >48h, ADS-B >1h, NULL source_type), `track_history` (>7 days), VACUUM ANALYZE.
 

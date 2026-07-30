@@ -122,6 +122,22 @@ check_services() {
     LOG "FAIL: tracker-engine not running — restarting"
     pct exec 105 -- systemctl restart tracker-engine 2>/dev/null || true
   fi
+
+  # Corner kiosk (dual HDMI display)
+  if ! systemctl is-active --quiet corner-kiosk 2>/dev/null; then
+    LOG "FAIL: corner-kiosk not running — restarting"
+    systemctl restart corner-kiosk 2>/dev/null || true
+  elif ! pgrep -f 'chromium-corner-data' >/dev/null 2>&1; then
+    # Kiosk service is running but corner browser died
+    LOG "FAIL: Corner monitor browser missing — full kiosk restart"
+    systemctl restart corner-kiosk 2>/dev/null || true
+  fi
+
+  # Display server (CT114)
+  if ! pct exec 114 -- systemctl is-active --quiet display-server 2>/dev/null; then
+    LOG "FAIL: display-server not running — restarting"
+    pct exec 114 -- systemctl restart display-server 2>/dev/null || true
+  fi
 }
 
 # ── Check 5: USB Device Audit ────────────────────────────────────────────────
@@ -190,6 +206,11 @@ run_full_recovery() {
 
   # Dashboard (needs DB)
   pct exec 108 -- pm2 restart all 2>/dev/null || true
+
+  # Kiosk displays (depend on CT114 display-server via network)
+  pct exec 114 -- systemctl restart display-server 2>/dev/null || true
+  sleep 3
+  systemctl restart corner-kiosk 2>/dev/null || true
 
   # 3. USB audit
   check_usb
