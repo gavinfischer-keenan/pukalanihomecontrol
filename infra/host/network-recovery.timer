@@ -1,0 +1,11 @@
+[Unit]
+Description=Hawaii Network Recovery Nanny Timer (every 2 minutes)
+Requires=network-recovery.service
+
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=120
+AccuracySec=10
+
+[Install]
+WantedBy=timers.target

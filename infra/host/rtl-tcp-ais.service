@@ -1,0 +1,18 @@
+[Unit]
+Description=RTL-SDR TCP Server (Blog V4 — AIS)
+Documentation=https://github.com/osmocom/rtl-sdr
+After=network.target
+# Runs on Proxmox host — no USB passthrough headaches
+
+[Service]
+Type=simple
+User=root
+Restart=no
+RestartSec=10
+SuccessExitStatus=1
+# Select Blog V4 by serial number so we never accidentally grab the ADS-B stick
+# Sample rate 2.4 MHz, gain auto, bind all interfaces, port 1234
+ExecStart=/usr/bin/rtl_tcp -d 00000001 -a 0.0.0.0 -p 1234 -s 1536000 -g 0
+
+[Install]
+WantedBy=multi-user.target

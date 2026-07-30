@@ -1,0 +1,13 @@
+[Unit]
+Description=Hawaii Network Recovery Nanny
+Documentation=file:///opt/dashboard/architecture.md
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/hawaii-nanny/network-recovery.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

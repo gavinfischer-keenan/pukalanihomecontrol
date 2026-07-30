@@ -126,3 +126,22 @@ Three-layer resilience system for automated recovery from network/USB disruption
 - Auto-recovery: restarts networking/services, full recovery on gateway state change
 - HA notifications for USB device loss and network disruptions
 - State tracking in `/tmp/hawaii-nanny/` (gateway, usb_blog_v4, usb_adsb)
+
+### Trail Display Fix — AISHub Vessels (2026-07-29)
+
+**Problem**: AISHub-sourced vessels (like TORM THOR) had track_history data but trails didn't render when selected.
+
+**Root cause**: `TrailLayer` only received local DB-tracked vessels, not the merged list including AISHub nearby vessels. When an AISHub vessel was selected, TrailLayer never fetched its trail from `/api/trails/:id`.
+
+**Fix**: Created `allVessels` via `useMemo()` — a single merged+deduped list of local vessels and AISHub nearby vessels — and passed it to both `TrailLayer` and `VesselLayer`. This also DRYed up the inline IIFE dedup that was previously in VesselLayer.
+
+### Infrastructure Scripts — Version Control (2026-07-29)
+
+Host-level infrastructure scripts are now version-controlled in the dashboard repo under `infra/`:
+- `infra/host/sdr-scheduler.sh` — SDR time-share scheduler with USB escalation
+- `infra/host/sdr-scheduler.service` — systemd unit
+- `infra/host/network-recovery.sh` — Network topology change recovery nanny
+- `infra/host/network-recovery.service` — systemd unit
+- `infra/host/network-recovery.timer` — 2-minute timer
+- `infra/host/rtl-tcp-ais.service` — RTL-SDR TCP server for AIS
+- `infra/ct106/ais-catcher.service` — AIS-catcher decoder service

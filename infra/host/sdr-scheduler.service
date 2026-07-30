@@ -1,0 +1,18 @@
+[Unit]
+Description=SDR Time-Share Scheduler (AIS / HD Radio)
+After=network-online.target rtl-tcp-ais.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Restart=always
+RestartSec=30
+EnvironmentFile=-/opt/sdr-scheduler/config.env
+ExecStart=/opt/sdr-scheduler/sdr-scheduler.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sdr-scheduler
+
+[Install]
+WantedBy=multi-user.target

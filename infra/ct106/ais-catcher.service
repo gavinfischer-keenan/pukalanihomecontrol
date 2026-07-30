@@ -1,0 +1,17 @@
+﻿[Unit]
+Description=AIS-catcher - RTL-SDR Blog V4 AIS Decoder
+Documentation=https://github.com/jvde-github/AIS-catcher
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Restart=always
+RestartSec=15
+# -u 192.168.1.105 10110  → tracker-engine (internal processing)
+# -u 144.76.105.244 2828  → AISHub (share & receive enriched global feed)
+ExecStart=/bin/AIS-catcher -s 1536000 -t 192.168.1.100 1234 -v 60 -u 192.168.1.105 10110 -u 144.76.105.244 2828 -q -X off
+
+[Install]
+WantedBy=multi-user.target
