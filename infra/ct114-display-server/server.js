@@ -257,9 +257,13 @@ wss.on('connection', (ws, req) => {
     }
   });
 
-  ws.on('close', () => {
+  ws.on('error', (err) => {
+    console.error(`[WS] Error from ${ip}: ${err.message}`);
+  });
+
+  ws.on('close', (code, reason) => {
     connectedDisplays.delete(displayId);
-    console.log(`[WS] Client disconnected: ${ip}`);
+    console.log(`[WS] Client disconnected: ${ip} (code=${code}, reason=${reason || 'none'})`);
   });
 });
 

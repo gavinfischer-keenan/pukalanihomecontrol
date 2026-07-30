@@ -16,7 +16,7 @@ export const DASHBOARD_URL = 'http://192.168.1.108:8080';
 // Default vessel tracker settings
 export const VESSEL_DEFAULTS = {
   zoom: 10,
-  center: `${HOME_BASE.lat},${HOME_BASE.lon}`,
+  center: `21.2500,${HOME_BASE.lon}`,  // 2.5mi south of Pukalani (default)
 };
 
 // View definitions — labels for the Remote UI
@@ -29,6 +29,7 @@ export const VIEW_REGISTRY = [
 
 // Map center presets for the vessel tracker UI
 export const CENTER_PRESETS = [
-  { id: 'home',  label: 'Home — Pukalani',  lat: HOME_BASE.lat, lon: HOME_BASE.lon },
-  { id: 'oahu',  label: 'Oahu Center',      lat: 21.3069,       lon: -157.8583 },
+  { id: 'south25', label: '2.5mi South of Pukalani', lat: 21.2500, lon: HOME_BASE.lon },
+  { id: 'home',    label: 'Home — Pukalani',         lat: HOME_BASE.lat, lon: HOME_BASE.lon },
+  { id: 'oahu',    label: 'Oahu Center',             lat: 21.3069,       lon: -157.8583 },
 ];
