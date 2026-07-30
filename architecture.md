@@ -95,7 +95,7 @@ The display server remote (`http://192.168.1.114:3000/#remote`) supports the fol
 
 **Views Available**:
 - **📹 Camera Grid** — Frigate camera feeds via go2rtc MJPEG with snapshot fallback
-- **🚢 Vessel Tracker** — Live Hawaii Dashboard map centered on Pukalani (21.2855, -157.7969), 25nm ring at screen bottom
+- **🚢 Vessel Tracker** — Live Hawaii Dashboard map centered on Pukalani (21.24, -157.79). Zoom is fixed per display: corner monitor=13 (overview), main TV=15 (detail). Map interaction (pan/zoom/scroll) disabled in kiosk mode. URL params: `?zoom=N&center=lat,lon`
 - **🌤️ Weather Loops** — Full-screen NOAA satellite imagery cycler with configurable per-loop dwell time (10-120s, default 30s). Sources from dashboard API `/api/nws/loops`.
 - **🏠 House Status** — Coming Soon placeholder
 
