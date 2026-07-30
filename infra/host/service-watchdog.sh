@@ -1,13 +1,13 @@
 #!/bin/bash
-# CT114 and CT105 Service Health Watchdog
-# Ensures critical services remain running.
-# Intended to run every 5 minutes via cron on the Proxmox host.
-# If a service is found dead, it restarts it and logs the event.
+# Service Health Watchdog
+# Ensures critical services remain running across all containers.
+# Runs every 5 minutes via cron on the Proxmox host.
 
 LOG="/var/log/service-watchdog.log"
-SERVICES="display-server utilities photo-chrono nrsc5-engine"
 
-for svc in $SERVICES; do
+# ── CT114 Services ──
+SERVICES_114="display-server utilities photo-chrono nrsc5-engine"
+for svc in $SERVICES_114; do
     status=$(pct exec 114 -- systemctl is-active "$svc" 2>/dev/null)
     if [ "$status" != "active" ]; then
         echo "$(date '+%Y-%m-%d %H:%M:%S') [WATCHDOG] $svc is $status — restarting..." >> "$LOG"
@@ -16,17 +16,17 @@ for svc in $SERVICES; do
         new_status=$(pct exec 114 -- systemctl is-active "$svc" 2>/dev/null)
         echo "$(date '+%Y-%m-%d %H:%M:%S') [WATCHDOG] $svc restart result: $new_status" >> "$LOG"
 
-        # If display-server was restarted, also refresh kiosk browsers
+        # If display-server was restarted, reload kiosk browsers via WebSocket
         if [ "$svc" = "display-server" ] && [ "$new_status" = "active" ]; then
             sleep 3
-            # Refresh both kiosk browsers (main TV + corner monitor)
-            DISPLAY=:0 xdotool key F5 2>/dev/null
-            echo "$(date '+%Y-%m-%d %H:%M:%S') [WATCHDOG] Refreshed kiosk browsers after display-server recovery" >> "$LOG"
+            curl -s -X POST http://192.168.1.114:3000/api/reload >/dev/null 2>&1 || true
+            echo "$(date '+%Y-%m-%d %H:%M:%S') [WATCHDOG] Sent reload to kiosk browsers after display-server recovery" >> "$LOG"
         fi
     fi
 done
 
-SERVICES_105="tracker-engine ais-collector"
+# ── CT105 Services ──
+SERVICES_105="tracker-engine ais-collector adsb-collector"
 for svc in $SERVICES_105; do
     status=$(pct exec 105 -- systemctl is-active "$svc" 2>/dev/null)
     if [ "$status" != "active" ]; then
@@ -38,7 +38,7 @@ for svc in $SERVICES_105; do
     fi
 done
 
-# CT108 Dashboard API
+# ── CT108 Dashboard API ──
 if ! pct exec 108 -- ss -tln | grep -q ":3001 "; then
     echo "$(date '+%Y-%m-%d %H:%M:%S') [WATCHDOG] CT108 port 3001 not listening — restarting hawaii-api..." >> "$LOG"
     pct exec 108 -- pm2 restart hawaii-api 2>/dev/null
@@ -50,8 +50,25 @@ if ! pct exec 108 -- ss -tln | grep -q ":3001 "; then
     fi
 fi
 
-# ── Dual HDMI Kiosk Health ────────────────────────────────────────────────────
-# Ensures corner-kiosk.service is running and both Chromium instances are alive
+# ── CT115 Expense Tracker (DHCP — check via pct exec) ──
+if pct status 115 2>/dev/null | grep -q 'running'; then
+    expense_running=$(pct exec 115 -- pm2 jlist 2>/dev/null | python3 -c 'import sys,json; procs=json.load(sys.stdin); print("yes" if any(p["pm2_env"]["status"]=="online" for p in procs) else "no")' 2>/dev/null || echo "no")
+    if [ "$expense_running" != "yes" ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [WATCHDOG] CT115 expense-api not running — restarting..." >> "$LOG"
+        pct exec 115 -- pm2 resurrect 2>/dev/null || pct exec 115 -- bash -c 'cd /opt/expense-tracker && pm2 start server.js --name expense-api' 2>/dev/null || true
+        sleep 2
+        echo "$(date '+%Y-%m-%d %H:%M:%S') [WATCHDOG] CT115 expense-api restart attempted" >> "$LOG"
+    fi
+else
+    # CT115 not running at all — start it
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [WATCHDOG] CT115 not running — starting container..." >> "$LOG"
+    pct start 115 2>/dev/null || true
+    sleep 10
+    pct exec 115 -- pm2 resurrect 2>/dev/null || true
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [WATCHDOG] CT115 started" >> "$LOG"
+fi
+
+# ── Dual HDMI Kiosk Health ──
 if ! systemctl is-active --quiet corner-kiosk 2>/dev/null; then
     echo "$(date '+%Y-%m-%d %H:%M:%S') [WATCHDOG] corner-kiosk service is dead — restarting..." >> "$LOG"
     systemctl restart corner-kiosk 2>/dev/null
@@ -73,7 +90,6 @@ else
     # Verify HDMI-1 (corner) is still active via xrandr
     CORNER_ACTIVE=$(DISPLAY=:0 xrandr 2>/dev/null | grep '^HDMI-1 connected [0-9]' | wc -l)
     if [ "$CORNER_ACTIVE" -eq 0 ] 2>/dev/null; then
-        # Corner monitor may have been reconnected — re-enable display
         DISPLAY=:0 xrandr --output HDMI-3 --mode 3840x2160 --pos 0x0 \
           --output HDMI-1 --auto --right-of HDMI-3 2>/dev/null
         if DISPLAY=:0 xrandr 2>/dev/null | grep -q '^HDMI-1 connected [0-9]'; then
@@ -81,4 +97,10 @@ else
             systemctl restart corner-kiosk 2>/dev/null
         fi
     fi
+fi
+
+# ── HDMI Watchdog ──
+if ! systemctl is-active --quiet hdmi-watchdog 2>/dev/null; then
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [WATCHDOG] hdmi-watchdog not running — restarting..." >> "$LOG"
+    systemctl start hdmi-watchdog 2>/dev/null || true
 fi

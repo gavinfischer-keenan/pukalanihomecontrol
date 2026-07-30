@@ -120,7 +120,36 @@ The display server remote (`http://192.168.1.114:3000/#remote`) supports the fol
 **Source**: Version-controlled at `infra/ct114-display-server/` in the dashboard repo.
 
 ## Auto-Recovery & Health Monitoring
-- **Service Watchdog** (`/opt/service-watchdog.sh` on Proxmox host, cron */5): Monitors critical services on CT105 (tracker-engine, ais-collector), CT108 (port 3001 API), CT114 (display-server, utilities, photo-chrono, nrsc5-engine), and host (corner-kiosk dual HDMI). Checks both Chromium processes (main TV + corner) and HDMI-1 xrandr status. Auto-restarts dead services, re-enables disconnected displays, and refreshes kiosk browsers on display-server recovery.
+
+### Service Watchdog (`/opt/service-watchdog.sh`, cron */5)
+Monitors all critical services across all containers:
+- **CT105**: tracker-engine, ais-collector, adsb-collector
+- **CT108**: Dashboard API (port 3001)
+- **CT114**: display-server, utilities, photo-chrono, nrsc5-engine
+- **CT115**: expense-tracker (pm2 expense-api, DHCP at .28)
+- **Host**: corner-kiosk (dual HDMI), hdmi-watchdog, Chromium processes
+- Uses `/api/reload` WebSocket endpoint (not xdotool) for reliable kiosk browser refresh after display-server recovery
+
+### HDMI Watchdog (`/opt/corner-kiosk/hdmi-watchdog.sh`, systemd)
+Every 60 seconds, checks if HDMI-3 (main TV) has an active resolution. If the i915 GPU drops the PHY reference clock, the watchdog re-applies `xrandr` to recover signal. Kernel params `i915.enable_dc=0 i915.enable_psr=0` in GRUB prevent most drops.
+
+### Post-Boot Sequencing (`/opt/hawaii-nanny/post-boot.sh`, @reboot)
+After a full power cycle, brings up the entire stack in dependency order:
+1. Wait for network (gateway pingable, 120s timeout)
+2. Wait for PostgreSQL (CT104, pg_isready, 60s)
+3. Start CT105 services (tracker, ais-collector, adsb-collector)
+4. Wait for Dashboard API (CT108, 60s)
+5. Start display-server (CT114), expense-tracker (CT115)
+6. Start corner-kiosk + send /api/reload
+7. Start HDMI watchdog + SDR scheduler
+8. USB device audit + full status summary
+
+### Subnet Migration (`/opt/hawaii-nanny/subnet-migrate.sh`)
+For new router scenarios. Usage: `subnet-migrate.sh 192.168.1 192.168.0`. Reconfigures all container static IPs in Proxmox LXC configs, updates service config files containing IP references, rebuilds the display-server frontend, and restarts all containers. The network-recovery nanny auto-detects subnet changes and alerts via HA notification.
+
+### Network Recovery Nanny (`/opt/hawaii-nanny/network-recovery.sh`, timer */2min)
+Auto-detects gateway via `ip route`. Monitors gateway, DNS, container connectivity (via pct exec, not IP ping), service health, and USB devices. On gateway state change, runs full recovery sequence. Detects subnet changes and alerts.
+
 - **DB Auto-Reconnect**: `tracker-engine` and `ais-collector` catch `psycopg2.InterfaceError`/`OperationalError` in polling loops, safely close dead connections, and re-establish via `get_db_connection()` with exponential backoff.
 - **DB Maintenance** (`/opt/db-maintenance.sh` on CT104, cron 0 4 daily): Prunes `live_tracks` (AIS >48h, ADS-B >1h, NULL source_type), `track_history` (>7 days), VACUUM ANALYZE.
 

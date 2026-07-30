@@ -2,6 +2,11 @@
 # /opt/hawaii-nanny/network-recovery.sh
 # Network topology change detection and auto-recovery.
 # Runs via systemd timer every 2 minutes on Proxmox host.
+#
+# RESILIENCE: Auto-detects gateway from routing table. If a new router is
+# connected with a different gateway IP or subnet, this script adapts
+# automatically. Container checks use pct exec (not IP ping) as fallback
+# when IPs may have shifted.
 
 set -uo pipefail
 
@@ -10,6 +15,31 @@ STATE_DIR="/tmp/hawaii-nanny"
 mkdir -p "$STATE_DIR"
 
 LOG() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOGFILE"; }
+
+# ── Gateway & Subnet Auto-Detection ─────────────────────────────────────────
+detect_gateway() {
+  local gw
+  gw=$(ip route 2>/dev/null | awk '/default/ {print $3; exit}')
+  echo "${gw:-}"
+}
+
+detect_subnet() {
+  # Returns subnet prefix like "192.168.1" from the host's IP on vmbr0
+  ip -4 addr show vmbr0 2>/dev/null | awk '/inet / {print $2}' | cut -d'/' -f1 | awk -F. '{print $1"."$2"."$3}'
+}
+
+GATEWAY=$(detect_gateway)
+SUBNET=$(detect_subnet)
+
+# Check for subnet change (new router scenario)
+PREV_SUBNET=$(cat "$STATE_DIR/subnet" 2>/dev/null || echo "")
+if [ -n "$SUBNET" ] && [ -n "$PREV_SUBNET" ] && [ "$SUBNET" != "$PREV_SUBNET" ]; then
+  LOG "!!! SUBNET CHANGED: $PREV_SUBNET -> $SUBNET (new router detected?)"
+  LOG "!!! Container static IPs may need reconfiguration!"
+  LOG "!!! Run: /opt/hawaii-nanny/subnet-migrate.sh $PREV_SUBNET $SUBNET"
+  notify_ha "Subnet Changed!" "Network subnet changed from $PREV_SUBNET to $SUBNET. Container IPs may need reconfiguration. Run subnet-migrate.sh" "critical"
+fi
+[ -n "$SUBNET" ] && echo "$SUBNET" > "$STATE_DIR/subnet"
 
 # ── HA Notification ──────────────────────────────────────────────────────────
 notify_ha() {
@@ -20,16 +50,21 @@ notify_ha() {
     curl -s -o /dev/null -X POST "http://192.168.1.19:8123/api/services/persistent_notification/create" \
       -H "Authorization: Bearer $token" \
       -H "Content-Type: application/json" \
-      -d "{\"title\":\"Network Nanny [$level]\",\"message\":\"$msg\",\"notification_id\":\"nanny_${level}_$(date +%s)\"}" 2>/dev/null || true
+      -d "{\"notification_id\":\"hawaii_nanny_$(date +%s)\",\"title\":\"[Hawaii] $title\",\"message\":\"$msg\"}" \
+      2>/dev/null || true
   fi
-  LOG "NOTIFY [$level]: $title — $msg"
 }
 
-# ── Check 1: Gateway ─────────────────────────────────────────────────────────
+# ── Check 1: Gateway ────────────────────────────────────────────────────────
 check_gateway() {
-  if ! ping -c1 -W3 192.168.1.1 &>/dev/null; then
-    LOG "FAIL: Gateway 192.168.1.1 unreachable"
-    # Network is down — no point checking anything else
+  if [ -z "$GATEWAY" ]; then
+    LOG "FAIL: No default gateway detected — network not configured"
+    echo "down" > "$STATE_DIR/gateway"
+    return 1
+  fi
+
+  if ! ping -c1 -W3 "$GATEWAY" &>/dev/null; then
+    LOG "FAIL: Gateway $GATEWAY unreachable"
     local prev_state=$(cat "$STATE_DIR/gateway" 2>/dev/null || echo "up")
     echo "down" > "$STATE_DIR/gateway"
     if [ "$prev_state" = "up" ]; then
@@ -39,8 +74,9 @@ check_gateway() {
   else
     local prev_state=$(cat "$STATE_DIR/gateway" 2>/dev/null || echo "up")
     echo "up" > "$STATE_DIR/gateway"
+    echo "$GATEWAY" > "$STATE_DIR/gateway_ip"
     if [ "$prev_state" = "down" ]; then
-      LOG "RECOVERED: Gateway back online — running full recovery"
+      LOG "RECOVERED: Gateway $GATEWAY back online — running full recovery"
       run_full_recovery
     fi
     return 0
@@ -51,7 +87,6 @@ check_gateway() {
 check_dns() {
   if ! host github.com &>/dev/null && ! host google.com &>/dev/null; then
     LOG "FAIL: DNS resolution failing"
-    # Try restarting systemd-resolved on host
     systemctl restart systemd-resolved 2>/dev/null || true
     sleep 2
     if host google.com &>/dev/null; then
@@ -65,32 +100,37 @@ check_dns() {
 }
 
 # ── Check 3: Container Connectivity ──────────────────────────────────────────
+# Uses pct exec as primary check (works regardless of IP/subnet changes)
 check_containers() {
   local failed=0
-  # Note: CT112 and CT115 use DHCP — check via pct exec instead of ping
-  for ct_ip in "102:192.168.1.102" "104:192.168.1.104" "105:192.168.1.105" \
-               "106:192.168.1.106" "108:192.168.1.108" "109:192.168.1.109" \
-               "110:192.168.1.110" "114:192.168.1.114"; do
-    local ct="${ct_ip%%:*}" ip="${ct_ip##*:}"
-    if ! ping -c1 -W2 "$ip" &>/dev/null; then
-      LOG "FAIL: CT$ct ($ip) unreachable"
-      # Try restarting networking inside the container
-      pct exec "$ct" -- systemctl restart systemd-networkd 2>/dev/null || true
-      sleep 2
-      if ping -c1 -W2 "$ip" &>/dev/null; then
-        LOG "FIXED: CT$ct networking restored"
+  for ct in 102 104 105 106 108 109 110 114 115; do
+    # Check if container is running at all
+    if ! pct status "$ct" 2>/dev/null | grep -q 'running'; then
+      LOG "FAIL: CT$ct not running — attempting start"
+      pct start "$ct" 2>/dev/null || true
+      sleep 5
+      if pct status "$ct" 2>/dev/null | grep -q 'running'; then
+        LOG "FIXED: CT$ct started"
       else
-        LOG "WARN: CT$ct still unreachable after networkd restart"
+        LOG "WARN: CT$ct failed to start"
         failed=$((failed + 1))
       fi
+      continue
     fi
-  done
-  # DHCP containers — check via pct exec ping to gateway
-  for ct in 112 115; do
-    if ! pct exec "$ct" -- ping -c1 -W2 192.168.1.1 &>/dev/null; then
-      LOG "FAIL: CT$ct (DHCP) cannot reach gateway"
-      pct exec "$ct" -- systemctl restart systemd-networkd 2>/dev/null || true
-      failed=$((failed + 1))
+
+    # Check if container can reach gateway (proves networking works)
+    if [ -n "$GATEWAY" ]; then
+      if ! pct exec "$ct" -- ping -c1 -W2 "$GATEWAY" &>/dev/null 2>&1; then
+        LOG "FAIL: CT$ct cannot reach gateway $GATEWAY"
+        pct exec "$ct" -- systemctl restart systemd-networkd 2>/dev/null || true
+        sleep 2
+        if pct exec "$ct" -- ping -c1 -W2 "$GATEWAY" &>/dev/null 2>&1; then
+          LOG "FIXED: CT$ct networking restored"
+        else
+          LOG "WARN: CT$ct still cannot reach gateway"
+          failed=$((failed + 1))
+        fi
+      fi
     fi
   done
   return $failed
@@ -98,29 +138,28 @@ check_containers() {
 
 # ── Check 4: Critical Service Health ─────────────────────────────────────────
 check_services() {
-  # Dashboard API
+  # Dashboard API (CT108)
   local dash_health=$(curl -s -m5 http://192.168.1.108:3001/api/health 2>/dev/null)
   if [ -z "$dash_health" ]; then
     LOG "FAIL: Dashboard API unresponsive — restarting"
     pct exec 108 -- pm2 restart all 2>/dev/null || true
   fi
 
-  # AIS collector
-  if ! pct exec 105 -- systemctl is-active --quiet ais-collector 2>/dev/null; then
-    LOG "FAIL: ais-collector not running — restarting"
-    pct exec 105 -- systemctl restart ais-collector 2>/dev/null || true
-  fi
+  # CT105 services
+  for svc in ais-collector adsb-collector tracker-engine; do
+    if ! pct exec 105 -- systemctl is-active --quiet "$svc" 2>/dev/null; then
+      LOG "FAIL: $svc not running — restarting"
+      pct exec 105 -- systemctl restart "$svc" 2>/dev/null || true
+    fi
+  done
 
-  # ADS-B collector
-  if ! pct exec 105 -- systemctl is-active --quiet adsb-collector 2>/dev/null; then
-    LOG "FAIL: adsb-collector not running — restarting"
-    pct exec 105 -- systemctl restart adsb-collector 2>/dev/null || true
-  fi
-
-  # Tracker engine
-  if ! pct exec 105 -- systemctl is-active --quiet tracker-engine 2>/dev/null; then
-    LOG "FAIL: tracker-engine not running — restarting"
-    pct exec 105 -- systemctl restart tracker-engine 2>/dev/null || true
+  # CT115 Expense Tracker
+  if pct status 115 2>/dev/null | grep -q 'running'; then
+    if ! pct exec 115 -- pm2 pid expense-api >/dev/null 2>&1; then
+      LOG "FAIL: CT115 expense-api not running — restarting"
+      pct exec 115 -- pm2 resurrect 2>/dev/null || \
+        pct exec 115 -- bash -c 'cd /opt/expense-tracker && pm2 start server.js --name expense-api' 2>/dev/null || true
+    fi
   fi
 
   # Corner kiosk (dual HDMI display)
@@ -128,24 +167,22 @@ check_services() {
     LOG "FAIL: corner-kiosk not running — restarting"
     systemctl restart corner-kiosk 2>/dev/null || true
   elif ! pgrep -f 'chromium-corner-data' >/dev/null 2>&1; then
-    # Kiosk service is running but corner browser died
     LOG "FAIL: Corner monitor browser missing — full kiosk restart"
     systemctl restart corner-kiosk 2>/dev/null || true
   fi
 
-  # Display server (CT114)
+  # Display server (CT114) — use /api/reload for browser refresh
   if ! pct exec 114 -- systemctl is-active --quiet display-server 2>/dev/null; then
     LOG "FAIL: display-server not running — restarting"
     pct exec 114 -- systemctl restart display-server 2>/dev/null || true
+    sleep 3
+    curl -s -X POST http://192.168.1.114:3000/api/reload >/dev/null 2>&1 || true
+    LOG "Sent reload to kiosk browsers after display-server recovery"
   fi
 }
 
 # ── Check 5: USB Device Audit ────────────────────────────────────────────────
 check_usb() {
-  # Verify RTL-SDR dongles present (both show as 0bda:2838 — need at least 2)
-  local rtl_count=$(lsusb 2>/dev/null | grep -c '0bda:2838')
-  
-  # Check via sysfs serial numbers for precise identification
   local blog_v4_found=false adsb_found=false
   for serial_file in /sys/bus/usb/devices/*/serial; do
     local ser=$(cat "$serial_file" 2>/dev/null)
@@ -156,76 +193,60 @@ check_usb() {
   if ! $blog_v4_found; then
     local prev=$(cat "$STATE_DIR/usb_blog_v4" 2>/dev/null || echo "present")
     echo "missing" > "$STATE_DIR/usb_blog_v4"
-    if [ "$prev" = "present" ]; then
-      LOG "ALERT: RTL-SDR Blog V4 (AIS) dongle MISSING from USB bus"
-      notify_ha "USB Device Missing" "RTL-SDR Blog V4 (AIS) dongle not detected on USB bus. Check physical connection." "critical"
-    fi
+    [ "$prev" = "present" ] && LOG "ALERT: RTL-SDR Blog V4 (AIS) dongle MISSING" && \
+      notify_ha "USB Device Missing" "RTL-SDR Blog V4 (AIS) not detected. Check physical connection." "critical"
   else
     local prev=$(cat "$STATE_DIR/usb_blog_v4" 2>/dev/null || echo "present")
     echo "present" > "$STATE_DIR/usb_blog_v4"
-    if [ "$prev" = "missing" ]; then
-      LOG "RECOVERED: RTL-SDR Blog V4 reappeared on USB bus"
-    fi
+    [ "$prev" = "missing" ] && LOG "RECOVERED: RTL-SDR Blog V4 reappeared"
   fi
 
   if ! $adsb_found; then
     local prev=$(cat "$STATE_DIR/usb_adsb" 2>/dev/null || echo "present")
     echo "missing" > "$STATE_DIR/usb_adsb"
-    if [ "$prev" = "present" ]; then
-      LOG "ALERT: AIRNAV ADS-B dongle MISSING from USB bus"
-      notify_ha "USB Device Missing" "AIRNAV ADS-B dongle not detected on USB bus. Check physical connection." "critical"
-    fi
+    [ "$prev" = "present" ] && LOG "ALERT: AIRNAV ADS-B dongle MISSING" && \
+      notify_ha "USB Device Missing" "AIRNAV ADS-B not detected. Check physical connection." "critical"
   else
     local prev=$(cat "$STATE_DIR/usb_adsb" 2>/dev/null || echo "present")
     echo "present" > "$STATE_DIR/usb_adsb"
-    if [ "$prev" = "missing" ]; then
-      LOG "RECOVERED: AIRNAV ADS-B dongle reappeared on USB bus"
-    fi
+    [ "$prev" = "missing" ] && LOG "RECOVERED: AIRNAV ADS-B reappeared"
   fi
 }
 
 # ── Full Recovery (after gateway comes back) ─────────────────────────────────
 run_full_recovery() {
-  LOG "=== FULL RECOVERY: Network topology change detected ==="
-  notify_ha "Network Recovery" "Gateway came back online. Running full system recovery..." "warning"
+  LOG "=== FULL RECOVERY: Network topology change detected (gateway: $GATEWAY, subnet: $SUBNET) ==="
+  notify_ha "Network Recovery" "Gateway $GATEWAY back online (subnet: $SUBNET). Running full system recovery..." "warning"
 
-  # 1. Check all container networking
   check_containers
-
-  # 2. Restart services that depend on network
   LOG "Restarting network-dependent services..."
 
-  # AIS collector (needs AISHub API)
   pct exec 105 -- systemctl restart ais-collector 2>/dev/null || true
-
-  # ADS-B collector (needs tar1090)
   pct exec 105 -- systemctl restart adsb-collector 2>/dev/null || true
-
-  # SDR pipeline
   systemctl restart sdr-scheduler 2>/dev/null || true
-
-  # Dashboard (needs DB)
   pct exec 108 -- pm2 restart all 2>/dev/null || true
 
-  # Kiosk displays (depend on CT114 display-server via network)
-  pct exec 114 -- systemctl restart display-server 2>/dev/null || true
-  sleep 3
-  systemctl restart corner-kiosk 2>/dev/null || true
+  # Expense tracker
+  pct exec 115 -- pm2 resurrect 2>/dev/null || true
 
-  # 3. USB audit
+  # Display system — server then kiosk with proper sequencing
+  pct exec 114 -- systemctl restart display-server 2>/dev/null || true
+  sleep 5
+  systemctl restart corner-kiosk 2>/dev/null || true
+  sleep 8
+  curl -s -X POST http://192.168.1.114:3000/api/reload >/dev/null 2>&1 || true
+
   check_usb
 
-  # 4. Wait and verify
   sleep 10
   local health=$(curl -s -m5 http://192.168.1.108:3001/api/health 2>/dev/null)
   LOG "Post-recovery health: $health"
-
-  notify_ha "Network Recovery Complete" "System recovery finished. Health: $health" "info"
+  notify_ha "Network Recovery Complete" "System recovery finished. Gateway: $GATEWAY, Subnet: $SUBNET" "info"
   LOG "=== FULL RECOVERY COMPLETE ==="
 }
 
 # ── Main ─────────────────────────────────────────────────────────────────────
-check_gateway || exit 0  # If gateway is down, nothing else we can do
+check_gateway || exit 0
 check_dns
 check_containers
 check_services
