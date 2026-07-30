@@ -90,3 +90,16 @@ The Hawaii Tracker is a distributed edge computing system running on a Proxmox V
 - **Service Watchdog** (`/opt/service-watchdog.sh` on Proxmox host, cron */5): Monitors critical services on CT105 (tracker-engine, ais-collector), CT108 (port 3001 API), and CT114 (display-server, utilities, photo-chrono, nrsc5-engine). Auto-restarts dead services and logs to `/var/log/service-watchdog.log`. Refreshes kiosk browser on display-server recovery.
 - **DB Auto-Reconnect**: `tracker-engine` and `ais-collector` catch `psycopg2.InterfaceError`/`OperationalError` in polling loops, safely close dead connections, and re-establish via `get_db_connection()` with exponential backoff.
 - **DB Maintenance** (`/opt/db-maintenance.sh` on CT104, cron 0 4 daily): Prunes `live_tracks` (AIS >48h, ADS-B >1h, NULL source_type), `track_history` (>7 days), VACUUM ANALYZE.
+
+### AIS SDR Pipeline — Sample Rate Fix (2026-07-29)
+
+**Root Cause**: After USB hub/switch disruption, `rtl_tcp` started at 2400000 S/s but
+`ais-catcher` requests 288000 S/s on connect. The runtime sample rate change crashes
+the RTL-SDR Blog V4 USB bulk transfer (`worker cond timeout`).
+
+**Fix**: Both services now use matched sample rate of **1536000** S/s (standard dual-channel AIS):
+- Host: `/etc/systemd/system/rtl-tcp-ais.service` → `-s 1536000`
+- CT106: `/etc/systemd/system/ais-catcher.service` → `-s 1536000`
+
+**Lesson**: Never allow runtime sample rate renegotiation between rtl_tcp and its clients.
+The initial rate must match what the client will request.
