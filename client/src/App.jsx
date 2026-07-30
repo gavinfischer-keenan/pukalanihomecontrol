@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
@@ -268,6 +268,22 @@ function App() {
     return () => clearInterval(t);
   }, []);
 
+  // Merge local vessels with AISHub nearby vessels (deduped)
+  const allVessels = useMemo(() => {
+    const localIds = new Set(vessels.map(v => String(v.entity_id)));
+    const deduped = nearbyVessels
+      .filter(n => !localIds.has(String(n.mmsi)))
+      .map(n => ({
+        entity_id: n.mmsi, vessel_name: n.name, vessel_type: n.type,
+        callsign: n.callsign, destination: n.destination,
+        lat: n.lat, lon: n.lon, speed: n.speed,
+        heading: n.heading === 511 ? null : n.heading,
+        course: n.course, nav_status: n.nav_status,
+        source_type: 'aishub', _type: 'vessel'
+      }));
+    return [...vessels, ...deduped];
+  }, [vessels, nearbyVessels]);
+
   const toggleLayer = useCallback((key) => {
     setLayers(prev => {
       const isDisabling = prev[key].enabled;
@@ -374,7 +390,7 @@ function App() {
           <ErrorBoundary>
             <TrailLayer
               aircraft={layers.acTrails?.enabled && layers.aircraft?.enabled ? aircraft : []}
-              vessels={layers.vesselTrails?.enabled && layers.vessels?.enabled ? vessels : []}
+              vessels={layers.vesselTrails?.enabled && layers.vessels?.enabled ? allVessels : []}
               apiBase={API_BASE}
               selected={selected}
             />
@@ -389,19 +405,7 @@ function App() {
         {/* Aviation */}
         {layers.metar.enabled && <ErrorBoundary><MetarLayer metars={metars} selected={selected} onSelect={handleSelectEntity} /></ErrorBoundary>}
         {layers.vessels.enabled && (
-          <ErrorBoundary><VesselLayer vessels={(() => {
-              const localIds = new Set(vessels.map(v => String(v.entity_id)));
-              const deduped = nearbyVessels
-                .filter(n => !localIds.has(String(n.mmsi)))
-                .map(n => ({
-                  entity_id: n.mmsi, vessel_name: n.name, vessel_type: n.type,
-                  callsign: n.callsign, destination: n.destination,
-                  lat: n.lat, lon: n.lon, speed: n.speed,
-                  heading: n.heading === 511 ? null : n.heading,
-                  nav_status: n.nav_status, source_type: 'aishub', _type: 'vessel'
-                }));
-              return [...vessels, ...deduped];
-            })()} selected={selected} showLabels={showLabels} onSelect={handleSelectEntity} predictions={vesselPredictions} /></ErrorBoundary>
+          <ErrorBoundary><VesselLayer vessels={allVessels} selected={selected} showLabels={showLabels} onSelect={handleSelectEntity} predictions={vesselPredictions} /></ErrorBoundary>
         )}
         {layers.aircraft.enabled && (
           <ErrorBoundary><AircraftLayer aircraft={aircraft} selected={selected} showLabels={showLabels} onSelect={handleSelectEntity} /></ErrorBoundary>
