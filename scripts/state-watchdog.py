@@ -28,7 +28,7 @@ from pathlib import Path
 LOG = "/var/log/state-watchdog.log"
 BASELINE_FILE = "/opt/backups/state-baseline.json"
 ALERT_DIR = "/opt/alerts"
-HA_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI5NTA1OTg3MjZkNGE0MzM1YjgwODA1ZGE3MzBlZmZmZCIsImlhdCI6MTc4MzY3MTEzMywiZXhwIjoyMDk5MDMxMTMzfQ.WNlKbZsQIhXN8z2AIHKbA8dDL1XkL7bR-TwTo0Tn9Fo"
+HA_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkOGVkZjI2YjY5MGI0Y2EwYjJlOTcwNTc4NTIwMzM4ZCIsImlhdCI6MTc4NTAzMTg2NCwiZXhwIjoyMTAwMzkxODY0fQ.kivYeS1sqbPlXP6-2AvKax9yRG8Ej6cGtrdyCRpfARY"
 HA_URL = "http://192.168.1.19:8123"
 
 def log(msg):
