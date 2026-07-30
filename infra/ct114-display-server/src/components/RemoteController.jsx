@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-
-const VIEWS = [
-  { id: 'cams', label: '📹 Camera Grid' },
-  { id: 'vessels', label: '🚢 Vessel Tracker' },
-  { id: 'weather', label: '🌤️ Weather Loops' },
-  { id: 'house_status', label: '🏠 House Status (Coming Soon)' },
-];
+import { VIEW_REGISTRY, CENTER_PRESETS, VESSEL_DEFAULTS } from '../displayConfig';
 
 const RemoteController = ({ state, config, cameras, updateState }) => {
-  const [expanded, setExpanded] = useState({ mainTv: true, corner: false });
+  const [expanded, setExpanded] = useState({});
 
   if (!state) return <div className="remote-loading">Connecting to server...</div>;
+
+  // Dynamic display list from config (extensible — add displays in cameras.json)
+  const displays = config?.displays || [
+    { id: 'mainTv', label: 'Main TV' },
+    { id: 'corner', label: 'Corner Monitor' },
+  ];
 
   const layouts = [
     ...(config?.layouts || [
@@ -23,7 +23,7 @@ const RemoteController = ({ state, config, cameras, updateState }) => {
     { id: 'cycle', label: '🔄 Cycle Mode', slots: [] },
   ];
 
-  const views = config?.views?.filter(v => v.id !== 'birdnet' && v.id !== 'aircraft') || VIEWS;
+  const views = config?.views?.filter(v => !['birdnet', 'aircraft'].includes(v.id)) || VIEW_REGISTRY;
   const activeCameras = (cameras || []).filter(c => c.active);
 
   // ── Layout change ──
@@ -38,7 +38,6 @@ const RemoteController = ({ state, config, cameras, updateState }) => {
       });
       return;
     }
-
     const layout = layouts.find(l => l.id === value);
     const slots = layout?.slots || ['slotA'];
     const currentMappings = state[`${displayId}SlotMappings`] || {};
@@ -46,14 +45,12 @@ const RemoteController = ({ state, config, cameras, updateState }) => {
     slots.forEach((slot, i) => {
       newMappings[slot] = currentMappings[slot] || (i === 0 ? 'cams' : '');
     });
-
     updateState({
       [`${displayId}LayoutMode`]: value,
       [`${displayId}SlotMappings`]: newMappings,
     });
   };
 
-  // ── Slot view change ──
   const handleSlotChange = (displayId, slotId, value) => {
     updateState({
       [`${displayId}SlotMappings`]: {
@@ -63,16 +60,13 @@ const RemoteController = ({ state, config, cameras, updateState }) => {
     });
   };
 
-  // ── Per-slot camera toggle (BUG FIX: was always writing to slotA) ──
   const handleCameraToggle = (displayId, slotId, camId) => {
     const configs = state[`${displayId}SlotConfigs`] || {};
     const slotConfig = configs[slotId] || {};
     const selected = slotConfig.selectedCameras || [];
-
     const newSelected = selected.includes(camId)
       ? selected.filter(c => c !== camId)
       : [...selected, camId];
-
     updateState({
       [`${displayId}SlotConfigs`]: {
         ...configs,
@@ -81,14 +75,13 @@ const RemoteController = ({ state, config, cameras, updateState }) => {
     });
   };
 
-  // ── Weather dwell time change ──
-  const handleDwellChange = (displayId, slotId, seconds) => {
+  const handleSlotConfigChange = (displayId, slotId, key, value) => {
     const configs = state[`${displayId}SlotConfigs`] || {};
     const slotConfig = configs[slotId] || {};
     updateState({
       [`${displayId}SlotConfigs`]: {
         ...configs,
-        [slotId]: { ...slotConfig, loopDwellSeconds: seconds },
+        [slotId]: { ...slotConfig, [key]: value },
       },
     });
   };
@@ -106,15 +99,19 @@ const RemoteController = ({ state, config, cameras, updateState }) => {
     updateState({ [`${displayId}CycleSteps`]: steps });
   };
 
-  const handleCycleStepViewChange = (displayId, idx, viewId) => {
+  const handleCycleStepChange = (displayId, idx, field, value) => {
     const steps = [...(state[`${displayId}CycleSteps`] || [])];
-    steps[idx] = { ...steps[idx], viewId, viewConfig: {} };
-    updateState({ [`${displayId}CycleSteps`]: steps });
-  };
-
-  const handleCycleStepDwellChange = (displayId, idx, seconds) => {
-    const steps = [...(state[`${displayId}CycleSteps`] || [])];
-    steps[idx] = { ...steps[idx], dwellSeconds: seconds };
+    const step = { ...steps[idx] };
+    if (field === 'viewId') {
+      step.viewId = value;
+      step.viewConfig = {};
+    } else if (field === 'dwellSeconds') {
+      step.dwellSeconds = value;
+    } else {
+      // viewConfig field
+      step.viewConfig = { ...(step.viewConfig || {}), [field]: value };
+    }
+    steps[idx] = step;
     updateState({ [`${displayId}CycleSteps`]: steps });
   };
 
@@ -131,14 +128,6 @@ const RemoteController = ({ state, config, cameras, updateState }) => {
     updateState({ [`${displayId}CycleSteps`]: steps });
   };
 
-  const handleCycleStepLoopDwell = (displayId, idx, seconds) => {
-    const steps = [...(state[`${displayId}CycleSteps`] || [])];
-    const step = { ...steps[idx] };
-    step.viewConfig = { ...(step.viewConfig || {}), loopDwellSeconds: seconds };
-    steps[idx] = step;
-    updateState({ [`${displayId}CycleSteps`]: steps });
-  };
-
   const handleCycleStepMove = (displayId, idx, direction) => {
     const steps = [...(state[`${displayId}CycleSteps`] || [])];
     const newIdx = idx + direction;
@@ -147,7 +136,7 @@ const RemoteController = ({ state, config, cameras, updateState }) => {
     updateState({ [`${displayId}CycleSteps`]: steps });
   };
 
-  // ── Render per-view config controls ──
+  // ── Per-view config controls ──
   const renderViewConfig = (viewId, configState, handlers) => {
     if (viewId === 'cams' && activeCameras.length > 0) {
       const selected = configState?.selectedCameras || [];
@@ -169,6 +158,34 @@ const RemoteController = ({ state, config, cameras, updateState }) => {
       );
     }
 
+    if (viewId === 'vessels') {
+      const zoom = configState?.vesselZoom ?? VESSEL_DEFAULTS.zoom;
+      const center = configState?.vesselCenter || VESSEL_DEFAULTS.center;
+      return (
+        <div style={{ marginTop: 8 }}>
+          <div className="control-group">
+            <label>Map Zoom: {zoom}</label>
+            <input
+              type="range" min="7" max="17" step="1" value={zoom}
+              onChange={e => handlers.onConfigChange('vesselZoom', parseInt(e.target.value))}
+              style={{ width: '100%' }}
+            />
+          </div>
+          <div className="control-group">
+            <label>Map Center</label>
+            <select
+              value={center}
+              onChange={e => handlers.onConfigChange('vesselCenter', e.target.value)}
+            >
+              {CENTER_PRESETS.map(p => (
+                <option key={p.id} value={`${p.lat},${p.lon}`}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      );
+    }
+
     if (viewId === 'weather') {
       const dwell = configState?.loopDwellSeconds || 30;
       return (
@@ -176,7 +193,7 @@ const RemoteController = ({ state, config, cameras, updateState }) => {
           <label>Loop Dwell Time: {dwell}s</label>
           <input
             type="range" min="10" max="120" step="5" value={dwell}
-            onChange={e => handlers.onDwellChange(parseInt(e.target.value))}
+            onChange={e => handlers.onConfigChange('loopDwellSeconds', parseInt(e.target.value))}
             style={{ width: '100%' }}
           />
         </div>
@@ -186,18 +203,16 @@ const RemoteController = ({ state, config, cameras, updateState }) => {
     return null;
   };
 
-  // ── Render cycle step editor ──
+  // ── Cycle config ──
   const renderCycleConfig = (displayId) => {
     const steps = state[`${displayId}CycleSteps`] || [];
-
     return (
       <div className="cycle-config">
         <label style={{ fontSize: '0.8rem', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, display: 'block' }}>
           Cycle Steps
         </label>
-
         {steps.map((step, idx) => (
-          <div key={idx} className="cycle-step" style={{
+          <div key={idx} style={{
             background: '#0f172a', border: '1px solid #334155', borderRadius: 8,
             padding: 12, marginBottom: 10,
           }}>
@@ -205,62 +220,32 @@ const RemoteController = ({ state, config, cameras, updateState }) => {
               <span style={{ color: '#64748b', fontWeight: 600, fontSize: '0.85rem' }}>#{idx + 1}</span>
               <select
                 value={step.viewId}
-                onChange={e => handleCycleStepViewChange(displayId, idx, e.target.value)}
-                style={{
-                  flex: 1, padding: '6px 10px', background: '#1e293b',
-                  color: '#e2e8f0', border: '1px solid #475569', borderRadius: 6,
-                  fontSize: '0.85rem',
-                }}
+                onChange={e => handleCycleStepChange(displayId, idx, 'viewId', e.target.value)}
+                style={{ flex: 1, padding: '6px 10px', background: '#1e293b', color: '#e2e8f0', border: '1px solid #475569', borderRadius: 6, fontSize: '0.85rem' }}
               >
                 {views.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
               </select>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <input
-                  type="number" min="5" max="600" value={step.dwellSeconds || 30}
-                  onChange={e => handleCycleStepDwellChange(displayId, idx, parseInt(e.target.value) || 30)}
-                  style={{
-                    width: 55, padding: '6px 8px', background: '#1e293b',
-                    color: '#e2e8f0', border: '1px solid #475569', borderRadius: 6,
-                    fontSize: '0.85rem', textAlign: 'center',
-                  }}
-                />
-                <span style={{ color: '#64748b', fontSize: '0.75rem' }}>sec</span>
-              </div>
-              <button
-                onClick={() => handleCycleStepMove(displayId, idx, -1)}
-                disabled={idx === 0}
-                style={{ background: 'none', border: 'none', color: idx === 0 ? '#334155' : '#94a3b8', cursor: 'pointer', fontSize: '1rem' }}
-              >▲</button>
-              <button
-                onClick={() => handleCycleStepMove(displayId, idx, 1)}
-                disabled={idx === steps.length - 1}
-                style={{ background: 'none', border: 'none', color: idx === steps.length - 1 ? '#334155' : '#94a3b8', cursor: 'pointer', fontSize: '1rem' }}
-              >▼</button>
-              <button
-                onClick={() => handleCycleRemoveStep(displayId, idx)}
-                style={{
-                  background: '#7f1d1d', border: 'none', color: '#fca5a5',
-                  borderRadius: 4, padding: '4px 8px', cursor: 'pointer', fontSize: '0.8rem',
-                }}
-              >✕</button>
+              <input
+                type="number" min="5" max="600" value={step.dwellSeconds || 30}
+                onChange={e => handleCycleStepChange(displayId, idx, 'dwellSeconds', parseInt(e.target.value) || 30)}
+                style={{ width: 55, padding: '6px 8px', background: '#1e293b', color: '#e2e8f0', border: '1px solid #475569', borderRadius: 6, fontSize: '0.85rem', textAlign: 'center' }}
+              />
+              <span style={{ color: '#64748b', fontSize: '0.75rem' }}>sec</span>
+              <button onClick={() => handleCycleStepMove(displayId, idx, -1)} disabled={idx === 0}
+                style={{ background: 'none', border: 'none', color: idx === 0 ? '#334155' : '#94a3b8', cursor: 'pointer', fontSize: '1rem' }}>▲</button>
+              <button onClick={() => handleCycleStepMove(displayId, idx, 1)} disabled={idx === steps.length - 1}
+                style={{ background: 'none', border: 'none', color: idx === steps.length - 1 ? '#334155' : '#94a3b8', cursor: 'pointer', fontSize: '1rem' }}>▼</button>
+              <button onClick={() => handleCycleRemoveStep(displayId, idx)}
+                style={{ background: '#7f1d1d', border: 'none', color: '#fca5a5', borderRadius: 4, padding: '4px 8px', cursor: 'pointer', fontSize: '0.8rem' }}>✕</button>
             </div>
-
-            {/* Per-step view config */}
             {renderViewConfig(step.viewId, step.viewConfig || {}, {
               onCameraToggle: (camId) => handleCycleStepCameraToggle(displayId, idx, camId),
-              onDwellChange: (sec) => handleCycleStepLoopDwell(displayId, idx, sec),
+              onConfigChange: (key, val) => handleCycleStepChange(displayId, idx, key, val),
             })}
           </div>
         ))}
-
-        <button
-          onClick={() => handleCycleAddStep(displayId)}
-          style={{
-            width: '100%', padding: '10px', background: '#1e293b',
-            border: '1px dashed #475569', borderRadius: 8, color: '#94a3b8',
-            cursor: 'pointer', fontSize: '0.9rem',
-          }}
-        >
+        <button onClick={() => handleCycleAddStep(displayId)}
+          style={{ width: '100%', padding: '10px', background: '#1e293b', border: '1px dashed #475569', borderRadius: 8, color: '#94a3b8', cursor: 'pointer', fontSize: '0.9rem' }}>
           + Add Step
         </button>
       </div>
@@ -268,22 +253,23 @@ const RemoteController = ({ state, config, cameras, updateState }) => {
   };
 
   // ── Render display section ──
-  const renderDisplaySection = (title, displayId) => {
+  const renderDisplaySection = (display) => {
+    const displayId = display.id;
+    const title = display.label;
     const layoutMode = state[`${displayId}LayoutMode`] || '1-up';
     const mappings = state[`${displayId}SlotMappings`] || {};
     const configs = state[`${displayId}SlotConfigs`] || {};
     const layout = layouts.find(l => l.id === layoutMode);
     const slots = layout?.slots || ['slotA'];
-    const isExpanded = expanded[displayId];
+    const isExpanded = expanded[displayId] ?? (displayId === displays[0]?.id);
     const isCycle = layoutMode === 'cycle';
 
     return (
-      <div className="remote-section">
-        <h2
-          onClick={() => setExpanded(e => ({ ...e, [displayId]: !e[displayId] }))}
-          style={{ cursor: 'pointer', userSelect: 'none' }}
-        >
+      <div key={displayId} className="remote-section">
+        <h2 onClick={() => setExpanded(e => ({ ...e, [displayId]: !isExpanded }))}
+          style={{ cursor: 'pointer', userSelect: 'none' }}>
           {isExpanded ? '▼' : '▶'} {title}
+          {display.resolution && <span style={{ fontSize: '0.7rem', color: '#64748b', marginLeft: 8 }}>{display.resolution}</span>}
         </h2>
 
         {isExpanded && (
@@ -291,45 +277,36 @@ const RemoteController = ({ state, config, cameras, updateState }) => {
             <div className="control-group">
               <label>Layout</label>
               <select value={layoutMode} onChange={e => handleLayoutChange(displayId, e.target.value)}>
-                {layouts.map(l => (
-                  <option key={l.id} value={l.id}>{l.label}</option>
-                ))}
+                {layouts.map(l => <option key={l.id} value={l.id}>{l.label}</option>)}
               </select>
             </div>
 
-            {isCycle ? (
-              renderCycleConfig(displayId)
-            ) : (
+            {isCycle ? renderCycleConfig(displayId) : (
               <>
-                {/* Slot view selectors */}
                 {slots.map(slot => (
                   <div key={slot} className="control-group">
                     <label>{slot.replace('slot', 'Slot ')} View</label>
                     <select value={mappings[slot] || ''} onChange={e => handleSlotChange(displayId, slot, e.target.value)}>
                       <option value="">— Select —</option>
-                      {views.map(v => (
-                        <option key={v.id} value={v.id}>{v.label}</option>
-                      ))}
+                      {views.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}
                     </select>
                   </div>
                 ))}
 
-                {/* Per-slot config (cameras, weather dwell) — BUG FIX: each slot independent */}
                 {slots.map(slot => {
                   const viewId = mappings[slot];
                   if (!viewId) return null;
                   const slotConfig = configs[slot] || {};
-
                   return (
                     <div key={`${slot}-config`}>
-                      {slots.length > 1 && viewId === 'cams' && (
+                      {slots.length > 1 && (viewId === 'cams' || viewId === 'vessels') && (
                         <label style={{ fontSize: '0.75rem', color: '#64748b', fontStyle: 'italic' }}>
-                          {slot.replace('slot', 'Slot ')} cameras:
+                          {slot.replace('slot', 'Slot ')} settings:
                         </label>
                       )}
                       {renderViewConfig(viewId, slotConfig, {
                         onCameraToggle: (camId) => handleCameraToggle(displayId, slot, camId),
-                        onDwellChange: (sec) => handleDwellChange(displayId, slot, sec),
+                        onConfigChange: (key, val) => handleSlotConfigChange(displayId, slot, key, val),
                       })}
                     </div>
                   );
@@ -346,8 +323,7 @@ const RemoteController = ({ state, config, cameras, updateState }) => {
     <div className="remote-control">
       <h1>🎛️ Display Remote</h1>
       <div className="connection-badge">● Connected</div>
-      {renderDisplaySection('Main TV', 'mainTv')}
-      {renderDisplaySection('Corner Monitor', 'corner')}
+      {displays.map(d => renderDisplaySection(d))}
     </div>
   );
 };

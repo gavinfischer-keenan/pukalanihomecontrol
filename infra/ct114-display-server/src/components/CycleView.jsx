@@ -1,46 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
-import CameraGrid from './CameraGrid';
-import VesselView from './VesselView';
-import WeatherView from './WeatherView';
+import viewComponentMap from '../viewRegistry.jsx';
 
 /**
  * CycleView — Full-screen auto-cycling through a list of views.
- * Each step has its own view type, config, and dwell time.
+ * Uses the shared viewRegistry — no duplicated component map.
  *
  * Props:
  *   config.cycleSteps — Array of { viewId, viewConfig, dwellSeconds }
  */
-
-const viewComponentMap = {
-  cams: CameraGrid,
-  vessels: VesselView,
-  weather: WeatherView,
-  house_status: () => (
-    <div style={{
-      width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
-      alignItems: 'center', justifyContent: 'center',
-      background: '#0a0f1a', color: '#475569', fontSize: '1.5rem', gap: 12,
-    }}>
-      <span style={{ fontSize: '3rem' }}>🏠</span>
-      House Status — Coming Soon
-    </div>
-  ),
-};
-
 const CycleView = React.memo(({ config }) => {
   const steps = config?.cycleSteps || [];
   const [activeIdx, setActiveIdx] = useState(0);
   const [fading, setFading] = useState(false);
   const timerRef = useRef(null);
 
-  // Reset index if steps change
   useEffect(() => {
     if (steps.length > 0 && activeIdx >= steps.length) {
       setActiveIdx(0);
     }
   }, [steps.length, activeIdx]);
 
-  // Auto-advance timer
   useEffect(() => {
     if (steps.length <= 1) return;
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -50,7 +29,6 @@ const CycleView = React.memo(({ config }) => {
 
     timerRef.current = setTimeout(() => {
       setFading(true);
-      // Brief fade, then switch
       setTimeout(() => {
         setActiveIdx(prev => (prev + 1) % steps.length);
         setFading(false);
@@ -80,7 +58,6 @@ const CycleView = React.memo(({ config }) => {
       width: '100%', height: '100%', position: 'relative',
       background: '#000', overflow: 'hidden',
     }}>
-      {/* Current view */}
       <div style={{
         width: '100%', height: '100%',
         opacity: fading ? 0 : 1,
@@ -99,7 +76,6 @@ const CycleView = React.memo(({ config }) => {
         )}
       </div>
 
-      {/* Progress dots */}
       {steps.length > 1 && (
         <div style={{
           position: 'absolute', bottom: 12, left: '50%',

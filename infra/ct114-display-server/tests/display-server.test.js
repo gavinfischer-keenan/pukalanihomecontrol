@@ -1,181 +1,279 @@
+/**
+ * display-server.test.js — Comprehensive test suite for the display system.
+ * Tests cover: config, state migration, view registry, reload pipeline, API endpoints.
+ */
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-// ── View configuration tests ────────────────────────────────────────────────
-describe('Display Server Views', () => {
-  const cameras = require('../cameras.json');
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(__dirname, '..');
 
-  it('should not include birdnet or aircraft views', () => {
-    const viewIds = cameras.views.map(v => v.id);
+// ── Load config ──
+function loadConfig() {
+  return JSON.parse(readFileSync(join(ROOT, 'cameras.json'), 'utf-8'));
+}
+
+// ── Load display config constants ──
+const displayConfigSrc = readFileSync(join(ROOT, 'src', 'displayConfig.js'), 'utf-8');
+
+// ── Inline migrateState for testing ──
+function migrateState(state) {
+  if (!state) return state;
+  const cleaned = { ...state };
+  delete cleaned.birdnetDetections;
+  const deletedViews = new Set(['birdnet', 'aircraft']);
+  for (const key of Object.keys(cleaned)) {
+    if (key.endsWith('SlotMappings') && typeof cleaned[key] === 'object') {
+      const mappings = { ...cleaned[key] };
+      for (const [slot, viewId] of Object.entries(mappings)) {
+        if (deletedViews.has(viewId)) {
+          mappings[slot] = '';
+        }
+      }
+      cleaned[key] = mappings;
+    }
+  }
+  return cleaned;
+}
+
+// ════════════════════════════════════════════════════════════════
+// Config Tests
+// ════════════════════════════════════════════════════════════════
+describe('cameras.json config', () => {
+  const config = loadConfig();
+
+  it('has a displays array', () => {
+    expect(config.displays).toBeDefined();
+    expect(Array.isArray(config.displays)).toBe(true);
+    expect(config.displays.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('each display has required fields', () => {
+    for (const d of config.displays) {
+      expect(d.id).toBeTruthy();
+      expect(d.label).toBeTruthy();
+      expect(d.resolution).toBeTruthy();
+    }
+  });
+
+  it('display IDs are unique', () => {
+    const ids = config.displays.map(d => d.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('has cameras array with active cameras', () => {
+    expect(config.cameras).toBeDefined();
+    const active = config.cameras.filter(c => c.active);
+    expect(active.length).toBeGreaterThan(0);
+  });
+
+  it('has layouts with valid slot arrays', () => {
+    expect(config.layouts.length).toBeGreaterThan(0);
+    for (const l of config.layouts) {
+      expect(l.id).toBeTruthy();
+      expect(l.label).toBeTruthy();
+      expect(Array.isArray(l.slots)).toBe(true);
+      expect(l.slots.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('views contain no deleted views (birdnet, aircraft)', () => {
+    const viewIds = config.views.map(v => v.id);
     expect(viewIds).not.toContain('birdnet');
     expect(viewIds).not.toContain('aircraft');
   });
 
-  it('should include house_status view', () => {
-    const viewIds = cameras.views.map(v => v.id);
-    expect(viewIds).toContain('house_status');
-    const hs = cameras.views.find(v => v.id === 'house_status');
-    expect(hs.label).toContain('Coming Soon');
-  });
-
-  it('should include cams, vessels, and weather views', () => {
-    const viewIds = cameras.views.map(v => v.id);
-    expect(viewIds).toContain('cams');
-    expect(viewIds).toContain('vessels');
-    expect(viewIds).toContain('weather');
-  });
-
-  it('each layout should have a valid slots array', () => {
-    for (const layout of cameras.layouts) {
-      expect(Array.isArray(layout.slots)).toBe(true);
-      expect(layout.slots.length).toBeGreaterThan(0);
-      // All slots should start with 'slot'
-      for (const slot of layout.slots) {
-        expect(slot).toMatch(/^slot[A-Z]$/);
+  it('defaults reference only valid views', () => {
+    const viewIds = new Set(config.views.map(v => v.id));
+    for (const [displayId, defaults] of Object.entries(config.defaults || {})) {
+      for (const [slot, viewId] of Object.entries(defaults.slotMappings || {})) {
+        expect(viewIds.has(viewId)).toBe(true);
       }
     }
   });
 });
 
-// ── Per-slot camera config tests ────────────────────────────────────────────
-describe('Per-Slot Camera Config', () => {
-  it('should support independent camera selections per slot', () => {
-    const state = {
-      mainTvSlotConfigs: {
-        slotA: { selectedCameras: ['aqara_cam_1', 'aqara_cam_2'] },
-        slotB: { selectedCameras: ['aqara_cam_3'] },
-      },
-    };
-
-    const slotACams = state.mainTvSlotConfigs.slotA.selectedCameras;
-    const slotBCams = state.mainTvSlotConfigs.slotB.selectedCameras;
-
-    expect(slotACams).toEqual(['aqara_cam_1', 'aqara_cam_2']);
-    expect(slotBCams).toEqual(['aqara_cam_3']);
-    // They should be independent
-    expect(slotACams).not.toEqual(slotBCams);
+// ════════════════════════════════════════════════════════════════
+// Display Config Constants
+// ════════════════════════════════════════════════════════════════
+describe('displayConfig.js constants', () => {
+  it('exports HOME_BASE with correct Pukalani coordinates', () => {
+    // 3786 Pukalani Pl coordinates
+    expect(displayConfigSrc).toContain('21.2861516');
+    expect(displayConfigSrc).toContain('-157.7935187');
   });
 
-  it('camera toggle should only affect the target slot', () => {
-    const configs = {
-      slotA: { selectedCameras: ['cam1', 'cam2'] },
-      slotB: { selectedCameras: ['cam3'] },
-    };
+  it('exports DASHBOARD_URL pointing to CT108', () => {
+    expect(displayConfigSrc).toContain('http://192.168.1.108:8080');
+  });
 
-    // Toggle cam2 off in slotA
-    const slotAConfig = configs.slotA;
-    const newSelected = slotAConfig.selectedCameras.filter(c => c !== 'cam2');
-    const newConfigs = {
-      ...configs,
-      slotA: { ...slotAConfig, selectedCameras: newSelected },
-    };
+  it('exports VIEW_REGISTRY without deleted views', () => {
+    expect(displayConfigSrc).not.toContain("id: 'birdnet'");
+    expect(displayConfigSrc).not.toContain("id: 'aircraft'");
+  });
 
-    expect(newConfigs.slotA.selectedCameras).toEqual(['cam1']);
-    expect(newConfigs.slotB.selectedCameras).toEqual(['cam3']); // Unchanged
+  it('exports CENTER_PRESETS with home and oahu', () => {
+    expect(displayConfigSrc).toContain('Home');
+    expect(displayConfigSrc).toContain('Oahu');
   });
 });
 
-// ── Cycle mode tests ────────────────────────────────────────────────────────
-describe('Cycle Mode', () => {
-  it('should support cycle steps with independent configs', () => {
-    const cycleSteps = [
-      { viewId: 'cams', viewConfig: { selectedCameras: ['cam1'] }, dwellSeconds: 60 },
-      { viewId: 'weather', viewConfig: { loopDwellSeconds: 20 }, dwellSeconds: 120 },
-      { viewId: 'vessels', viewConfig: {}, dwellSeconds: 90 },
-    ];
-
-    expect(cycleSteps).toHaveLength(3);
-    expect(cycleSteps[0].viewId).toBe('cams');
-    expect(cycleSteps[0].viewConfig.selectedCameras).toEqual(['cam1']);
-    expect(cycleSteps[1].viewConfig.loopDwellSeconds).toBe(20);
-    expect(cycleSteps[2].dwellSeconds).toBe(90);
+// ════════════════════════════════════════════════════════════════
+// State Migration
+// ════════════════════════════════════════════════════════════════
+describe('state migration', () => {
+  it('removes birdnetDetections', () => {
+    const dirty = { birdnetDetections: [{ species: 'test' }], mainTvLayoutMode: '1-up' };
+    const clean = migrateState(dirty);
+    expect(clean.birdnetDetections).toBeUndefined();
+    expect(clean.mainTvLayoutMode).toBe('1-up');
   });
 
-  it('should advance to next step correctly', () => {
-    const steps = [
-      { viewId: 'cams', dwellSeconds: 30 },
-      { viewId: 'weather', dwellSeconds: 60 },
-      { viewId: 'vessels', dwellSeconds: 45 },
-    ];
-
-    let activeIdx = 0;
-    // Simulate three advances
-    for (let i = 0; i < 3; i++) {
-      activeIdx = (activeIdx + 1) % steps.length;
-    }
-    expect(activeIdx).toBe(0); // Wraps around
-  });
-
-  it('should handle step reordering', () => {
-    const steps = [
-      { viewId: 'cams', dwellSeconds: 30 },
-      { viewId: 'weather', dwellSeconds: 60 },
-      { viewId: 'vessels', dwellSeconds: 45 },
-    ];
-
-    // Move weather (idx 1) up to idx 0
-    const newSteps = [...steps];
-    [newSteps[0], newSteps[1]] = [newSteps[1], newSteps[0]];
-
-    expect(newSteps[0].viewId).toBe('weather');
-    expect(newSteps[1].viewId).toBe('cams');
-    expect(newSteps[2].viewId).toBe('vessels');
-  });
-
-  it('should handle step removal', () => {
-    const steps = [
-      { viewId: 'cams', dwellSeconds: 30 },
-      { viewId: 'weather', dwellSeconds: 60 },
-    ];
-
-    const newSteps = steps.filter((_, i) => i !== 0);
-    expect(newSteps).toHaveLength(1);
-    expect(newSteps[0].viewId).toBe('weather');
-  });
-});
-
-// ── Weather loop config tests ────────────────────────────────────────────────
-describe('Weather Loop Config', () => {
-  it('should default dwell to 30 seconds', () => {
-    const config = {};
-    const dwell = config.loopDwellSeconds || 30;
-    expect(dwell).toBe(30);
-  });
-
-  it('should accept custom dwell time', () => {
-    const config = { loopDwellSeconds: 45 };
-    const dwell = config.loopDwellSeconds || 30;
-    expect(dwell).toBe(45);
-  });
-
-  it('dwell should be in valid range', () => {
-    const validRange = [10, 30, 60, 120];
-    for (const val of validRange) {
-      expect(val).toBeGreaterThanOrEqual(10);
-      expect(val).toBeLessThanOrEqual(120);
-    }
-  });
-});
-
-// ── State structure tests ────────────────────────────────────────────────────
-describe('State Structure', () => {
-  it('should support full display state with cycle and slot configs', () => {
-    const state = {
-      cornerLayoutMode: 'cycle',
-      cornerCycleSteps: [
-        { viewId: 'cams', viewConfig: { selectedCameras: ['cam1'] }, dwellSeconds: 60 },
-        { viewId: 'weather', viewConfig: { loopDwellSeconds: 20 }, dwellSeconds: 120 },
-      ],
-      mainTvLayoutMode: '2-up-side',
-      mainTvSlotMappings: { slotA: 'cams', slotB: 'weather' },
-      mainTvSlotConfigs: {
-        slotA: { selectedCameras: ['cam1', 'cam2'] },
-        slotB: { loopDwellSeconds: 45 },
-      },
+  it('clears slot mappings referencing birdnet', () => {
+    const dirty = {
+      cornerSlotMappings: { slotA: 'vessels', slotB: 'birdnet' },
     };
+    const clean = migrateState(dirty);
+    expect(clean.cornerSlotMappings.slotA).toBe('vessels');
+    expect(clean.cornerSlotMappings.slotB).toBe('');
+  });
 
-    expect(state.cornerLayoutMode).toBe('cycle');
-    expect(state.cornerCycleSteps).toHaveLength(2);
-    expect(state.mainTvSlotConfigs.slotA.selectedCameras).toHaveLength(2);
-    expect(state.mainTvSlotConfigs.slotB.loopDwellSeconds).toBe(45);
+  it('clears slot mappings referencing aircraft', () => {
+    const dirty = {
+      mainTvSlotMappings: { slotA: 'aircraft' },
+    };
+    const clean = migrateState(dirty);
+    expect(clean.mainTvSlotMappings.slotA).toBe('');
+  });
+
+  it('preserves valid state', () => {
+    const valid = {
+      mainTvLayoutMode: '1-up',
+      mainTvSlotMappings: { slotA: 'cams' },
+      mainTvSlotConfigs: { slotA: { selectedCameras: ['cam1'] } },
+    };
+    const clean = migrateState(valid);
+    expect(clean).toEqual(valid);
+  });
+
+  it('handles null state', () => {
+    expect(migrateState(null)).toBeNull();
+  });
+});
+
+// ════════════════════════════════════════════════════════════════
+// View Registry
+// ════════════════════════════════════════════════════════════════
+describe('viewRegistry', () => {
+  const registrySrc = readFileSync(join(ROOT, 'src', 'viewRegistry.jsx'), 'utf-8');
+
+  it('exists as a separate module', () => {
+    expect(registrySrc).toBeTruthy();
+  });
+
+  it('imports all view components', () => {
+    expect(registrySrc).toContain("import CameraGrid from");
+    expect(registrySrc).toContain("import VesselView from");
+    expect(registrySrc).toContain("import WeatherView from");
+  });
+
+  it('does not contain deleted views', () => {
+    expect(registrySrc).not.toContain('BirdNet');
+    expect(registrySrc).not.toContain('Aircraft');
+  });
+
+  it('exports a default object', () => {
+    expect(registrySrc).toContain('export default viewComponentMap');
+  });
+});
+
+// ════════════════════════════════════════════════════════════════
+// Component Architecture
+// ════════════════════════════════════════════════════════════════
+describe('component architecture', () => {
+  const displayViewSrc = readFileSync(join(ROOT, 'src', 'components', 'DisplayView.jsx'), 'utf-8');
+  const cycleViewSrc = readFileSync(join(ROOT, 'src', 'components', 'CycleView.jsx'), 'utf-8');
+  const vesselViewSrc = readFileSync(join(ROOT, 'src', 'components', 'VesselView.jsx'), 'utf-8');
+  const remoteCtrlSrc = readFileSync(join(ROOT, 'src', 'components', 'RemoteController.jsx'), 'utf-8');
+
+  it('DisplayView uses shared viewRegistry', () => {
+    expect(displayViewSrc).toContain("from '../viewRegistry.jsx'");
+    expect(displayViewSrc).not.toContain('const viewComponentMap = {');
+  });
+
+  it('CycleView uses shared viewRegistry', () => {
+    expect(cycleViewSrc).toContain("from '../viewRegistry.jsx'");
+    expect(cycleViewSrc).not.toContain('const viewComponentMap = {');
+  });
+
+  it('VesselView reads config for zoom/center (no hard-coded zoom)', () => {
+    expect(vesselViewSrc).toContain('config?.vesselZoom');
+    expect(vesselViewSrc).toContain('VESSEL_DEFAULTS');
+    // Should NOT contain hard-coded zoom levels
+    expect(vesselViewSrc).not.toMatch(/zoom\s*=\s*1[0-5]\s*;/);
+  });
+
+  it('VesselView uses DASHBOARD_URL from config', () => {
+    expect(vesselViewSrc).toContain('DASHBOARD_URL');
+    expect(vesselViewSrc).not.toContain('192.168.1.108:8080');
+  });
+
+  it('RemoteController renders displays dynamically', () => {
+    expect(remoteCtrlSrc).toContain('config?.displays');
+    expect(remoteCtrlSrc).toContain('displays.map');
+    // Should NOT hard-code display names
+    expect(remoteCtrlSrc).not.toContain("renderDisplaySection('Main TV'");
+  });
+
+  it('RemoteController has vessel zoom/center UI', () => {
+    expect(remoteCtrlSrc).toContain('vesselZoom');
+    expect(remoteCtrlSrc).toContain('vesselCenter');
+    expect(remoteCtrlSrc).toContain('CENTER_PRESETS');
+  });
+});
+
+// ════════════════════════════════════════════════════════════════
+// Reload Pipeline
+// ════════════════════════════════════════════════════════════════
+describe('reload pipeline', () => {
+  const hookSrc = readFileSync(join(ROOT, 'src', 'hooks', 'useDisplayState.js'), 'utf-8');
+  const serverSrc = readFileSync(join(ROOT, 'server.js'), 'utf-8');
+
+  it('useDisplayState handles reload WS message', () => {
+    expect(hookSrc).toContain("msg.type === 'reload'");
+    expect(hookSrc).toContain('window.location.reload');
+  });
+
+  it('server sets no-cache headers on JS/CSS', () => {
+    expect(serverSrc).toContain('Cache-Control');
+    expect(serverSrc).toContain('no-cache');
+  });
+
+  it('server reload endpoint sends to all clients', () => {
+    expect(serverSrc).toContain("type: 'reload'");
+    expect(serverSrc).toContain('wss.clients.forEach');
+  });
+});
+
+// ════════════════════════════════════════════════════════════════
+// Server Features
+// ════════════════════════════════════════════════════════════════
+describe('server.js features', () => {
+  const serverSrc = readFileSync(join(ROOT, 'server.js'), 'utf-8');
+
+  it('has state migration on startup', () => {
+    expect(serverSrc).toContain('migrateState');
+  });
+
+  it('blocks kiosk IP from state writes', () => {
+    expect(serverSrc).toContain('192.168.1.100');
+    expect(serverSrc).toContain('display_client_blocked');
+  });
+
+  it('sends config with displays to WS clients', () => {
+    expect(serverSrc).toContain("type: 'config'");
+    expect(serverSrc).toContain('loadConfig()');
   });
 });

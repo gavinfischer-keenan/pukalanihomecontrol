@@ -51,6 +51,10 @@ export function useDisplayState() {
             setConfig(msg.config);
           } else if (msg.type === 'alert_update') {
             setAlert(msg.alert);
+          } else if (msg.type === 'reload' || msg.type === 'hard_reload') {
+            // Force hard page reload to pick up new JS/CSS bundles
+            console.log('[WS] Reload requested — refreshing page');
+            window.location.reload(true);
           }
         } catch (e) {
           console.error('Failed to parse WS message', e);

@@ -34,13 +34,42 @@ function saveState(state) {
     .run(JSON.stringify(state));
 }
 
+// ── State migration (removes stale data from old views) ──
+function migrateState(state) {
+  if (!state) return state;
+  const cleaned = { ...state };
+
+  // Remove obsolete top-level keys
+  delete cleaned.birdnetDetections;
+
+  // Valid view IDs
+  const validViews = new Set(['cams', 'vessels', 'weather', 'house_status']);
+  const deletedViews = new Set(['birdnet', 'aircraft']);
+
+  // Clean slot mappings that reference deleted views
+  for (const key of Object.keys(cleaned)) {
+    if (key.endsWith('SlotMappings') && typeof cleaned[key] === 'object') {
+      const mappings = { ...cleaned[key] };
+      for (const [slot, viewId] of Object.entries(mappings)) {
+        if (deletedViews.has(viewId)) {
+          mappings[slot] = '';
+          console.log(`[Migration] Cleared deleted view '${viewId}' from ${key}.${slot}`);
+        }
+      }
+      cleaned[key] = mappings;
+    }
+  }
+
+  return cleaned;
+}
+
 // ── Load server-side config ──
 function loadConfig() {
   try {
     return JSON.parse(readFileSync(join(__dirname, 'cameras.json'), 'utf-8'));
   } catch (e) {
     console.error('[Config] Failed to load cameras.json:', e.message);
-    return { cameras: [], layouts: [], views: [], defaults: {} };
+    return { cameras: [], layouts: [], views: [], displays: [], defaults: {} };
   }
 }
 
@@ -80,14 +109,14 @@ app.use('/proxy/go2rtc', createProxyMiddleware({
   ws: true,
 }));
 
-app.use('/proxy/birdnet', createProxyMiddleware({
-  target: 'http://192.168.1.25:8080',
-  changeOrigin: true,
-  pathRewrite: { '^/proxy/birdnet': '' },
+// ── Static files (Vite build) — no-cache for JS/CSS so deploys take effect immediately ──
+app.use(express.static(join(__dirname, 'dist'), {
+  setHeaders: (res, path) => {
+    if (path.endsWith('.js') || path.endsWith('.css')) {
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    }
+  },
 }));
-
-// ── Static files (Vite build) ──
-app.use(express.static(join(__dirname, 'dist')));
 
 // ── Config API (server-driven, no frontend rebuild needed) ──
 app.get('/api/cameras', (req, res) => {
@@ -100,7 +129,9 @@ app.get('/api/config', (req, res) => {
 });
 
 // ── State API ──
-let sharedState = loadState();
+let sharedState = migrateState(loadState());
+// Save migrated state back
+if (sharedState) saveState(sharedState);
 
 // Track connected displays
 const connectedDisplays = new Map();
@@ -148,15 +179,18 @@ function broadcastState() {
   });
 }
 
-// ── Reload endpoint ──
+// ── Reload endpoint — tells all connected browsers to hard-refresh ──
 app.post('/api/reload', (req, res) => {
   const msg = JSON.stringify({ type: 'reload' });
+  let count = 0;
   wss.clients.forEach((client) => {
     if (client.readyState === 1) {
       client.send(msg);
+      count++;
     }
   });
-  res.json({ ok: true, reloaded: wss.clients.size });
+  console.log(`[Reload] Sent reload to ${count} clients`);
+  res.json({ ok: true, reloaded: count });
 });
 
 // ── Health check ──
@@ -190,7 +224,7 @@ wss.on('connection', (ws, req) => {
     ws.send(JSON.stringify({ type: 'state_update', state: sharedState }));
   }
 
-  // Send config so frontend knows cameras/layouts
+  // Send config so frontend knows cameras/layouts/displays
   const config = loadConfig();
   ws.send(JSON.stringify({ type: 'config', config }));
 
@@ -287,9 +321,8 @@ const PORT = 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`[Display Server] Running on http://0.0.0.0:${PORT}`);
   console.log(`[Display Server] WebSocket at ws://0.0.0.0:${PORT}/ws`);
-  console.log(`[Display Server] Proxies: tar1090→CT102, frigate→CT113, birdnet→CT112, go2rtc→CT113`);
   console.log(`[Display Server] Remote:  http://192.168.1.114:${PORT}/#remote`);
-  console.log(`[Display Server] Corner:  http://192.168.1.114:${PORT}/#corner`);
-  console.log(`[Display Server] Main TV: http://192.168.1.114:${PORT}/#maintv`);
-  console.log(`[Display Server] Config:  cameras.json loaded with ${loadConfig().cameras?.length || 0} cameras`);
+  const displays = loadConfig().displays || [];
+  displays.forEach(d => console.log(`[Display Server] ${d.label}: http://192.168.1.114:${PORT}/#${d.hash || d.id}`));
+  console.log(`[Display Server] Config:  cameras.json loaded with ${loadConfig().cameras?.length || 0} cameras, ${displays.length} displays`);
 });

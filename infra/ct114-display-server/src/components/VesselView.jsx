@@ -1,20 +1,19 @@
 import React from 'react';
+import { DASHBOARD_URL, VESSEL_DEFAULTS } from '../displayConfig';
 
 /**
  * VesselView — Embeds the Hawaii Dashboard vessel map in kiosk mode.
- * Centers on Pukalani with zoom calculated so the 25nm range ring
- * touches the bottom of the screen.
+ * Zoom and center are config-driven (set via Remote UI).
+ * No hard-coded zoom levels — everything comes from state.
+ *
+ * Props:
+ *   config.vesselZoom   — Leaflet zoom level (7-17, default from VESSEL_DEFAULTS)
+ *   config.vesselCenter — "lat,lon" string (default: HOME_BASE)
  */
-const VesselView = React.memo(() => {
-  // Pukalani home coordinates
-  const lat = 21.2855;
-  const lon = -157.7969;
-  const ringNm = 25;
-
-  // The dashboard already renders range rings. We embed it via iframe
-  // with a kiosk-friendly URL. The dashboard will read hash params to
-  // set initial center and zoom, hiding UI chrome.
-  const src = `/proxy/dashboard/#kiosk?lat=${lat}&lon=${lon}&ring=${ringNm}`;
+const VesselView = React.memo(({ config }) => {
+  const zoom = config?.vesselZoom ?? VESSEL_DEFAULTS.zoom;
+  const center = config?.vesselCenter || VESSEL_DEFAULTS.center;
+  const src = `${DASHBOARD_URL}?zoom=${zoom}&center=${center}`;
 
   return (
     <iframe

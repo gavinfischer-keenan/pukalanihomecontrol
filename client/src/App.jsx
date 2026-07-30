@@ -148,7 +148,7 @@ function KioskZoomCycler() {
     const centerParam = params.get('center');
     const center = centerParam
       ? centerParam.split(',').map(Number)
-      : [21.24, -157.79];
+      : [21.2861516, -157.7935187];  // HOME_BASE: 3786 Pukalani Pl
 
     if (fixedZoom && !isNaN(fixedZoom)) {
       // Fixed zoom mode — set once, disable user interaction
