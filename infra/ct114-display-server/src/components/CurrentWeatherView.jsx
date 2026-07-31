@@ -3,8 +3,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 /**
  * CurrentWeatherView — Container-Aware Auto-Adapting Weather Dashboard.
  * 
- * Includes independent Wind & Rain Sub-Cards inside Box 2 for optimized,
- * individual scaling of the Wind Compass Rose and Virtual Rain Cup.
+ * Includes Doubled-Size Wind Compass Dial (up to 160px) and Doubled-Size Virtual Rain Cup (150px)
+ * for maximum visual space filling within Box 2 sub-containers.
  */
 
 // ── Inline SVG Icons ───────────────────────────────────────────────────────
@@ -37,7 +37,7 @@ const IconCalendar = () => (
 
 const IconWave = () => (
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
+    <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
   </svg>
 );
 
@@ -184,29 +184,29 @@ function getCardinal(deg) {
 
 // ── Graphic Sub-Components ─────────────────────────────────────────────────
 
-/** Wind Compass Rose Gauge */
+/** Expanded Wind Compass Rose Gauge (Fills Container) */
 const WindCompass = ({ dir = 0, speed = 0, gust = 0 }) => {
   const cardinal = getCardinal(dir);
   return (
     <div className="wx-wind-gauge">
       <svg viewBox="0 0 120 120" className="wx-compass-svg">
-        <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(56, 189, 248, 0.25)" strokeWidth="2" />
-        <circle cx="60" cy="60" r="48" fill="rgba(15, 23, 42, 0.7)" />
+        <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(56, 189, 248, 0.3)" strokeWidth="2.5" />
+        <circle cx="60" cy="60" r="48" fill="rgba(15, 23, 42, 0.85)" />
         
-        <text x="60" y="18" className="wx-compass-cardinal" textAnchor="middle">N</text>
-        <text x="104" y="64" className="wx-compass-cardinal" textAnchor="middle">E</text>
-        <text x="60" y="108" className="wx-compass-cardinal" textAnchor="middle">S</text>
-        <text x="16" y="64" className="wx-compass-cardinal" textAnchor="middle">W</text>
+        <text x="60" y="16" className="wx-compass-cardinal" textAnchor="middle">N</text>
+        <text x="106" y="64" className="wx-compass-cardinal" textAnchor="middle">E</text>
+        <text x="60" y="110" className="wx-compass-cardinal" textAnchor="middle">S</text>
+        <text x="14" y="64" className="wx-compass-cardinal" textAnchor="middle">W</text>
 
         <g transform={`rotate(${dir} 60 60)`}>
-          <polygon points="60,22 55,50 65,50" fill="#f59e0b" />
-          <polygon points="60,98 57,70 63,70" fill="rgba(255,255,255,0.3)" />
-          <line x1="60" y1="22" x2="60" y2="98" stroke="#f59e0b" strokeWidth="1.5" opacity="0.6" />
+          <polygon points="60,20 54,48 66,48" fill="#f59e0b" />
+          <polygon points="60,100 56,72 64,72" fill="rgba(255,255,255,0.35)" />
+          <line x1="60" y1="20" x2="60" y2="100" stroke="#f59e0b" strokeWidth="2" opacity="0.7" />
         </g>
 
-        <circle cx="60" cy="60" r="26" fill="rgba(11, 19, 41, 0.95)" stroke="rgba(245, 158, 11, 0.5)" strokeWidth="1" />
+        <circle cx="60" cy="60" r="28" fill="rgba(11, 19, 41, 0.95)" stroke="rgba(245, 158, 11, 0.6)" strokeWidth="1.5" />
         <text x="60" y="56" className="wx-compass-speed" textAnchor="middle">{speed}</text>
-        <text x="60" y="66" className="wx-compass-unit" textAnchor="middle">MPH</text>
+        <text x="60" y="67" className="wx-compass-unit" textAnchor="middle">MPH</text>
       </svg>
 
       <div className="wx-wind-details">
@@ -217,20 +217,21 @@ const WindCompass = ({ dir = 0, speed = 0, gust = 0 }) => {
   );
 };
 
-/** Virtual Rain Cup Gauge */
+/** Expanded Virtual Rain Cup Gauge (150px Beaker Fill) */
 const RainCup = ({ dailyRain = 0, rainRate = 0 }) => {
   const maxRain = 2.0;
   const fillRatio = Math.min(Math.max(dailyRain / maxRain, 0), 1);
-  const fillHeight = fillRatio * 64;
+  const fillHeight = fillRatio * 150; // Scaled fill height for 150px beaker
 
   return (
     <div className="wx-rain-cup-container">
       <div className="wx-rain-cup">
         <div className="wx-cup-glass">
           <div className="wx-cup-ticks">
-            <span className="wx-tick" style={{ bottom: '75%' }}>2.0"</span>
-            <span className="wx-tick" style={{ bottom: '50%' }}>1.0"</span>
-            <span className="wx-tick" style={{ bottom: '25%' }}>0.5"</span>
+            <span className="wx-tick" style={{ bottom: '85%' }}>2.0"</span>
+            <span className="wx-tick" style={{ bottom: '60%' }}>1.5"</span>
+            <span className="wx-tick" style={{ bottom: '38%' }}>1.0"</span>
+            <span className="wx-tick" style={{ bottom: '18%' }}>0.5"</span>
           </div>
           <div className="wx-cup-water" style={{ height: `${fillHeight}px` }}>
             <div className="wx-water-wave"></div>
@@ -306,7 +307,7 @@ const TempAtmosphereBox = ({ data }) => {
   );
 };
 
-/** Box 2: Wind & Rain Station (Separated Sub-Cards for Independent Scaling) */
+/** Box 2: Wind & Rain Station (Expanded Doubled Gauges within Containers) */
 const WindRainBox = ({ data }) => {
   if (!data) return <div className="wx-panel wx-loading">Loading wind data…</div>;
 
@@ -318,7 +319,7 @@ const WindRainBox = ({ data }) => {
       </div>
 
       <div className="wx-wind-rain-grid">
-        {/* Sub-Card 1: Wind Gauge */}
+        {/* Sub-Card 1: Wind Gauge (Expanded 160px Compass) */}
         <div className="wx-sub-card wx-wind-subcard">
           <WindCompass 
             dir={data.wind_dir} 
@@ -327,7 +328,7 @@ const WindRainBox = ({ data }) => {
           />
         </div>
 
-        {/* Sub-Card 2: Rain Beaker */}
+        {/* Sub-Card 2: Rain Beaker (Expanded 150px Beaker) */}
         <div className="wx-sub-card wx-rain-subcard">
           <RainCup 
             dailyRain={data.rain_daily_in || 0} 

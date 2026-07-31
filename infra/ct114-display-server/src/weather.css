@@ -173,10 +173,10 @@
 .wx-atmo-lbl { font-size: calc(0.65rem * var(--wx-scale, 1)); color: #64748b; text-transform: uppercase; }
 .wx-atmo-val { font-size: calc(0.95rem * var(--wx-scale, 1)); font-weight: 800; color: #38bdf8; }
 
-/* ── Box 2: Wind & Rain Station (Independent Sub-Cards) ── */
+/* ── Box 2: Wind & Rain Station (Sub-Card Max Space Filling) ── */
 .wx-wind-rain-grid {
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
+  grid-template-columns: 1.15fr 0.85fr;
   gap: calc(6px * var(--wx-scale, 1));
   height: 100%;
 }
@@ -189,31 +189,41 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .wx-wind-subcard .wx-wind-gauge {
   width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: space-around;
+  gap: calc(8px * var(--wx-scale, 1));
 }
 
 .wx-rain-subcard .wx-rain-cup-container {
   width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: space-around;
+  gap: calc(8px * var(--wx-scale, 1));
 }
 
+/* Maximum Expanded Wind Compass Dial (Up to 160px) */
 .wx-compass-svg {
-  width: calc(76px * var(--wx-scale, 1));
-  height: calc(76px * var(--wx-scale, 1));
+  width: 100%;
+  height: 100%;
+  max-width: calc(160px * var(--wx-scale, 1));
+  max-height: calc(160px * var(--wx-scale, 1));
+  aspect-ratio: 1 / 1;
   flex-shrink: 0;
 }
 
-.wx-compass-cardinal { font-size: 10px; font-weight: 800; fill: #64748b; }
-.wx-compass-speed { font-size: 14px; font-weight: 800; fill: #ffffff; }
-.wx-compass-unit { font-size: 8px; font-weight: 700; fill: #f59e0b; }
+.wx-compass-cardinal { font-size: 11px; font-weight: 800; fill: #64748b; }
+.wx-compass-speed { font-size: 16px; font-weight: 800; fill: #ffffff; }
+.wx-compass-unit { font-size: 9px; font-weight: 700; fill: #f59e0b; }
 
 .wx-wind-details {
   display: flex;
@@ -222,54 +232,56 @@
 }
 
 .wx-wind-dir-text {
-  font-size: calc(0.9rem * var(--wx-scale, 1));
+  font-size: calc(1.2rem * var(--wx-scale, 1));
   font-weight: 800;
   color: #f59e0b;
 }
 
 .wx-wind-gust {
-  font-size: calc(0.75rem * var(--wx-scale, 1));
+  font-size: calc(0.9rem * var(--wx-scale, 1));
   color: #cbd5e1;
 }
 
-/* Rain Cup */
+/* Maximum Expanded Virtual Rain Cup Beaker (56px x 150px) */
 .wx-rain-cup {
   position: relative;
-  width: calc(28px * var(--wx-scale, 1));
-  height: calc(64px * var(--wx-scale, 1));
-  background: rgba(15, 23, 42, 0.8);
-  border: 1.5px solid rgba(56, 189, 248, 0.4);
+  width: calc(56px * var(--wx-scale, 1));
+  height: calc(150px * var(--wx-scale, 1));
+  max-height: 92%;
+  background: rgba(15, 23, 42, 0.85);
+  border: 2px solid rgba(56, 189, 248, 0.5);
   border-top: none;
-  border-radius: 0 0 5px 5px;
+  border-radius: 0 0 8px 8px;
   overflow: hidden;
-  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.6);
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.7);
 }
 
 .wx-cup-glass { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
 
 .wx-cup-ticks {
   position: absolute;
-  right: 2px; top: 0; bottom: 0;
+  right: 4px; top: 0; bottom: 0;
   display: flex; flex-direction: column; justify-content: space-between;
   pointer-events: none; z-index: 3;
 }
 
 .wx-tick {
-  font-size: calc(7px * var(--wx-scale, 1));
-  color: rgba(255, 255, 255, 0.5);
-  position: absolute; right: 1px;
+  font-size: calc(9px * var(--wx-scale, 1));
+  color: rgba(255, 255, 255, 0.65);
+  font-weight: 700;
+  position: absolute; right: 2px;
 }
 
 .wx-cup-water {
   position: absolute; bottom: 0; left: 0; right: 0;
   background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
   transition: height 0.6s ease-in-out;
-  border-top: 1px solid #7dd3fc;
+  border-top: 1.5px solid #7dd3fc;
 }
 
-.wx-rain-readout { display: flex; flex-direction: column; gap: 1px; }
-.wx-rain-val { font-size: calc(1.1rem * var(--wx-scale, 1)); font-weight: 800; color: #38bdf8; }
-.wx-rain-lbl { font-size: calc(0.7rem * var(--wx-scale, 1)); color: #94a3b8; }
+.wx-rain-readout { display: flex; flex-direction: column; gap: 2px; }
+.wx-rain-val { font-size: calc(1.5rem * var(--wx-scale, 1)); font-weight: 800; color: #38bdf8; }
+.wx-rain-lbl { font-size: calc(0.85rem * var(--wx-scale, 1)); color: #94a3b8; }
 
 /* ── Box 3: Humidity & Comfort ── */
 .wx-humidity-stack {
