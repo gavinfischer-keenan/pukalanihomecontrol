@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 /**
- * CurrentWeatherView — Dynamic Layout-Intelligent Hawaii Weather Dashboard.
+ * CurrentWeatherView — Container-Aware Auto-Adapting Weather Dashboard.
  * 
- * Automatically selects the optimal 6-panel grid arrangement based on container aspect ratio:
- *  - 2-Up Side-by-Side (Tall/Vertical slot ~960x1080, aspect < 1.25):
- *      -> Locks to 2 Columns x 3 Rows (Left Column: Temp/Atmo/Hum, Wind/Rain, Sea Anim; Right Column: Forecast, Marine, Solunar)
- *  - 2-Up Stacked & Short/Wide slots (~1920x540, aspect >= 1.25):
- *      -> Locks to 3 Columns x 2 Rows (Top Row: Temp/Atmo, Wind/Rain, Sea Anim; Bottom Row: Forecast, Marine, Solunar)
- *  - Full Screen 4K/1080p (~1920x1080):
- *      -> 3 Columns x 2 Rows with expanded scale factor
+ * Includes:
+ *  - Box 1: Combined Current Temp, Atmosphere & Integrated Humidity.
+ *  - Box 2: Wind & Rain Station (Expanded 160px Compass Dial & 150px Rain Cup).
+ *  - Box 3: Animated Wave & Sea State Placeholder.
+ *  - Box 4: 7-Day NWS Forecast.
+ *  - Box 5: Marine Box (Advisories & Tides).
+ *  - Box 6: "Sky and Fish" Panel with 24-Hour Solar/Lunar Arc Animation Sub-Box & Solunar Feeding Sub-Box.
  */
 
 // ── Inline SVG Icons ───────────────────────────────────────────────────────
@@ -21,7 +21,7 @@ const IconThermometer = () => (
 
 const IconWind = () => (
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/>
+    <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 0 19.5 12H2"/>
   </svg>
 );
 
@@ -566,9 +566,34 @@ const MarineBox = ({ predictions, alerts = [] }) => {
   );
 };
 
-/** Box 6: Solunar Fishing & Astronomy */
-const SolunarAstronomyBox = ({ sunMoon }) => {
+/** Box 6 (RENAMED): Sky and Fish Panel with 24-Hour Arc Sub-Box & Solunar Sub-Box */
+const SkyAndFishBox = ({ sunMoon }) => {
   const fish = solunarScore();
+  const now = new Date();
+  const nowH = now.getHours() + now.getMinutes() / 60;
+
+  const parseTimeToDec = (timeStr) => {
+    if (!timeStr) return 12;
+    const [t, period] = timeStr.split(' ');
+    let [h, m] = t.split(':').map(Number);
+    if (period === 'PM' && h !== 12) h += 12;
+    if (period === 'AM' && h === 12) h = 0;
+    return h + m / 60;
+  };
+
+  const srH = parseTimeToDec(sunMoon?.sunrise) || 6.1;
+  const ssH = parseTimeToDec(sunMoon?.sunset) || 19.2;
+
+  // Sun 24h Traverse Arc Math
+  const isDay = nowH >= srH && nowH <= ssH;
+  const sunProgress = isDay ? (nowH - srH) / (ssH - srH) : (nowH > ssH ? 1 : 0);
+  const sunX = 35 + sunProgress * 230;
+  const sunY = isDay ? 62 - Math.sin(sunProgress * Math.PI) * 45 : 68;
+
+  // Moon 24h Traverse Math
+  const moonX = (nowH / 24) * 230 + 35;
+  const moonY = 62 - Math.sin((nowH / 24) * Math.PI) * 35;
+
   const ratingColor = {
     Excellent: '#22c55e',
     Good:      '#84cc16',
@@ -577,55 +602,96 @@ const SolunarAstronomyBox = ({ sunMoon }) => {
   }[fish.rating] || '#94a3b8';
 
   return (
-    <div className="wx-panel wx-box-fishing" data-section="fishing">
+    <div className="wx-panel wx-box-sky-fish" data-section="sky-fish">
       <div className="wx-panel-header">
-        <h2 className="wx-panel-title"><IconFish /> Solunar Fishing &amp; Astronomy</h2>
-        <span className="wx-badge-solunar">MOON {fish.age.toFixed(1)}d</span>
+        <h2 className="wx-panel-title"><IconFish /> Sky and Fish</h2>
+        <span className="wx-badge-solunar">
+          {sunMoon?.moonPhaseLabel?.toUpperCase()} • {sunMoon?.moonIllum}% ILLUM
+        </span>
       </div>
 
-      <div className="wx-fish-astronomy-layout">
-        <div className="wx-fish-rating-box">
-          <div className="wx-fish-stars">
-            {[1,2,3,4].map(s => (
-              <span key={s} style={{ opacity: s <= fish.stars ? 1 : 0.2, color: '#f59e0b' }}>★</span>
-            ))}
-          </div>
-          <div className="wx-fish-rating-title" style={{ color: ratingColor }}>
-            {fish.rating}
+      <div className="wx-sky-fish-grid">
+        {/* Sub-Box 1: 24-Hour Solar & Lunar Traverse Arc Animation */}
+        <div className="wx-sub-card wx-solar-arc-subcard">
+          <div className="wx-arc-header-lbl">24-HOUR SOLAR &amp; LUNAR TRAVERSE</div>
+
+          <div className="wx-solar-arc-wrapper">
+            <svg viewBox="0 0 300 88" className="wx-solar-arc-svg">
+              {/* Solar Arc Curve */}
+              <path 
+                d="M 35 65 A 115 45 0 0 1 265 65" 
+                fill="none" 
+                stroke="rgba(245, 158, 11, 0.45)" 
+                strokeWidth="2" 
+                strokeDasharray="4 4" 
+              />
+              {/* Horizon Line */}
+              <line x1="15" y1="65" x2="285" y2="65" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1.5" />
+
+              {/* Sunrise & Sunset Endpoint Labels */}
+              <text x="35" y="82" fill="#f59e0b" fontSize="9" fontWeight="800" textAnchor="middle">
+                Rise {sunMoon?.sunrise || '6:04 AM'}
+              </text>
+              <text x="265" y="82" fill="#f97316" fontSize="9" fontWeight="800" textAnchor="middle">
+                Set {sunMoon?.sunset || '7:14 PM'}
+              </text>
+
+              {/* Sun Position Icon */}
+              <g transform={`translate(${sunX}, ${sunY})`}>
+                <circle r="7" fill="#f59e0b" stroke="#ffffff" strokeWidth="1.5" />
+                <circle r="12" fill="rgba(245, 158, 11, 0.25)" />
+              </g>
+
+              {/* Moon Position Icon */}
+              <g transform={`translate(${moonX}, ${moonY})`}>
+                <circle r="5.5" fill="#cbd5e1" stroke="#38bdf8" strokeWidth="1" />
+              </g>
+
+              {/* Current Local Time floating above Sun */}
+              <text x={sunX} y={sunY - 14} fill="#ffffff" fontSize="10" fontWeight="900" textAnchor="middle">
+                NOW {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </text>
+            </svg>
           </div>
         </div>
 
-        <div className="wx-fish-periods-grid">
-          <div className="wx-period-box">
-            <div className="wx-period-hdr">MAJOR PERIODS (2HR)</div>
-            {fish.major.map((h, i) => (
-              <div key={i} className="wx-period-row">
-                <span className="wx-period-icon"><IconMoon /></span>
-                <span className="wx-period-time">{fmtHour(h)}</span>
-                <span className="wx-period-desc">{i === 0 ? 'Moon overhead' : 'Moon underfoot'}</span>
-              </div>
-            ))}
+        {/* Sub-Box 2: Solunar Fishing Feeding Windows */}
+        <div className="wx-sub-card wx-solunar-fish-subcard">
+          <div className="wx-fish-rating-row">
+            <div className="wx-fish-stars">
+              {[1,2,3,4].map(s => (
+                <span key={s} style={{ opacity: s <= fish.stars ? 1 : 0.2, color: '#f59e0b' }}>★</span>
+              ))}
+            </div>
+            <div className="wx-fish-rating-title" style={{ color: ratingColor }}>
+              {fish.rating}
+            </div>
           </div>
 
-          <div className="wx-period-box">
-            <div className="wx-period-hdr">MINOR PERIODS (1HR)</div>
-            {fish.minor.map((h, i) => (
-              <div key={i} className="wx-period-row">
-                <span className="wx-period-icon"><IconFish /></span>
-                <span className="wx-period-time">{fmtHour(h)}</span>
-                <span className="wx-period-desc">{i === 0 ? 'Moonrise' : 'Moonset'}</span>
-              </div>
-            ))}
+          <div className="wx-fish-periods-grid">
+            <div className="wx-period-box">
+              <div className="wx-period-hdr">MAJOR PERIODS (2HR)</div>
+              {fish.major.map((h, i) => (
+                <div key={i} className="wx-period-row">
+                  <span className="wx-period-icon"><IconMoon /></span>
+                  <span className="wx-period-time">{fmtHour(h)}</span>
+                  <span className="wx-period-desc">{i === 0 ? 'Overhead' : 'Underfoot'}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="wx-period-box">
+              <div className="wx-period-hdr">MINOR PERIODS (1HR)</div>
+              {fish.minor.map((h, i) => (
+                <div key={i} className="wx-period-row">
+                  <span className="wx-period-icon"><IconFish /></span>
+                  <span className="wx-period-time">{fmtHour(h)}</span>
+                  <span className="wx-period-desc">{i === 0 ? 'Moonrise' : 'Moonset'}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-
-        {sunMoon && (
-          <div className="wx-sunmoon-row">
-            <div className="wx-sm-item"><IconSun /> Rise: {sunMoon.sunrise}</div>
-            <div className="wx-sm-item"><IconSun /> Set: {sunMoon.sunset}</div>
-            <div className="wx-sm-item"><IconMoon /> {sunMoon.moonPhaseLabel} ({sunMoon.moonIllum}%)</div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -639,14 +705,13 @@ const CurrentWeatherView = React.memo(({ config }) => {
   const [error, setError] = useState(null);
   const [lastFetch, setLastFetch] = useState(null);
 
-  const [gridMode, setGridMode] = useState('2col'); // default 2col for 2-Up Side-by-Side
+  const [gridMode, setGridMode] = useState('2col');
   const rootRef = useRef(null);
 
   const refreshMs = (config?.refreshIntervalSeconds || 300) * 1000;
   const HOME_LAT = 21.2861516;
   const HOME_LON = -157.7935187;
 
-  // Aspect-Ratio & Dimension Observer
   useEffect(() => {
     if (!rootRef.current) return;
     const ro = new ResizeObserver((entries) => {
@@ -656,11 +721,6 @@ const CurrentWeatherView = React.memo(({ config }) => {
 
         const aspect = width / height;
 
-        // Deterministic Grid Decision:
-        //  - aspect < 1.25 (Tall/Vertical Slot, e.g. 2-Up Side-by-Side ~960x1080):
-        //      -> Use 2 Columns x 3 Rows ('2col' with Left & Right column stacks)
-        //  - aspect >= 1.25 (Wide/Horizontal Slot, e.g. 2-Up Stacked ~1920x540, Fullscreen ~1920x1080):
-        //      -> Use 3 Columns x 2 Rows ('3col' with Top & Bottom row stacks)
         let newGridMode = aspect < 1.25 ? '2col' : '3col';
 
         setGridMode(newGridMode);
@@ -709,7 +769,6 @@ const CurrentWeatherView = React.memo(({ config }) => {
     <div className={`wx-root wx-mode-${gridMode}`} data-view="current-weather" ref={rootRef}>
       {error && <div className="wx-error-banner">⚠️ Weather Data Update Delayed: {error}</div>}
 
-      {/* Grid Layout Switcher */}
       {gridMode === '2col' ? (
         <div className="wx-dashboard-grid wx-grid-layout-2col">
           <div className="wx-col">
@@ -720,7 +779,7 @@ const CurrentWeatherView = React.memo(({ config }) => {
           <div className="wx-col">
             <ForecastBox periods={data?.forecast} />
             <MarineBox predictions={data?.tides} alerts={data?.alerts} />
-            <SolunarAstronomyBox sunMoon={sunMoon} />
+            <SkyAndFishBox sunMoon={sunMoon} />
           </div>
         </div>
       ) : (
@@ -730,7 +789,7 @@ const CurrentWeatherView = React.memo(({ config }) => {
           <SeaAnimationBox />
           <ForecastBox periods={data?.forecast} />
           <MarineBox predictions={data?.tides} alerts={data?.alerts} />
-          <SolunarAstronomyBox sunMoon={sunMoon} />
+          <SkyAndFishBox sunMoon={sunMoon} />
         </div>
       )}
 

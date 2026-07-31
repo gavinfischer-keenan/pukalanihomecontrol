@@ -581,30 +581,72 @@
 .wx-tc-time { font-size: calc(0.75rem * var(--wx-scale, 1)); font-weight: 700; color: #ffffff; }
 .wx-tc-height { font-size: calc(0.65rem * var(--wx-scale, 1)); color: #94a3b8; }
 
-/* ── Box 6: Solunar Fishing & Astronomy ── */
-.wx-fish-astronomy-layout {
+/* ── Box 6 (RENAMED): Sky and Fish ── */
+.wx-sky-fish-grid {
   display: flex;
   flex-direction: column;
   gap: calc(6px * var(--wx-scale, 1));
+  height: 100%;
 }
 
-.wx-fish-rating-box {
+.wx-solar-arc-subcard {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   background: rgba(0, 0, 0, 0.25);
-  border-radius: calc(5px * var(--wx-scale, 1));
-  padding: calc(4px * var(--wx-scale, 1)) calc(10px * var(--wx-scale, 1));
+  border-radius: calc(6px * var(--wx-scale, 1));
+  padding: calc(4px * var(--wx-scale, 1));
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.wx-fish-stars { font-size: calc(1.1rem * var(--wx-scale, 1)); letter-spacing: 2px; }
-.wx-fish-rating-title { font-size: calc(1.05rem * var(--wx-scale, 1)); font-weight: 800; }
+.wx-arc-header-lbl {
+  font-size: calc(0.65rem * var(--wx-scale, 1));
+  font-weight: 800;
+  color: #f59e0b;
+  letter-spacing: 0.05em;
+  margin-bottom: 2px;
+}
+
+.wx-solar-arc-wrapper {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.wx-solar-arc-svg {
+  width: 100%;
+  max-width: calc(300px * var(--wx-scale, 1));
+  height: calc(85px * var(--wx-scale, 1));
+  display: block;
+}
+
+.wx-solunar-fish-subcard {
+  display: flex;
+  flex-direction: column;
+  gap: calc(4px * var(--wx-scale, 1));
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: calc(6px * var(--wx-scale, 1));
+  padding: calc(6px * var(--wx-scale, 1));
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.wx-fish-rating-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: calc(5px * var(--wx-scale, 1));
+  padding: calc(3px * var(--wx-scale, 1)) calc(8px * var(--wx-scale, 1));
+}
+
+.wx-fish-stars { font-size: calc(1rem * var(--wx-scale, 1)); letter-spacing: 2px; }
+.wx-fish-rating-title { font-size: calc(0.95rem * var(--wx-scale, 1)); font-weight: 800; }
 
 .wx-fish-periods-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: calc(6px * var(--wx-scale, 1));
+  gap: calc(4px * var(--wx-scale, 1));
 }
 
 .wx-period-box {
@@ -618,7 +660,7 @@
   font-size: calc(0.65rem * var(--wx-scale, 1));
   font-weight: 800;
   color: #38bdf8;
-  margin-bottom: calc(3px * var(--wx-scale, 1));
+  margin-bottom: calc(2px * var(--wx-scale, 1));
 }
 
 .wx-period-row {
@@ -633,18 +675,6 @@
 .wx-period-icon { text-align: center; display: flex; align-items: center; }
 .wx-period-time { font-weight: 700; color: #f59e0b; }
 .wx-period-desc { color: #cbd5e1; }
-
-.wx-sunmoon-row {
-  display: flex;
-  justify-content: space-between;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: calc(5px * var(--wx-scale, 1));
-  padding: calc(4px * var(--wx-scale, 1)) calc(8px * var(--wx-scale, 1));
-  font-size: calc(0.75rem * var(--wx-scale, 1));
-  color: #cbd5e1;
-}
-
-.wx-sm-item { display: flex; align-items: center; gap: 4px; }
 
 /* Dashboard Footer */
 .wx-dashboard-footer {
