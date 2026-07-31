@@ -417,7 +417,7 @@
   z-index: 6;
 }
 
-/* ── Box 4 (EXPANDED PNG IMAGES & NO TEXT): 7-Day Forecast ── */
+/* ── Box 4 (HIGH-CONTRAST VECTOR DRAWINGS): 7-Day Forecast ── */
 .wx-forecast-rows-list {
   display: flex;
   flex-direction: column;
@@ -428,7 +428,7 @@
 
 .wx-fcr-row-card {
   display: grid;
-  grid-template-columns: calc(85px * var(--wx-scale, 1)) 1fr calc(95px * var(--wx-scale, 1)) auto calc(85px * var(--wx-scale, 1));
+  grid-template-columns: calc(85px * var(--wx-scale, 1)) 1fr calc(105px * var(--wx-scale, 1)) auto calc(85px * var(--wx-scale, 1));
   gap: calc(8px * var(--wx-scale, 1));
   align-items: center;
   background: rgba(0, 0, 0, 0.22);
@@ -450,19 +450,11 @@
   letter-spacing: 0.03em;
 }
 
-.wx-fcr-img-col {
+.wx-fcr-icon-col {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
-}
-
-.wx-fcr-png-img {
-  height: calc(34px * var(--wx-scale, 1));
-  max-width: 100%;
-  object-fit: contain;
-  border-radius: 6px;
-  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.6));
 }
 
 .wx-fcr-temp-col {
