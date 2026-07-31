@@ -113,19 +113,19 @@
   border-radius: calc(4px * var(--wx-scale, 1));
 }
 
-/* ── Box 1: Temp & Atmosphere ── */
+/* ── Box 1: Temp, Atmosphere & Integrated Humidity ── */
 .wx-temp-main-display {
   display: flex;
   align-items: center;
   justify-content: space-between;
   background: rgba(0, 0, 0, 0.25);
   border-radius: calc(6px * var(--wx-scale, 1));
-  padding: calc(6px * var(--wx-scale, 1)) calc(10px * var(--wx-scale, 1));
+  padding: calc(5px * var(--wx-scale, 1)) calc(8px * var(--wx-scale, 1));
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .wx-temp-big {
-  font-size: calc(2.8rem * var(--wx-scale, 1));
+  font-size: calc(2.5rem * var(--wx-scale, 1));
   font-weight: 900;
   color: #ffffff;
   line-height: 1;
@@ -133,7 +133,7 @@
 }
 
 .wx-temp-unit {
-  font-size: calc(1.3rem * var(--wx-scale, 1));
+  font-size: calc(1.2rem * var(--wx-scale, 1));
   color: #94a3b8;
   margin-left: 2px;
 }
@@ -148,7 +148,7 @@
 .wx-sub-row {
   display: flex;
   gap: calc(6px * var(--wx-scale, 1));
-  font-size: calc(0.8rem * var(--wx-scale, 1));
+  font-size: calc(0.75rem * var(--wx-scale, 1));
 }
 
 .wx-sub-lbl { color: #94a3b8; }
@@ -157,23 +157,59 @@
 .wx-atmo-stats-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: calc(6px * var(--wx-scale, 1));
+  gap: calc(4px * var(--wx-scale, 1));
 }
 
 .wx-atmo-card {
   background: rgba(0, 0, 0, 0.2);
-  border-radius: calc(6px * var(--wx-scale, 1));
-  padding: calc(6px * var(--wx-scale, 1));
+  border-radius: calc(5px * var(--wx-scale, 1));
+  padding: calc(4px * var(--wx-scale, 1));
   display: flex;
   flex-direction: column;
   align-items: center;
   border: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-.wx-atmo-lbl { font-size: calc(0.65rem * var(--wx-scale, 1)); color: #64748b; text-transform: uppercase; }
-.wx-atmo-val { font-size: calc(0.95rem * var(--wx-scale, 1)); font-weight: 800; color: #38bdf8; }
+.wx-atmo-lbl { font-size: calc(0.6rem * var(--wx-scale, 1)); color: #64748b; text-transform: uppercase; }
+.wx-atmo-val { font-size: calc(0.85rem * var(--wx-scale, 1)); font-weight: 800; color: #38bdf8; }
 
-/* ── Box 2: Wind & Rain Station (Sub-Card Max Space Filling) ── */
+/* Integrated Compact Humidity Pills */
+.wx-integrated-humidity-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: calc(4px * var(--wx-scale, 1));
+}
+
+.wx-compact-hum-pill {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: calc(5px * var(--wx-scale, 1));
+  padding: calc(4px * var(--wx-scale, 1)) calc(6px * var(--wx-scale, 1));
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wx-ch-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: calc(0.7rem * var(--wx-scale, 1));
+}
+
+.wx-ch-lbl { color: #cbd5e1; }
+.wx-ch-val { font-weight: 800; color: #ffffff; }
+
+.wx-ch-bar-bg {
+  height: calc(4px * var(--wx-scale, 1));
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.wx-ch-bar-fill { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+.wx-ch-badge { font-size: calc(0.65rem * var(--wx-scale, 1)); font-weight: 700; text-align: right; }
+
+/* ── Box 2: Wind & Rain Station ── */
 .wx-wind-rain-grid {
   display: grid;
   grid-template-columns: 1.15fr 0.85fr;
@@ -211,7 +247,6 @@
   gap: calc(8px * var(--wx-scale, 1));
 }
 
-/* Maximum Expanded Wind Compass Dial (Up to 160px) */
 .wx-compass-svg {
   width: 100%;
   height: 100%;
@@ -242,7 +277,7 @@
   color: #cbd5e1;
 }
 
-/* Maximum Expanded Virtual Rain Cup Beaker (56px x 150px) */
+/* Rain Cup */
 .wx-rain-cup {
   position: relative;
   width: calc(56px * var(--wx-scale, 1));
@@ -283,42 +318,98 @@
 .wx-rain-val { font-size: calc(1.5rem * var(--wx-scale, 1)); font-weight: 800; color: #38bdf8; }
 .wx-rain-lbl { font-size: calc(0.85rem * var(--wx-scale, 1)); color: #94a3b8; }
 
-/* ── Box 3: Humidity & Comfort ── */
-.wx-humidity-stack {
+/* ── Box 3 (NEW): Wave & Sea State Animation Placeholder ── */
+.wx-sea-anim-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: rgba(11, 19, 41, 0.9);
+  border-radius: calc(6px * var(--wx-scale, 1));
+  overflow: hidden;
+  border: 1px solid rgba(56, 189, 248, 0.2);
   display: flex;
   flex-direction: column;
-  gap: calc(6px * var(--wx-scale, 1));
+  justify-content: flex-end;
 }
 
-.wx-humidity-gauge {
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: calc(6px * var(--wx-scale, 1));
-  padding: calc(6px * var(--wx-scale, 1)) calc(8px * var(--wx-scale, 1));
-  border: 1px solid rgba(255, 255, 255, 0.04);
+.wx-sea-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
-.wx-hum-header {
+.wx-sea-waves-svg {
+  position: absolute;
+  bottom: 0; left: 0;
+  width: 200%;
+  height: 100%;
+}
+
+/* Wave CSS Animations */
+.wx-wave-layer-back {
+  animation: waveMoveBack 8s ease-in-out infinite alternate;
+}
+
+.wx-wave-layer-mid {
+  animation: waveMoveMid 5s ease-in-out infinite alternate;
+}
+
+.wx-wave-layer-front {
+  animation: waveMoveFront 3.5s ease-in-out infinite alternate;
+}
+
+@keyframes waveMoveBack {
+  0%   { transform: translateX(0) scaleY(1); }
+  100% { transform: translateX(-200px) scaleY(1.1); }
+}
+
+@keyframes waveMoveMid {
+  0%   { transform: translateX(0) scaleY(0.95); }
+  100% { transform: translateX(180px) scaleY(1.05); }
+}
+
+@keyframes waveMoveFront {
+  0%   { transform: translateX(0) scaleY(1); }
+  100% { transform: translateX(-250px) scaleY(1.2); }
+}
+
+.wx-sea-overlay-metrics {
+  position: absolute;
+  top: calc(8px * var(--wx-scale, 1));
+  left: calc(8px * var(--wx-scale, 1));
+  right: calc(8px * var(--wx-scale, 1));
   display: flex;
   justify-content: space-between;
+  gap: calc(6px * var(--wx-scale, 1));
+  z-index: 5;
+}
+
+.wx-sea-stat {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: calc(4px * var(--wx-scale, 1)) calc(8px * var(--wx-scale, 1));
+  border-radius: calc(5px * var(--wx-scale, 1));
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  font-size: calc(0.8rem * var(--wx-scale, 1));
-  margin-bottom: calc(3px * var(--wx-scale, 1));
 }
 
-.wx-hum-title { color: #cbd5e1; }
-.wx-hum-val { font-weight: 800; color: #ffffff; }
+.wx-ss-lbl { font-size: calc(0.6rem * var(--wx-scale, 1)); color: #94a3b8; text-transform: uppercase; }
+.wx-ss-val { font-size: calc(0.85rem * var(--wx-scale, 1)); font-weight: 800; color: #38bdf8; }
 
-.wx-hum-bar-bg {
-  height: calc(5px * var(--wx-scale, 1));
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: calc(3px * var(--wx-scale, 1));
+.wx-sea-placeholder-label {
+  position: absolute;
+  bottom: calc(8px * var(--wx-scale, 1));
+  left: 0; right: 0;
+  text-align: center;
+  font-size: calc(0.7rem * var(--wx-scale, 1));
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+  z-index: 6;
 }
-
-.wx-hum-bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
-.wx-hum-badge { font-size: calc(0.75rem * var(--wx-scale, 1)); font-weight: 700; text-align: right; }
-.wx-hum-note { font-size: calc(0.65rem * var(--wx-scale, 1)); color: #64748b; font-style: italic; line-height: 1.2; }
 
 /* ── Box 4: 7-Day Forecast ── */
 .wx-forecast-grid {

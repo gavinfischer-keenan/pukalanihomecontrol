@@ -3,8 +3,13 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 /**
  * CurrentWeatherView — Container-Aware Auto-Adapting Weather Dashboard.
  * 
- * Includes Doubled-Size Wind Compass Dial (up to 160px) and Doubled-Size Virtual Rain Cup (150px)
- * for maximum visual space filling within Box 2 sub-containers.
+ * Includes:
+ *  - Box 1: Combined Current Temp, Atmosphere & Compact Humidity/Air Comfort.
+ *  - Box 2: Wind & Rain Station (Expanded 160px Compass Dial & 150px Rain Cup).
+ *  - Box 3 (NEW): Animated Wave & Sea State Placeholder (Dynamic ocean swell SVG animation).
+ *  - Box 4: 7-Day NWS Forecast.
+ *  - Box 5: Marine Box (Small Craft / High Surf Advisories, Special Notifications & Tides).
+ *  - Box 6: Solunar Fishing & Astronomy.
  */
 
 // ── Inline SVG Icons ───────────────────────────────────────────────────────
@@ -37,7 +42,7 @@ const IconCalendar = () => (
 
 const IconWave = () => (
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
+    <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
   </svg>
 );
 
@@ -166,7 +171,7 @@ function getSunMoon(lat, lon, date = new Date()) {
   };
 }
 
-// ── Humidity Comfort Scale ────────────────────────────────────────────────
+// ── Humidity Comfort Scale Helper ──────────────────────────────────────────
 function getHumidityComfort(rh) {
   if (rh == null) return { label: '—', color: '#94a3b8', percent: 0 };
   if (rh < 30)  return { label: 'Dry',      color: '#f59e0b', percent: Math.max(10, rh) };
@@ -246,31 +251,26 @@ const RainCup = ({ dailyRain = 0, rainRate = 0 }) => {
   );
 };
 
-/** Humidity Comfort Gauge */
-const HumidityGauge = ({ label, rh }) => {
+/** Compact Humidity Meter for Box 1 Integration */
+const CompactHumidity = ({ label, rh }) => {
   const comfort = getHumidityComfort(rh);
   return (
-    <div className="wx-humidity-gauge">
-      <div className="wx-hum-header">
-        <span className="wx-hum-title">{label}</span>
-        <span className="wx-hum-val">{rh != null ? `${rh}%` : '—'}</span>
+    <div className="wx-compact-hum-pill">
+      <div className="wx-ch-row">
+        <span className="wx-ch-lbl">{label}</span>
+        <span className="wx-ch-val">{rh != null ? `${rh}%` : '—'}</span>
       </div>
-      <div className="wx-hum-bar-bg">
-        <div 
-          className="wx-hum-bar-fill" 
-          style={{ width: `${comfort.percent}%`, background: comfort.color }}
-        />
+      <div className="wx-ch-bar-bg">
+        <div className="wx-ch-bar-fill" style={{ width: `${comfort.percent}%`, background: comfort.color }} />
       </div>
-      <div className="wx-hum-badge" style={{ color: comfort.color }}>
-        {comfort.label}
-      </div>
+      <span className="wx-ch-badge" style={{ color: comfort.color }}>{comfort.label}</span>
     </div>
   );
 };
 
 // ── 6 Panels ───────────────────────────────────────────────────────────────
 
-/** Box 1: Current Temp & Atmosphere */
+/** Box 1: Current Temp, Atmosphere & Integrated Humidity */
 const TempAtmosphereBox = ({ data }) => {
   if (!data) return <div className="wx-panel wx-loading">Loading weather data…</div>;
 
@@ -303,11 +303,17 @@ const TempAtmosphereBox = ({ data }) => {
           <span className="wx-atmo-val">{data.solar_rad} W/m²</span>
         </div>
       </div>
+
+      {/* Integrated Humidity & Air Comfort Section */}
+      <div className="wx-integrated-humidity-grid">
+        <CompactHumidity label="Outdoor Humidity" rh={data.humidity_out} />
+        <CompactHumidity label="Indoor Humidity" rh={data.humidity_in} />
+      </div>
     </div>
   );
 };
 
-/** Box 2: Wind & Rain Station (Expanded Doubled Gauges within Containers) */
+/** Box 2: Wind & Rain Station */
 const WindRainBox = ({ data }) => {
   if (!data) return <div className="wx-panel wx-loading">Loading wind data…</div>;
 
@@ -319,7 +325,6 @@ const WindRainBox = ({ data }) => {
       </div>
 
       <div className="wx-wind-rain-grid">
-        {/* Sub-Card 1: Wind Gauge (Expanded 160px Compass) */}
         <div className="wx-sub-card wx-wind-subcard">
           <WindCompass 
             dir={data.wind_dir} 
@@ -328,7 +333,6 @@ const WindRainBox = ({ data }) => {
           />
         </div>
 
-        {/* Sub-Card 2: Rain Beaker (Expanded 150px Beaker) */}
         <div className="wx-sub-card wx-rain-subcard">
           <RainCup 
             dailyRain={data.rain_daily_in || 0} 
@@ -340,24 +344,70 @@ const WindRainBox = ({ data }) => {
   );
 };
 
-/** Box 3: Humidity & Comfort Scale */
-const HumidityBox = ({ data }) => {
-  if (!data) return <div className="wx-panel wx-loading">Loading humidity…</div>;
-
+/** Box 3 (NEW): Wave & Sea Animation Placeholder */
+const SeaAnimationBox = () => {
   return (
-    <div className="wx-panel wx-box-humidity" data-section="humidity">
+    <div className="wx-panel wx-box-sea-anim" data-section="sea-animation">
       <div className="wx-panel-header">
-        <h2 className="wx-panel-title"><IconDroplet /> Humidity &amp; Air Comfort</h2>
-        <span className="wx-badge-info">ECOWITT</span>
+        <h2 className="wx-panel-title"><IconWave /> Wave &amp; Sea State</h2>
+        <span className="wx-badge-info">ANIMATED SWELL</span>
       </div>
 
-      <div className="wx-humidity-stack">
-        <HumidityGauge label="Outdoor Air Humidity" rh={data.humidity_out} />
-        <HumidityGauge label="Indoor Home Humidity" rh={data.humidity_in} />
-      </div>
+      <div className="wx-sea-anim-container">
+        {/* Animated Ocean Wave SVG */}
+        <div className="wx-sea-canvas">
+          <svg className="wx-sea-waves-svg" viewBox="0 0 1200 180" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="oceanGradBack" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#0369a1" stopOpacity="0.4" />
+                <stop offset="100%" stopColor="#0c4a6e" stopOpacity="0.8" />
+              </linearGradient>
+              <linearGradient id="oceanGradFront" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.6" />
+                <stop offset="100%" stopColor="#0284c7" stopOpacity="0.95" />
+              </linearGradient>
+            </defs>
 
-      <div className="wx-hum-note">
-        Standard comfort index: 30%–50% Ideal • 50%–60% Pleasant • 60%–70% Humid • &gt;70% Muggy
+            {/* Back Wave Layer */}
+            <path 
+              className="wx-wave-layer-back" 
+              fill="url(#oceanGradBack)" 
+              d="M0 90 Q300 40 600 90 T1200 90 L1200 180 L0 180 Z"
+            />
+            {/* Mid Wave Layer */}
+            <path 
+              className="wx-wave-layer-mid" 
+              fill="rgba(2, 132, 199, 0.5)" 
+              d="M0 100 Q300 130 600 100 T1200 100 L1200 180 L0 180 Z"
+            />
+            {/* Front Wave Layer */}
+            <path 
+              className="wx-wave-layer-front" 
+              fill="url(#oceanGradFront)" 
+              d="M0 110 Q300 70 600 110 T1200 110 L1200 180 L0 180 Z"
+            />
+          </svg>
+
+          {/* Floating Sea Metrics Overlay */}
+          <div className="wx-sea-overlay-metrics">
+            <div className="wx-sea-stat">
+              <span className="wx-ss-lbl">Swell Height</span>
+              <span className="wx-ss-val">4.2 FT @ 12s</span>
+            </div>
+            <div className="wx-sea-stat">
+              <span className="wx-ss-lbl">Swell Direction</span>
+              <span className="wx-ss-val">SSW (200°)</span>
+            </div>
+            <div className="wx-sea-stat">
+              <span className="wx-ss-lbl">Sea Temp</span>
+              <span className="wx-ss-val">78.5°F</span>
+            </div>
+          </div>
+
+          <div className="wx-sea-placeholder-label">
+            🌊 Live Wave &amp; Ocean Swell Model Placeholder
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -665,7 +715,7 @@ const CurrentWeatherView = React.memo(({ config }) => {
       <div className={`wx-dashboard-grid wx-grid-layout-${gridMode}`}>
         <TempAtmosphereBox data={data?.ecowitt} />
         <WindRainBox data={data?.ecowitt} />
-        <HumidityBox data={data?.ecowitt} />
+        <SeaAnimationBox />
         <ForecastBox periods={data?.forecast} />
         <MarineBox predictions={data?.tides} alerts={data?.alerts} />
         <SolunarAstronomyBox sunMoon={sunMoon} />
