@@ -3,13 +3,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 /**
  * CurrentWeatherView — Container-Aware Auto-Adapting Weather Dashboard.
  * 
- * Includes:
- *  - Box 1: Combined Current Temp, Atmosphere & Integrated Humidity.
- *  - Box 2: Wind & Rain Station (Expanded 160px Compass Dial & 150px Rain Cup).
- *  - Box 3: Animated Wave & Sea State Placeholder.
- *  - Box 4: 7-Day NWS Forecast.
- *  - Box 5: Marine Box (Advisories & Tides).
- *  - Box 6: "Sky and Fish" Panel with 24-Hour Solar/Lunar Arc Animation Sub-Box & Solunar Feeding Sub-Box.
+ * Includes "Sky and Fish" Panel with Dual Travelled & Remaining Solar/Lunar Arcs:
+ *  - Sun & Moon paths rendered as solid (travelled) and dashed (to-be-travelled) SVG arcs.
+ *  - Moon arc at 11PM shows a long travelled line from 00:00 and a short remaining arc leading to midnight (24:00).
  */
 
 // ── Inline SVG Icons ───────────────────────────────────────────────────────
@@ -21,7 +17,7 @@ const IconThermometer = () => (
 
 const IconWind = () => (
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 0 19.5 12H2"/>
+    <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/>
   </svg>
 );
 
@@ -42,7 +38,7 @@ const IconCalendar = () => (
 
 const IconWave = () => (
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
+    <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
   </svg>
 );
 
@@ -96,10 +92,10 @@ function solunarScore(d = new Date()) {
   const theta = (age / LUNAR_CYCLE) * 2 * Math.PI;
   const phase = (1 + Math.cos(2 * theta)) / 2;
 
-  const transitHour = (12 + (age * 24.84 / 24)) % 24;  // moon overhead
-  const antiHour    = (transitHour + 12) % 24;          // moon underfoot
-  const riseHour    = (transitHour - 6 + 24) % 24;      // moonrise
-  const setHour     = (transitHour + 6) % 24;           // moonset
+  const transitHour = (12 + (age * 24.84 / 24)) % 24;
+  const antiHour    = (transitHour + 12) % 24;
+  const riseHour    = (transitHour - 6 + 24) % 24;
+  const setHour     = (transitHour + 6) % 24;
 
   return {
     score:  phase,
@@ -566,7 +562,7 @@ const MarineBox = ({ predictions, alerts = [] }) => {
   );
 };
 
-/** Box 6 (RENAMED): Sky and Fish Panel with 24-Hour Arc Sub-Box & Solunar Sub-Box */
+/** Box 6: Sky and Fish Panel with Dual Travelled & Remaining Solar/Lunar Arc Paths */
 const SkyAndFishBox = ({ sunMoon }) => {
   const fish = solunarScore();
   const now = new Date();
@@ -588,11 +584,21 @@ const SkyAndFishBox = ({ sunMoon }) => {
   const isDay = nowH >= srH && nowH <= ssH;
   const sunProgress = isDay ? (nowH - srH) / (ssH - srH) : (nowH > ssH ? 1 : 0);
   const sunX = 35 + sunProgress * 230;
-  const sunY = isDay ? 62 - Math.sin(sunProgress * Math.PI) * 45 : 68;
+  const sunY = isDay ? 65 - Math.sin(sunProgress * Math.PI) * 45 : 68;
 
-  // Moon 24h Traverse Math
-  const moonX = (nowH / 24) * 230 + 35;
-  const moonY = 62 - Math.sin((nowH / 24) * Math.PI) * 35;
+  // Moon 24h Traverse Math (24h timeline from 00:00 to 24:00)
+  const moonProgress = nowH / 24; // e.g. 23.08 / 24 = 0.96 (short arc leading to midnight at 265px!)
+  const moonX = 35 + moonProgress * 230;
+  const moonY = 65 - Math.sin(moonProgress * Math.PI) * 32;
+
+  // Dynamic SVG Path Calculations for Travelled vs Remaining Arcs
+  // 1. Sun Arcs
+  const dSunTravelled = `M 35 65 A 115 45 0 0 1 ${sunX.toFixed(1)} ${sunY.toFixed(1)}`;
+  const dSunRemaining = `M ${sunX.toFixed(1)} ${sunY.toFixed(1)} A 115 45 0 0 1 265 65`;
+
+  // 2. Moon Arcs (Travelled from 00:00 to now, Short remaining arc from now to midnight at 265px)
+  const dMoonTravelled = `M 35 65 A 115 32 0 0 1 ${moonX.toFixed(1)} ${moonY.toFixed(1)}`;
+  const dMoonRemaining = `M ${moonX.toFixed(1)} ${moonY.toFixed(1)} A 115 32 0 0 1 265 65`;
 
   const ratingColor = {
     Excellent: '#22c55e',
@@ -611,22 +617,50 @@ const SkyAndFishBox = ({ sunMoon }) => {
       </div>
 
       <div className="wx-sky-fish-grid">
-        {/* Sub-Box 1: 24-Hour Solar & Lunar Traverse Arc Animation */}
+        {/* Sub-Box 1: 24-Hour Solar & Lunar Traverse Arc Animation (Solid Travelled vs Dashed Remaining) */}
         <div className="wx-sub-card wx-solar-arc-subcard">
           <div className="wx-arc-header-lbl">24-HOUR SOLAR &amp; LUNAR TRAVERSE</div>
 
           <div className="wx-solar-arc-wrapper">
-            <svg viewBox="0 0 300 88" className="wx-solar-arc-svg">
-              {/* Solar Arc Curve */}
+            <svg viewBox="0 0 300 90" className="wx-solar-arc-svg">
+              {/* Horizon Line */}
+              <line x1="15" y1="65" x2="285" y2="65" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1.5" />
+
+              {/* ── Sun Arcs ── */}
+              {/* Sun Travelled Arc (Solid Amber) */}
               <path 
-                d="M 35 65 A 115 45 0 0 1 265 65" 
+                d={dSunTravelled} 
                 fill="none" 
-                stroke="rgba(245, 158, 11, 0.45)" 
+                stroke="#f59e0b" 
+                strokeWidth="2.5" 
+                strokeLinecap="round" 
+              />
+              {/* Sun Remaining Arc (Dashed Amber) */}
+              <path 
+                d={dSunRemaining} 
+                fill="none" 
+                stroke="rgba(245, 158, 11, 0.35)" 
                 strokeWidth="2" 
                 strokeDasharray="4 4" 
               />
-              {/* Horizon Line */}
-              <line x1="15" y1="65" x2="285" y2="65" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1.5" />
+
+              {/* ── Moon Arcs ── */}
+              {/* Moon Travelled Arc (Solid Cyan from 00:00 to NOW) */}
+              <path 
+                d={dMoonTravelled} 
+                fill="none" 
+                stroke="#38bdf8" 
+                strokeWidth="2.5" 
+                strokeLinecap="round" 
+              />
+              {/* Moon Remaining Arc (Short Dashed Cyan Arc leading to Midnight at 24:00) */}
+              <path 
+                d={dMoonRemaining} 
+                fill="none" 
+                stroke="rgba(56, 189, 248, 0.45)" 
+                strokeWidth="2" 
+                strokeDasharray="3 3" 
+              />
 
               {/* Sunrise & Sunset Endpoint Labels */}
               <text x="35" y="82" fill="#f59e0b" fontSize="9" fontWeight="800" textAnchor="middle">
@@ -644,7 +678,7 @@ const SkyAndFishBox = ({ sunMoon }) => {
 
               {/* Moon Position Icon */}
               <g transform={`translate(${moonX}, ${moonY})`}>
-                <circle r="5.5" fill="#cbd5e1" stroke="#38bdf8" strokeWidth="1" />
+                <circle r="5.5" fill="#cbd5e1" stroke="#38bdf8" strokeWidth="1.5" />
               </g>
 
               {/* Current Local Time floating above Sun */}
