@@ -1,194 +1,545 @@
 /* ============================================================
-   CurrentWeatherView — Base layout styles.
-   INTENTIONALLY BARE BONES: structure only, no decorative styling.
-   UI agents: override freely in index.css or a dedicated wx.css.
-   Each section has a data-section attribute for easy targeting.
+   Hawaii Display Server — Weather Dashboard Theme (weather.css)
+   High-density glassmorphism UI styled after Hawaii Dashboard
    ============================================================ */
 
-/* Root container — full slot area */
 .wx-root {
   width: 100%;
   height: 100%;
-  overflow: auto;
+  box-sizing: border-box;
+  background: radial-gradient(circle at top left, #0f172a, #0b1329);
+  color: #f1f5f9;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  padding: 12px;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  background: #000;
-  color: #e2e8f0;
-  font-family: system-ui, sans-serif;
-  font-size: 14px;
-  box-sizing: border-box;
-  padding: 8px;
+  gap: 8px;
 }
 
-/* Main layout grid — override this to change overall arrangement */
-.wx-layout {
+.wx-error-banner {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ── Main Dashboard Layout ── */
+.wx-dashboard-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  grid-template-rows: auto;
-  gap: 8px;
+  gap: 10px;
   flex: 1;
 }
 
-/* Individual panels */
+/* Panel Containers */
 .wx-panel {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-  padding: 10px;
-  overflow: hidden;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wx-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 6px;
+  margin-bottom: 4px;
 }
 
 .wx-panel-title {
-  font-size: 0.85em;
+  margin: 0;
+  font-size: 0.85rem;
   font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #38bdf8;
   text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Badges */
+.wx-badge-live {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
   letter-spacing: 0.05em;
-  color: #94a3b8;
-  margin: 0 0 8px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-  padding-bottom: 4px;
 }
 
-.wx-loading { color: #475569; font-style: italic; }
-.wx-error { color: #f87171; padding: 4px; font-size: 0.8em; margin-bottom: 4px; }
+.wx-badge-info, .wx-badge-solunar {
+  background: rgba(56, 189, 248, 0.15);
+  color: #7dd3fc;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
 
-/* 2-column stat grid inside panels */
-.wx-grid-2 {
+/* ── Ecowitt Main Grid ── */
+.wx-ecowitt-main-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px 8px;
+  grid-template-columns: 1.1fr 1.2fr 0.9fr;
+  gap: 8px;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.wx-stat {
+.wx-temp-card {
   display: flex;
   flex-direction: column;
-  line-height: 1.3;
-}
-.wx-stat.wx-wide { grid-column: 1 / -1; }
-
-.wx-label {
-  font-size: 0.7em;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  gap: 2px;
 }
 
-.wx-value {
-  font-size: 1em;
-  font-weight: 600;
-  color: #f1f5f9;
+.wx-temp-main {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1;
+  letter-spacing: -0.02em;
 }
 
-.wx-updated {
-  font-size: 0.65em;
-  color: #475569;
-  margin-top: 6px;
-  text-align: right;
+.wx-temp-main .wx-unit {
+  font-size: 1.1rem;
+  color: #94a3b8;
+  margin-left: 2px;
 }
 
-/* Forecast */
-.wx-forecast-list { display: flex; flex-direction: column; gap: 3px; }
-
-.wx-forecast-row {
-  display: grid;
-  grid-template-columns: 4em 2.5em 6em 1fr;
-  gap: 4px;
-  align-items: baseline;
-  font-size: 0.8em;
-  padding: 2px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+.wx-temp-sub, .wx-temp-dew {
+  font-size: 0.75rem;
+  color: #cbd5e1;
 }
 
-.wx-forecast-row.nighttime { opacity: 0.75; }
-
-.wx-fc-name { font-weight: 600; color: #cbd5e1; }
-.wx-fc-temp { color: #f59e0b; font-weight: 700; }
-.wx-fc-wind { color: #7dd3fc; }
-.wx-fc-desc { color: #94a3b8; font-size: 0.9em; }
-
-/* Tides */
-.wx-tide-chart { width: 100%; height: auto; display: block; margin-bottom: 6px; }
-
-.wx-tide-events {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.wx-tide-event {
-  display: flex;
-  gap: 6px;
-  font-size: 0.8em;
-  padding: 2px 6px;
-  border-radius: 3px;
-  background: rgba(255,255,255,0.06);
-}
-.wx-tide-event.high { color: #38bdf8; }
-.wx-tide-event.low  { color: #94a3b8; }
-
-/* Fishing */
-.wx-fad-list { display: flex; flex-direction: column; gap: 3px; }
-
-.wx-fad-row {
-  display: grid;
-  grid-template-columns: 1fr 4em 1fr;
-  gap: 4px;
-  font-size: 0.8em;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-  padding: 2px 0;
-}
-
-.wx-fad-name { font-weight: 600; color: #a3e635; }
-.wx-fad-depth { color: #64748b; }
-.wx-fad-species { color: #94a3b8; }
-
-/* Footer */
-.wx-footer {
-  font-size: 0.65em;
-  color: #334155;
-  text-align: center;
-  padding: 4px 0;
-  margin-top: 4px;
-}
-
-/* ── Solunar FishingPanel ── */
-.wx-fish-rating {
+/* ── Wind Compass Gauge ── */
+.wx-wind-gauge {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 4px;
 }
-.wx-fish-stars { font-size: 1.2em; letter-spacing: 2px; }
-.wx-fish-label { font-size: 1.1em; }
-.wx-fish-meta  { font-size: 0.75em; color: #64748b; margin-bottom: 8px; }
 
-.wx-ft-section { margin-bottom: 8px; }
-.wx-ft-heading {
-  font-size: 0.65em;
+.wx-compass-svg {
+  width: 76px;
+  height: 76px;
+  flex-shrink: 0;
+}
+
+.wx-compass-cardinal {
+  font-size: 10px;
+  font-weight: 800;
+  fill: #64748b;
+}
+
+.wx-compass-speed {
+  font-size: 13px;
+  font-weight: 800;
+  fill: #ffffff;
+}
+
+.wx-compass-unit {
+  font-size: 8px;
   font-weight: 700;
-  color: #64748b;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  fill: #f59e0b;
+}
+
+.wx-wind-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wx-wind-dir-text {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #f59e0b;
+}
+
+.wx-wind-gust {
+  font-size: 0.75rem;
+  color: #cbd5e1;
+}
+
+/* ── Virtual Rain Cup ── */
+.wx-rain-cup-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.wx-rain-cup {
+  position: relative;
+  width: 28px;
+  height: 64px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1.5px solid rgba(56, 189, 248, 0.4);
+  border-top: none;
+  border-radius: 0 0 5px 5px;
+  overflow: hidden;
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.6);
+}
+
+.wx-cup-glass {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+}
+
+.wx-cup-ticks {
+  position: absolute;
+  right: 2px;
+  top: 0; bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.wx-tick {
+  font-size: 7px;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1;
+  position: absolute;
+  right: 1px;
+}
+
+.wx-cup-water {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+  transition: height 0.6s ease-in-out;
+  border-top: 1px solid #7dd3fc;
+}
+
+.wx-rain-readout {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.wx-rain-val {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #38bdf8;
+}
+
+.wx-rain-lbl {
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
+/* ── Ecowitt Footer Grid (Humidity & Stats) ── */
+.wx-ecowitt-footer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.wx-humidity-gauge {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.wx-hum-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
   margin-bottom: 4px;
 }
-.wx-ft-row {
+
+.wx-hum-title { color: #cbd5e1; }
+.wx-hum-val { font-weight: 700; color: #ffffff; }
+
+.wx-hum-bar-bg {
+  height: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.wx-hum-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.wx-hum-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.wx-stat-mini {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  padding: 4px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.wx-mini-lbl { color: #94a3b8; }
+.wx-mini-val { font-weight: 700; color: #f1f5f9; }
+
+/* ── 7-Day NWS Forecast ── */
+.wx-forecast-grid {
   display: grid;
-  grid-template-columns: 1.5em 5em 1fr;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.wx-fc-card {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  padding: 6px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  text-align: center;
+}
+
+.wx-fc-card.night {
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.wx-fc-day-name {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.wx-fc-icon-wrapper {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wx-fc-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.wx-fc-emoji {
+  font-size: 1.2rem;
+}
+
+.wx-fc-temp-pill {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 10px;
+  line-height: 1;
+}
+
+.wx-fc-short {
+  font-size: 0.65rem;
+  color: #cbd5e1;
+  line-height: 1.1;
+  height: 2.2em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.wx-fc-wind {
+  font-size: 0.65rem;
+  color: #94a3b8;
+}
+
+/* ── Honolulu Tide Panel ── */
+.wx-tide-chart-wrapper {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.wx-tide-svg {
+  width: 100%;
+  height: 75px;
+  display: block;
+}
+
+.wx-tide-cards-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.wx-tide-card {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-left: 3px solid #38bdf8;
+}
+
+.wx-tide-card.lo {
+  border-left-color: #cbd5e1;
+}
+
+.wx-tc-type {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: 0.04em;
+}
+
+.wx-tide-card.lo .wx-tc-type {
+  color: #cbd5e1;
+}
+
+.wx-tc-time {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.wx-tc-height {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+/* ── Solunar Fishing Panel (Matching ForecastPanel.jsx) ── */
+.wx-fish-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wx-fish-rating-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.wx-fish-stars {
+  font-size: 1.2rem;
+  letter-spacing: 2px;
+}
+
+.wx-fish-rating-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.wx-fish-periods-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.wx-period-box {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  padding: 6px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.wx-period-hdr {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #38bdf8;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.wx-period-row {
+  display: grid;
+  grid-template-columns: 1.4em 5.5em 1fr;
   gap: 4px;
   align-items: center;
-  font-size: 0.85em;
+  font-size: 0.75rem;
   padding: 2px 0;
 }
-.wx-ft-icon { text-align: center; }
-.wx-ft-time { font-weight: 700; color: #f1f5f9; }
-.wx-ft-desc { color: #94a3b8; }
 
-.wx-fish-note {
-  font-size: 0.7em;
-  color: #475569;
-  margin-top: 6px;
+.wx-period-icon { text-align: center; }
+.wx-period-time { font-weight: 700; color: #f59e0b; }
+.wx-period-desc { color: #cbd5e1; }
+
+.wx-fish-theory {
+  font-size: 0.7rem;
+  color: #64748b;
   font-style: italic;
-  line-height: 1.4;
-  border-top: 1px solid rgba(255,255,255,0.06);
-  padding-top: 6px;
+  line-height: 1.3;
+}
+
+/* ── Sun & Moon Panel ── */
+.wx-sunmoon-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.wx-sm-card {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.wx-sm-card.wx-sm-wide {
+  grid-column: 1 / -1;
+}
+
+.wx-sm-icon { font-size: 1.2rem; }
+.wx-sm-lbl { font-size: 0.65rem; color: #94a3b8; text-transform: uppercase; }
+.wx-sm-val { font-size: 0.85rem; font-weight: 700; color: #ffffff; }
+
+/* Dashboard Footer */
+.wx-dashboard-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.7rem;
+  color: #475569;
+  padding-top: 4px;
 }
