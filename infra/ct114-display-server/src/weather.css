@@ -348,7 +348,91 @@
 
 .wx-fc-wind { font-size: calc(0.7rem * var(--wx-scale, 1)); color: #94a3b8; }
 
-/* ── Box 5: Honolulu Tides ── */
+/* ── Box 5: Marine Box (Advisory Notifications & Tides) ── */
+.wx-marine-status-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: calc(8px * var(--wx-scale, 1));
+}
+
+.wx-marine-status-card {
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--wx-scale, 1));
+  padding: calc(8px * var(--wx-scale, 1)) calc(10px * var(--wx-scale, 1));
+  border-radius: calc(6px * var(--wx-scale, 1));
+  font-size: calc(0.85rem * var(--wx-scale, 1));
+  transition: all 0.3s ease;
+}
+
+.wx-marine-status-card.ok {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1.5px solid #10b981;
+  color: #34d399;
+  font-weight: 600;
+}
+
+.wx-marine-status-card.alert {
+  background: rgba(239, 68, 68, 0.25);
+  border: 2px solid #ef4444;
+  color: #f87171;
+  font-weight: 900;
+  text-transform: uppercase;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+}
+
+.wx-status-indicator {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.wx-status-indicator.green {
+  background: #34d399;
+  box-shadow: 0 0 6px #34d399;
+}
+
+.wx-status-indicator.red {
+  background: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
+}
+
+.wx-marine-special-box {
+  display: flex;
+  align-items: center;
+  gap: calc(8px * var(--wx-scale, 1));
+  padding: calc(8px * var(--wx-scale, 1)) calc(12px * var(--wx-scale, 1));
+  border-radius: calc(6px * var(--wx-scale, 1));
+  font-size: calc(0.85rem * var(--wx-scale, 1));
+}
+
+.wx-marine-special-box.ok {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34d399;
+}
+
+.wx-marine-special-box.alert {
+  background: rgba(153, 27, 27, 0.7);
+  border: 2px solid #ef4444;
+  color: #fee2e2;
+  font-weight: 900;
+  text-transform: uppercase;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.5);
+}
+
+.wx-special-title {
+  font-size: calc(0.7rem * var(--wx-scale, 1));
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  opacity: 0.8;
+}
+
+.wx-special-body {
+  font-weight: 800;
+}
+
+/* Tide Chart */
 .wx-tide-chart-wrapper {
   background: rgba(0, 0, 0, 0.25);
   border-radius: calc(6px * var(--wx-scale, 1));
@@ -356,7 +440,7 @@
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.wx-tide-svg { width: 100%; height: calc(85px * var(--wx-scale, 1)); display: block; }
+.wx-tide-svg { width: 100%; height: calc(75px * var(--wx-scale, 1)); display: block; }
 
 .wx-tide-cards-row {
   display: grid;

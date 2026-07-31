@@ -3,15 +3,11 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 /**
  * CurrentWeatherView — 2 Column Layout Scalable Hawaii Weather Dashboard.
  * 
- * Layout: 2 Columns of stacked boxes (Maximizes screen space & readability)
- *  - Left Col Box 1: Current Temp & Atmosphere (Large °F readout, Dew Point, Baro, UV, Solar)
- *  - Left Col Box 2: Wind & Rain Station (Large SVG Compass Rose & Virtual Rain Cup)
- *  - Left Col Box 3: Humidity & Air Comfort (Outdoor & Indoor Comfort Meters & Badges)
- *  - Right Col Box 1: 7-Day NWS Forecast (Temp Pills, Weather Icons, Wind Speeds)
- *  - Right Col Box 2: Honolulu Tides (SVG Tide Curve, Peak Markers, Next Hi/Lo Cards)
- *  - Right Col Box 3: Solunar Fishing & Astronomy (4-Star Rating, Feeding Periods, Sunrise/Sunset, Moon Phase)
- * 
- * Iconography: 100% Inline SVG (Font-Independent, Zero Emoji Square Tofu)
+ * Includes "Marine" Box with:
+ *  - Small Craft Advisory status (Green "No Small Craft Advisory" or RED BOLD ALL CAPS "SMALL CRAFT ADVISORY")
+ *  - High Surf Advisory status (Green "No High Surf Advisory" or RED BOLD ALL CAPS "HIGH SURF ADVISORY")
+ *  - Special Notification box for other Oahu South Coast marine alerts (e.g., HURRICANE ADVISORY, GALE WARNING)
+ *  - Honolulu Tide Chart (36-hr SVG curve, High/Low peak markers, next event cards)
  */
 
 // ── Inline SVG Icons (Cross-Platform / Font-Independent) ───────────────────
@@ -80,7 +76,7 @@ const IconArrowDown = () => (
   </svg>
 );
 
-// ── Solunar Fishing Index Math (Match ForecastPanel.jsx) ───────────────────
+// ── Solunar Fishing Index Math ─────────────────────────────────────────────
 const LUNAR_CYCLE  = 29.53058867;
 const EPOCH_NEW_JD = 2459198.177;
 
@@ -395,9 +391,40 @@ const ForecastBox = ({ periods }) => {
   );
 };
 
-/** Box 5: Honolulu Tides */
-const TideBox = ({ predictions }) => {
-  if (!predictions || predictions.length === 0) return <div className="wx-panel wx-loading">Loading tides…</div>;
+/** Box 5: Marine (Renamed from Honolulu Tides + Small Craft/High Surf & Special Notifications) */
+const MarineBox = ({ predictions, alerts = [] }) => {
+  if (!predictions || predictions.length === 0) return <div className="wx-panel wx-loading">Loading marine data…</div>;
+
+  // Filter alerts for Oahu / Honolulu / HI coastal marine
+  const activeEvents = alerts.map(a => ({
+    event: a.properties?.event || '',
+    headline: a.properties?.headline || '',
+    area: a.properties?.areaDesc || '',
+  }));
+
+  const isOahuMarine = (area) => {
+    if (!area) return true;
+    const a = area.toLowerCase();
+    return a.includes('oahu') || a.includes('honolulu') || a.includes('hawaii') || a.includes('coastal') || a.includes('waters');
+  };
+
+  const relevantAlerts = activeEvents.filter(a => isOahuMarine(a.area));
+
+  // 1. Small Craft Advisory check
+  const smallCraftActive = relevantAlerts.some(a => a.event.toLowerCase().includes('small craft'));
+
+  // 2. High Surf Advisory check
+  const highSurfActive = relevantAlerts.some(a => a.event.toLowerCase().includes('high surf'));
+
+  // 3. Special Marine Notification check (other alerts like HURRICANE, GALE, TSUNAMI, etc.)
+  const specialAlerts = relevantAlerts.filter(a => {
+    const e = a.event.toLowerCase();
+    return !e.includes('small craft') && !e.includes('high surf');
+  });
+
+  const specialText = specialAlerts.length > 0 
+    ? specialAlerts[0].event.toUpperCase()
+    : null;
 
   const now = new Date();
   const upcoming = predictions.filter(p => new Date(p.t) >= now && p.tide_type);
@@ -407,7 +434,7 @@ const TideBox = ({ predictions }) => {
   const minH = Math.min(...pts.map(p => p.height_ft));
   const range = (maxH - minH) || 1;
 
-  const svgW = 480, svgH = 85, padY = 16, padX = 10;
+  const svgW = 480, svgH = 75, padY = 16, padX = 10;
   const toX = (i) => padX + (i / (pts.length - 1)) * (svgW - 2 * padX);
   const toY = (h) => padY + (1 - (h - minH) / range) * (svgH - 2 * padY);
 
@@ -419,12 +446,40 @@ const TideBox = ({ predictions }) => {
   const nowY = toY(pts[Math.max(0, nowIdx)]?.height_ft || 0);
 
   return (
-    <div className="wx-panel wx-box-tides" data-section="tides">
+    <div className="wx-panel wx-box-tides" data-section="marine">
       <div className="wx-panel-header">
-        <h2 className="wx-panel-title"><IconWave /> Honolulu Tides (36 Hours)</h2>
-        <span className="wx-badge-info">Station 1612340</span>
+        <h2 className="wx-panel-title"><IconWave /> Marine</h2>
+        <span className="wx-badge-info">South Oahu Coast</span>
       </div>
 
+      {/* Advisory Status Grid (Small Craft & High Surf) */}
+      <div className="wx-marine-status-grid">
+        {/* Small Craft Advisory Box */}
+        <div className={`wx-marine-status-card ${smallCraftActive ? 'alert' : 'ok'}`}>
+          <span className={`wx-status-indicator ${smallCraftActive ? 'red' : 'green'}`} />
+          <span className="wx-status-text">
+            {smallCraftActive ? 'SMALL CRAFT ADVISORY' : 'No Small Craft Advisory'}
+          </span>
+        </div>
+
+        {/* High Surf Advisory Box */}
+        <div className={`wx-marine-status-card ${highSurfActive ? 'alert' : 'ok'}`}>
+          <span className={`wx-status-indicator ${highSurfActive ? 'red' : 'green'}`} />
+          <span className="wx-status-text">
+            {highSurfActive ? 'HIGH SURF ADVISORY' : 'No High Surf Advisory'}
+          </span>
+        </div>
+      </div>
+
+      {/* Special Notification Box */}
+      <div className={`wx-marine-special-box ${specialText ? 'alert' : 'ok'}`}>
+        <span className="wx-special-title">SPECIAL NOTIFICATION:</span>
+        <span className="wx-special-body">
+          {specialText ? specialText : 'No Special Marine Notifications'}
+        </span>
+      </div>
+
+      {/* Tide SVG Curve */}
       <div className="wx-tide-chart-wrapper">
         <svg viewBox={`0 0 ${svgW} ${svgH}`} className="wx-tide-svg">
           <defs>
@@ -457,6 +512,7 @@ const TideBox = ({ predictions }) => {
         </svg>
       </div>
 
+      {/* Upcoming Tide Cards */}
       <div className="wx-tide-cards-row">
         {upcoming.slice(0, 4).map((p, i) => (
           <div key={i} className={`wx-tide-card ${p.tide_type === 'H' ? 'hi' : 'lo'}`}>
@@ -555,7 +611,6 @@ const CurrentWeatherView = React.memo(({ config }) => {
     const ro = new ResizeObserver((entries) => {
       for (let entry of entries) {
         const { width, height } = entry.contentRect;
-        // Reference scale for 2-column layout (optimizes font sizes)
         const scaleW = width / 980;
         const scaleH = height / 580;
         const scale = Math.min(Math.max(Math.min(scaleW, scaleH), 0.75), 2.5);
@@ -597,7 +652,6 @@ const CurrentWeatherView = React.memo(({ config }) => {
     <div className="wx-root" data-view="current-weather" ref={rootRef}>
       {error && <div className="wx-error-banner">⚠️ Weather Data Update Delayed: {error}</div>}
 
-      {/* 2 Columns Layout (3 boxes in Left Col, 3 boxes in Right Col) */}
       <div className="wx-dashboard-2col">
         <div className="wx-col">
           <TempAtmosphereBox data={data?.ecowitt} />
@@ -606,7 +660,7 @@ const CurrentWeatherView = React.memo(({ config }) => {
         </div>
         <div className="wx-col">
           <ForecastBox periods={data?.forecast} />
-          <TideBox predictions={data?.tides} />
+          <MarineBox predictions={data?.tides} alerts={data?.alerts} />
           <SolunarAstronomyBox sunMoon={sunMoon} />
         </div>
       </div>
