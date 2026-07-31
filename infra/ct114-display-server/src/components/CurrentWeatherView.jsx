@@ -1,36 +1,39 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 /**
- * CurrentWeatherView — 2 Column Layout Scalable Hawaii Weather Dashboard.
+ * CurrentWeatherView — Container-Aware Auto-Adapting Weather Dashboard.
  * 
- * Includes "Marine" Box with:
- *  - Small Craft Advisory status (Green "No Small Craft Advisory" or RED BOLD ALL CAPS "SMALL CRAFT ADVISORY")
- *  - High Surf Advisory status (Green "No High Surf Advisory" or RED BOLD ALL CAPS "HIGH SURF ADVISORY")
- *  - Special Notification box for other Oahu South Coast marine alerts (e.g., HURRICANE ADVISORY, GALE WARNING)
- *  - Honolulu Tide Chart (36-hr SVG curve, High/Low peak markers, next event cards)
+ * Dynamically senses container width, height, and aspect ratio:
+ *  - 2-Up Side-by-Side (Tall, ~960x1080): Adapts to 2 Columns x 3 Rows
+ *  - 2-Up Stacked (Wide/Short, ~1920x540): Adapts to 3 Columns x 2 Rows
+ *  - 4-Up Grid (~960x540): Adapts to 3 Columns x 2 Rows (compact scale)
+ *  - Full Screen 4K/1080p (~1920x1080): Adapts to 3 Columns x 2 Rows (large scale)
+ * 
+ * Auto-scales typography, gauges, tide charts, and cards using ResizeObserver
+ * to ensure 100% of allocated space is utilized with ZERO clipping or overflow.
  */
 
-// ── Inline SVG Icons (Cross-Platform / Font-Independent) ───────────────────
+// ── Inline SVG Icons ───────────────────────────────────────────────────────
 const IconThermometer = () => (
-  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
   </svg>
 );
 
 const IconWind = () => (
-  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/>
   </svg>
 );
 
 const IconDroplet = () => (
-  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
   </svg>
 );
 
 const IconCalendar = () => (
-  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
     <line x1="16" y1="2" x2="16" y2="6"/>
     <line x1="8" y1="2" x2="8" y2="6"/>
@@ -39,39 +42,39 @@ const IconCalendar = () => (
 );
 
 const IconWave = () => (
-  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
   </svg>
 );
 
 const IconFish = () => (
-  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#34d399" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#34d399" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M6.5 12c.94-2.07 2.96-3.5 5.3-3.5 3.5 0 6.5 2.5 8.2 3.5-1.7 1-4.7 3.5-8.2 3.5-2.34 0-4.36-1.43-5.3-3.5zm0 0L2 8.5v7l4.5-3.5z"/>
     <circle cx="14" cy="11" r="1" fill="#34d399"/>
   </svg>
 );
 
 const IconSun = () => (
-  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="5"/>
     <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
   </svg>
 );
 
 const IconMoon = () => (
-  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#cbd5e1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#cbd5e1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
   </svg>
 );
 
 const IconArrowUp = () => (
-  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 19V5m-7 7l7-7 7 7"/>
   </svg>
 );
 
 const IconArrowDown = () => (
-  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 5v14m7-7l-7 7-7-7"/>
   </svg>
 );
@@ -224,7 +227,7 @@ const WindCompass = ({ dir = 0, speed = 0, gust = 0 }) => {
 const RainCup = ({ dailyRain = 0, rainRate = 0 }) => {
   const maxRain = 2.0;
   const fillRatio = Math.min(Math.max(dailyRain / maxRain, 0), 1);
-  const fillHeight = fillRatio * 74;
+  const fillHeight = fillRatio * 64;
 
   return (
     <div className="wx-rain-cup-container">
@@ -270,7 +273,7 @@ const HumidityGauge = ({ label, rh }) => {
   );
 };
 
-// ── 2 Column Stacked Box Panels ───────────────────────────────────────────
+// ── 6 Panels ───────────────────────────────────────────────────────────────
 
 /** Box 1: Current Temp & Atmosphere */
 const TempAtmosphereBox = ({ data }) => {
@@ -391,11 +394,10 @@ const ForecastBox = ({ periods }) => {
   );
 };
 
-/** Box 5: Marine (Renamed from Honolulu Tides + Small Craft/High Surf & Special Notifications) */
+/** Box 5: Marine Box */
 const MarineBox = ({ predictions, alerts = [] }) => {
   if (!predictions || predictions.length === 0) return <div className="wx-panel wx-loading">Loading marine data…</div>;
 
-  // Filter alerts for Oahu / Honolulu / HI coastal marine
   const activeEvents = alerts.map(a => ({
     event: a.properties?.event || '',
     headline: a.properties?.headline || '',
@@ -410,13 +412,9 @@ const MarineBox = ({ predictions, alerts = [] }) => {
 
   const relevantAlerts = activeEvents.filter(a => isOahuMarine(a.area));
 
-  // 1. Small Craft Advisory check
   const smallCraftActive = relevantAlerts.some(a => a.event.toLowerCase().includes('small craft'));
+  const highSurfActive   = relevantAlerts.some(a => a.event.toLowerCase().includes('high surf'));
 
-  // 2. High Surf Advisory check
-  const highSurfActive = relevantAlerts.some(a => a.event.toLowerCase().includes('high surf'));
-
-  // 3. Special Marine Notification check (other alerts like HURRICANE, GALE, TSUNAMI, etc.)
   const specialAlerts = relevantAlerts.filter(a => {
     const e = a.event.toLowerCase();
     return !e.includes('small craft') && !e.includes('high surf');
@@ -434,7 +432,7 @@ const MarineBox = ({ predictions, alerts = [] }) => {
   const minH = Math.min(...pts.map(p => p.height_ft));
   const range = (maxH - minH) || 1;
 
-  const svgW = 480, svgH = 75, padY = 16, padX = 10;
+  const svgW = 480, svgH = 65, padY = 14, padX = 10;
   const toX = (i) => padX + (i / (pts.length - 1)) * (svgW - 2 * padX);
   const toY = (h) => padY + (1 - (h - minH) / range) * (svgH - 2 * padY);
 
@@ -452,9 +450,7 @@ const MarineBox = ({ predictions, alerts = [] }) => {
         <span className="wx-badge-info">South Oahu Coast</span>
       </div>
 
-      {/* Advisory Status Grid (Small Craft & High Surf) */}
       <div className="wx-marine-status-grid">
-        {/* Small Craft Advisory Box */}
         <div className={`wx-marine-status-card ${smallCraftActive ? 'alert' : 'ok'}`}>
           <span className={`wx-status-indicator ${smallCraftActive ? 'red' : 'green'}`} />
           <span className="wx-status-text">
@@ -462,7 +458,6 @@ const MarineBox = ({ predictions, alerts = [] }) => {
           </span>
         </div>
 
-        {/* High Surf Advisory Box */}
         <div className={`wx-marine-status-card ${highSurfActive ? 'alert' : 'ok'}`}>
           <span className={`wx-status-indicator ${highSurfActive ? 'red' : 'green'}`} />
           <span className="wx-status-text">
@@ -471,7 +466,6 @@ const MarineBox = ({ predictions, alerts = [] }) => {
         </div>
       </div>
 
-      {/* Special Notification Box */}
       <div className={`wx-marine-special-box ${specialText ? 'alert' : 'ok'}`}>
         <span className="wx-special-title">SPECIAL NOTIFICATION:</span>
         <span className="wx-special-body">
@@ -479,7 +473,6 @@ const MarineBox = ({ predictions, alerts = [] }) => {
         </span>
       </div>
 
-      {/* Tide SVG Curve */}
       <div className="wx-tide-chart-wrapper">
         <svg viewBox={`0 0 ${svgW} ${svgH}`} className="wx-tide-svg">
           <defs>
@@ -512,7 +505,6 @@ const MarineBox = ({ predictions, alerts = [] }) => {
         </svg>
       </div>
 
-      {/* Upcoming Tide Cards */}
       <div className="wx-tide-cards-row">
         {upcoming.slice(0, 4).map((p, i) => (
           <div key={i} className={`wx-tide-card ${p.tide_type === 'H' ? 'hi' : 'lo'}`}>
@@ -594,26 +586,47 @@ const SolunarAstronomyBox = ({ sunMoon }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Root 2-Column Scalable Weather View Component
+// Root Auto-Adapting Scalable Weather View Component
 // ─────────────────────────────────────────────────────────────────────────────
 const CurrentWeatherView = React.memo(({ config }) => {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [lastFetch, setLastFetch] = useState(null);
+
+  const [gridMode, setGridMode] = useState('3col'); // '3col' (3x2) or '2col' (2x3)
   const rootRef = useRef(null);
 
   const refreshMs = (config?.refreshIntervalSeconds || 300) * 1000;
   const HOME_LAT = 21.2861516;
   const HOME_LON = -157.7935187;
 
+  // Aspect-Ratio & Dimension Observer: Automatically picks best grid strategy
   useEffect(() => {
     if (!rootRef.current) return;
     const ro = new ResizeObserver((entries) => {
       for (let entry of entries) {
         const { width, height } = entry.contentRect;
-        const scaleW = width / 980;
-        const scaleH = height / 580;
-        const scale = Math.min(Math.max(Math.min(scaleW, scaleH), 0.75), 2.5);
+        const aspect = width / height;
+
+        // Grid strategy:
+        //  - Wide & Short (e.g. 2-Up Stacked ~1920x540 or height < 620px): MUST use 3-Columns x 2-Rows (3col) so bottom panels fit!
+        //  - Tall & Narrow (e.g. 2-Up Side-by-Side ~960x1080 or aspect < 1.15): MUST use 2-Columns x 3-Rows (2col) for maximum card width!
+        let newGridMode = '3col';
+        if (aspect < 1.2 && width < 1100 && height >= 620) {
+          newGridMode = '2col';
+        } else {
+          newGridMode = '3col';
+        }
+
+        setGridMode(newGridMode);
+
+        // Precise Scale Factor calculation for typography & SVG graphics
+        const refW = newGridMode === '3col' ? 1250 : 960;
+        const refH = newGridMode === '3col' ? 560 : 820;
+
+        const scaleW = width / refW;
+        const scaleH = height / refH;
+        const scale = Math.min(Math.max(Math.min(scaleW, scaleH), 0.65), 2.5);
 
         if (rootRef.current) {
           rootRef.current.style.setProperty('--wx-scale', scale.toFixed(3));
@@ -649,20 +662,17 @@ const CurrentWeatherView = React.memo(({ config }) => {
   const sunMoon = getSunMoon(HOME_LAT, HOME_LON);
 
   return (
-    <div className="wx-root" data-view="current-weather" ref={rootRef}>
+    <div className={`wx-root wx-mode-${gridMode}`} data-view="current-weather" ref={rootRef}>
       {error && <div className="wx-error-banner">⚠️ Weather Data Update Delayed: {error}</div>}
 
-      <div className="wx-dashboard-2col">
-        <div className="wx-col">
-          <TempAtmosphereBox data={data?.ecowitt} />
-          <WindRainBox data={data?.ecowitt} />
-          <HumidityBox data={data?.ecowitt} />
-        </div>
-        <div className="wx-col">
-          <ForecastBox periods={data?.forecast} />
-          <MarineBox predictions={data?.tides} alerts={data?.alerts} />
-          <SolunarAstronomyBox sunMoon={sunMoon} />
-        </div>
+      {/* Auto-adapting Layout Grid */}
+      <div className={`wx-dashboard-grid wx-grid-layout-${gridMode}`}>
+        <TempAtmosphereBox data={data?.ecowitt} />
+        <WindRainBox data={data?.ecowitt} />
+        <HumidityBox data={data?.ecowitt} />
+        <ForecastBox periods={data?.forecast} />
+        <MarineBox predictions={data?.tides} alerts={data?.alerts} />
+        <SolunarAstronomyBox sunMoon={sunMoon} />
       </div>
 
       {lastFetch && (
