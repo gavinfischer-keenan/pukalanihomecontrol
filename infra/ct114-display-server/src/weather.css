@@ -417,82 +417,79 @@
   z-index: 6;
 }
 
-/* ── Box 4 (OVERHAULED): 7-Day Forecast ── */
-.wx-forecast-grid-v2 {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: calc(4px * var(--wx-scale, 1));
-  height: 100%;
-}
-
-.wx-fc-card-v2 {
-  background: rgba(0, 0, 0, 0.25);
-  border-radius: calc(6px * var(--wx-scale, 1));
-  padding: calc(6px * var(--wx-scale, 1)) calc(3px * var(--wx-scale, 1));
+/* ── Box 4 (SIMPLIFIED HORIZONTAL ROWS): 7-Day Forecast ── */
+.wx-forecast-rows-list {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  gap: calc(4px * var(--wx-scale, 1));
+  height: 100%;
   justify-content: space-between;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  text-align: center;
 }
 
-.wx-fc-card-v2.today {
+.wx-fcr-row-card {
+  display: grid;
+  grid-template-columns: calc(75px * var(--wx-scale, 1)) calc(24px * var(--wx-scale, 1)) calc(80px * var(--wx-scale, 1)) 1fr auto calc(85px * var(--wx-scale, 1));
+  gap: calc(6px * var(--wx-scale, 1));
+  align-items: center;
+  background: rgba(0, 0, 0, 0.22);
+  border-radius: calc(5px * var(--wx-scale, 1));
+  padding: calc(4px * var(--wx-scale, 1)) calc(8px * var(--wx-scale, 1));
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  font-size: calc(0.75rem * var(--wx-scale, 1));
+}
+
+.wx-fcr-row-card.highlight {
   background: rgba(14, 165, 233, 0.12);
   border: 1.5px solid #38bdf8;
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.2);
 }
 
-.wx-fcv2-hdr {
-  font-size: calc(0.8rem * var(--wx-scale, 1));
+.wx-fcr-day-col {
   font-weight: 900;
   color: #ffffff;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
 }
 
-.wx-fcv2-icon-box {
-  width: calc(28px * var(--wx-scale, 1));
-  height: calc(28px * var(--wx-scale, 1));
+.wx-fcr-icon-col {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.wx-fcv2-temps {
+.wx-fcr-temp-col {
   display: flex;
-  gap: calc(4px * var(--wx-scale, 1));
-  font-size: calc(0.85rem * var(--wx-scale, 1));
+  align-items: center;
+  gap: 3px;
   font-weight: 800;
 }
 
-.wx-fcv2-high { color: #f97316; }
-.wx-fcv2-low { color: #38bdf8; opacity: 0.8; }
+.wx-fcr-hi { color: #f97316; }
+.wx-fcr-sep { color: #64748b; font-size: 0.8em; }
+.wx-fcr-lo { color: #38bdf8; }
 
-.wx-fcv2-pop {
+.wx-fcr-desc-col {
+  color: #cbd5e1;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wx-fcr-pop-col {
   font-size: calc(0.65rem * var(--wx-scale, 1));
   font-weight: 800;
   color: #38bdf8;
   background: rgba(56, 189, 248, 0.15);
-  padding: 1px 4px;
+  padding: 1px 5px;
   border-radius: 4px;
+  white-space: nowrap;
 }
 
-.wx-fcv2-pop-none {
-  font-size: calc(0.65rem * var(--wx-scale, 1));
-  color: #64748b;
-}
-
-.wx-fcv2-short {
-  font-size: calc(0.65rem * var(--wx-scale, 1));
-  color: #cbd5e1;
-  line-height: 1.1;
-  height: 2.2em;
-  overflow: hidden;
-}
-
-.wx-fcv2-wind {
-  font-size: calc(0.65rem * var(--wx-scale, 1));
+.wx-fcr-wind-col {
   color: #94a3b8;
+  font-size: calc(0.7rem * var(--wx-scale, 1));
+  text-align: right;
+  white-space: nowrap;
 }
 
 /* ── Box 5: Marine Box ── */
