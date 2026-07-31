@@ -9,7 +9,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
  *  - Box 3: Animated Wave & Sea State.
  *  - Box 4: 7-Day NWS Forecast in horizontal rows using large, high-contrast SVG vector drawings.
  *  - Box 5: Marine Box (Advisories & Tides).
- *  - Box 6: Sky Panel (Fresh Ground-Up 24-Hour Timeline Traverse 00:00 to 24:00: Fixed HST Timezone Offset, Sampled Parabolic Arcs, Solid Travelled vs Dotted Remaining Paths, Live Clock & Date "July 31, 2026", and Moon Phase Slider).
+ *  - Box 6: Sky Panel (Physical 24-Hour Timeline Sky Traverse with Clean 1-Line Vertical Separation for Sun Rise/Set Text).
  */
 
 // ── Inline Vector SVG Icons ────────────────────────────────────────────────
@@ -667,20 +667,20 @@ const SkyBox = ({ sunMoon }) => {
   const xMin = 25;
   const xMax = 295;
   const w24  = xMax - xMin; // 270px width spanning 24 hours
-  const yHorizon = 90;
-  const sunArcH  = 68; // Tall Sun Arc (Peak Y=22)
-  const moonArcH = 48; // Distinct Moon Arc (Peak Y=42)
+  const yHorizon = 85;      // Horizon baseline
+  const sunArcH  = 66;      // Tall Sun Arc (Peak Y=19)
+  const moonArcH = 46;      // Distinct Moon Arc (Peak Y=39)
 
   const xForH = (h) => xMin + (Math.max(0, Math.min(24, h)) / 24.0) * w24;
 
-  // ── Physical Sun Arc Math (Flat Y=90 below horizon) ──
+  // ── Physical Sun Arc Math (Flat Y=85 below horizon) ──
   const getSunY = (h) => {
     if (h < srH || h > ssH) return yHorizon;
     const p = (h - srH) / (ssH - srH);
     return yHorizon - Math.sin(p * Math.PI) * sunArcH;
   };
 
-  // ── Physical Moon Arc Math (Flat Y=90 below horizon) ──
+  // ── Physical Moon Arc Math (Flat Y=85 below horizon) ──
   const getMoonY = (h) => {
     if (h <= msH) {
       const mrPrev = msH - lunarDuration;
@@ -790,8 +790,8 @@ const SkyBox = ({ sunMoon }) => {
           <div className="wx-arc-header-lbl">24-HOUR SKY TRAVERSE (00:00 MIDNIGHT ➔ 24:00 MIDNIGHT)</div>
 
           <div className="wx-solar-arc-wrapper">
-            <svg viewBox="0 0 320 120" className="wx-solar-arc-svg">
-              {/* Baseline Horizon Line (Y=90) */}
+            <svg viewBox="0 0 320 128" className="wx-solar-arc-svg">
+              {/* Baseline Horizon Line (Y=85) */}
               <line x1="15" y1={yHorizon} x2="305" y2={yHorizon} stroke="rgba(255, 255, 255, 0.25)" strokeWidth="1.5" />
 
               {/* Sun Arc: Solid (Travelled so far today) vs Dotted (Remaining today) */}
@@ -802,20 +802,20 @@ const SkyBox = ({ sunMoon }) => {
               {moonPaths.dSolid && <path d={moonPaths.dSolid} fill="none" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
               {moonPaths.dDotted && <path d={moonPaths.dDotted} fill="none" stroke="rgba(56, 189, 248, 0.75)" strokeWidth="2.2" strokeDasharray="3 3" strokeLinecap="round" strokeLinejoin="round" />}
 
-              {/* Sunrise & Sunset Text Markers */}
-              <text x={xForH(srH)} y="106" fill="#f59e0b" fontSize="9" fontWeight="800" textAnchor="middle">
-                ☀️ Rise {sunMoon?.sunrise || '6:25 AM'}
-              </text>
-              <text x={xForH(ssH)} y="106" fill="#f97316" fontSize="9" fontWeight="800" textAnchor="middle">
-                ☀️ Set {sunMoon?.sunset || '6:44 PM'}
-              </text>
-
-              {/* Moonset & Moonrise Text Markers */}
-              <text x={xForH(msH)} y="102" fill="#cbd5e1" fontSize="8" fontWeight="700" textAnchor="middle">
+              {/* Moonset & Moonrise Text Markers (Tier 1: Y=99) */}
+              <text x={xForH(msH)} y="99" fill="#cbd5e1" fontSize="8" fontWeight="700" textAnchor="middle">
                 🌙 Set {fmtHour(msH)}
               </text>
-              <text x={xForH(mrH)} y="102" fill="#38bdf8" fontSize="8" fontWeight="800" textAnchor="middle">
+              <text x={xForH(mrH)} y="99" fill="#38bdf8" fontSize="8" fontWeight="800" textAnchor="middle">
                 🌙 Rise {fmtHour(mrH)}
+              </text>
+
+              {/* Sunrise & Sunset Text Markers (Tier 2: Moved down 1 line to Y=115 for clean separation!) */}
+              <text x={xForH(srH)} y="115" fill="#f59e0b" fontSize="9" fontWeight="800" textAnchor="middle">
+                ☀️ Rise {sunMoon?.sunrise || '6:25 AM'}
+              </text>
+              <text x={xForH(ssH)} y="115" fill="#f97316" fontSize="9" fontWeight="800" textAnchor="middle">
+                ☀️ Set {sunMoon?.sunset || '6:44 PM'}
               </text>
 
               {/* Live Sun Indicator */}
