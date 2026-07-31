@@ -1,14 +1,86 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 /**
- * CurrentWeatherView — Responsive, Scalable Hawaii Weather Dashboard.
+ * CurrentWeatherView — 3x2 Grid Scalable Hawaii Weather Dashboard.
  * 
- * Auto-scales all text, SVG graphics, gauges, and grid layouts dynamically
- * based on allocated screen space / container resolution (Full 4K, 1080p,
- * 2-Up / 4-Up split screens, or small remote preview boxes).
+ * Layout: 3 Columns x 2 Rows (6 equal, high-density panels)
+ *  - Box 1: Current Temp & Atmosphere (Outdoor/Indoor, Dew Point, Baro, UV, Solar)
+ *  - Box 2: Wind & Rain Station (SVG Compass Rose & Virtual Rain Cup)
+ *  - Box 3: Humidity & Air Comfort (Outdoor & Indoor Comfort Meters & Status Badges)
+ *  - Box 4: 7-Day NWS Forecast (Temp Pills, Weather Icons, Wind Speeds)
+ *  - Box 5: Honolulu Tides (SVG Tide Curve, Peak Markers, Next Hi/Lo Cards)
+ *  - Box 6: Solunar Fishing & Astronomy (4-Star Rating, Feeding Periods, Sunrise/Sunset, Moon Phase)
+ * 
+ * Iconography: 100% Inline SVG (Zero Dependance on Unicode Emoji Fonts / No Tofu Squares)
  */
 
-// ── Solunar Fishing Index Math ─────────────────────────────────────────────
+// ── Inline SVG Icons (Cross-Platform / Font-Independent) ───────────────────
+const IconThermometer = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
+  </svg>
+);
+
+const IconWind = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/>
+  </svg>
+);
+
+const IconDroplet = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+  </svg>
+);
+
+const IconCalendar = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+    <line x1="16" y1="2" x2="16" y2="6"/>
+    <line x1="8" y1="2" x2="8" y2="6"/>
+    <line x1="3" y1="10" x2="21" y2="10"/>
+  </svg>
+);
+
+const IconWave = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
+  </svg>
+);
+
+const IconFish = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#34d399" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6.5 12c.94-2.07 2.96-3.5 5.3-3.5 3.5 0 6.5 2.5 8.2 3.5-1.7 1-4.7 3.5-8.2 3.5-2.34 0-4.36-1.43-5.3-3.5zm0 0L2 8.5v7l4.5-3.5z"/>
+    <circle cx="14" cy="11" r="1" fill="#34d399"/>
+  </svg>
+);
+
+const IconSun = () => (
+  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="5"/>
+    <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+  </svg>
+);
+
+const IconMoon = () => (
+  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#cbd5e1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </svg>
+);
+
+const IconArrowUp = () => (
+  <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 19V5m-7 7l7-7 7 7"/>
+  </svg>
+);
+
+const IconArrowDown = () => (
+  <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 5v14m7-7l-7 7-7-7"/>
+  </svg>
+);
+
+// ── Solunar Fishing Index Math (Match ForecastPanel.jsx) ───────────────────
 const LUNAR_CYCLE  = 29.53058867;
 const EPOCH_NEW_JD = 2459198.177;
 
@@ -18,8 +90,7 @@ function julianDate(d = new Date()) {
 
 function getMoonAge(d = new Date()) {
   const jd  = julianDate(d);
-  const age = ((jd - EPOCH_NEW_JD) % LUNAR_CYCLE + LUNAR_CYCLE) % LUNAR_CYCLE;
-  return age;
+  return ((jd - EPOCH_NEW_JD) % LUNAR_CYCLE + LUNAR_CYCLE) % LUNAR_CYCLE;
 }
 
 function solunarScore(d = new Date()) {
@@ -84,14 +155,14 @@ function getSunMoon(lat, lon, date = new Date()) {
   const moonAge = getMoonAge(d);
   const phase   = moonAge / LUNAR_CYCLE;
   const moonPhaseLabel = (() => {
-    if (phase < 0.03 || phase > 0.97) return '🌑 New Moon';
-    if (phase < 0.22) return '🌒 Waxing Crescent';
-    if (phase < 0.28) return '🌓 First Quarter';
-    if (phase < 0.47) return '🌔 Waxing Gibbous';
-    if (phase < 0.53) return '🌕 Full Moon';
-    if (phase < 0.72) return '🌖 Waning Gibbous';
-    if (phase < 0.78) return '🌗 Last Quarter';
-    return '🌘 Waning Crescent';
+    if (phase < 0.03 || phase > 0.97) return 'New Moon';
+    if (phase < 0.22) return 'Waxing Crescent';
+    if (phase < 0.28) return 'First Quarter';
+    if (phase < 0.47) return 'Waxing Gibbous';
+    if (phase < 0.53) return 'Full Moon';
+    if (phase < 0.72) return 'Waning Gibbous';
+    if (phase < 0.78) return 'Last Quarter';
+    return 'Waning Crescent';
   })();
 
   return {
@@ -105,11 +176,11 @@ function getSunMoon(lat, lon, date = new Date()) {
 // ── Humidity Comfort Scale ────────────────────────────────────────────────
 function getHumidityComfort(rh) {
   if (rh == null) return { label: '—', color: '#94a3b8', percent: 0 };
-  if (rh < 30)  return { label: 'Dry 🏜️',      color: '#f59e0b', percent: Math.max(10, rh) };
-  if (rh <= 50) return { label: 'Ideal 😊',    color: '#10b981', percent: rh };
-  if (rh <= 60) return { label: 'Pleasant 🍃', color: '#38bdf8', percent: rh };
-  if (rh <= 70) return { label: 'Humid 💧',    color: '#0284c7', percent: rh };
-  return               { label: 'Muggy 💦',    color: '#a855f7', percent: Math.min(100, rh) };
+  if (rh < 30)  return { label: 'Dry',      color: '#f59e0b', percent: Math.max(10, rh) };
+  if (rh <= 50) return { label: 'Ideal',    color: '#10b981', percent: rh };
+  if (rh <= 60) return { label: 'Pleasant', color: '#38bdf8', percent: rh };
+  if (rh <= 70) return { label: 'Humid',    color: '#0284c7', percent: rh };
+  return               { label: 'Muggy',    color: '#a855f7', percent: Math.min(100, rh) };
 }
 
 function getCardinal(deg) {
@@ -203,66 +274,104 @@ const HumidityGauge = ({ label, rh }) => {
   );
 };
 
-// ── Main Panels ────────────────────────────────────────────────────────────
+// ── 3x2 Grid Box Panels ────────────────────────────────────────────────────
 
-/** EcowittPanel: Local Weather Station */
-const EcowittPanel = ({ data }) => {
-  if (!data) return <div className="wx-panel wx-loading">Loading weather station…</div>;
+/** Box 1: Current Temp & Atmosphere */
+const TempAtmosphereBox = ({ data }) => {
+  if (!data) return <div className="wx-panel wx-loading">Loading weather data…</div>;
 
   return (
-    <div className="wx-panel wx-ecowitt" data-section="ecowitt">
+    <div className="wx-panel wx-box-temp" data-section="temp-atmo">
       <div className="wx-panel-header">
-        <h2 className="wx-panel-title">🌡️ Pukalani Station (HP2564BU)</h2>
+        <h2 className="wx-panel-title"><IconThermometer /> Current Temp &amp; Atmosphere</h2>
         <span className="wx-badge-live">LIVE</span>
       </div>
 
-      <div className="wx-ecowitt-main-grid">
-        <div className="wx-temp-card">
-          <div className="wx-temp-main">{data.temp_out_f}°<span className="wx-unit">F</span></div>
-          <div className="wx-temp-sub">Indoor: {data.temp_in_f}°F</div>
-          <div className="wx-temp-dew">Dew Point: {data.dew_point_f}°F</div>
+      <div className="wx-temp-main-display">
+        <div className="wx-temp-big">{data.temp_out_f}°<span className="wx-temp-unit">F</span></div>
+        <div className="wx-temp-sub-group">
+          <div className="wx-sub-row"><span className="wx-sub-lbl">Indoor Temp</span><span className="wx-sub-val">{data.temp_in_f}°F</span></div>
+          <div className="wx-sub-row"><span className="wx-sub-lbl">Dew Point</span><span className="wx-sub-val">{data.dew_point_f}°F</span></div>
         </div>
-
-        <WindCompass 
-          dir={data.wind_dir} 
-          speed={data.wind_spd_mph} 
-          gust={data.wind_gust_mph} 
-        />
-
-        <RainCup 
-          dailyRain={data.rain_daily_in || 0} 
-          rainRate={data.rain_rate_in || 0} 
-        />
       </div>
 
-      <div className="wx-ecowitt-footer-grid">
-        <HumidityGauge label="Outdoor Humidity" rh={data.humidity_out} />
-        <HumidityGauge label="Indoor Humidity" rh={data.humidity_in} />
-
-        <div className="wx-stat-mini">
-          <span className="wx-mini-lbl">Pressure</span>
-          <span className="wx-mini-val">{data.baro_rel_inhg}" Hg</span>
+      <div className="wx-atmo-stats-grid">
+        <div className="wx-atmo-card">
+          <span className="wx-atmo-lbl">Barometer</span>
+          <span className="wx-atmo-val">{data.baro_rel_inhg}" Hg</span>
         </div>
-        <div className="wx-stat-mini">
-          <span className="wx-mini-lbl">UV Index</span>
-          <span className="wx-mini-val">{data.uv_index}</span>
+        <div className="wx-atmo-card">
+          <span className="wx-atmo-lbl">UV Index</span>
+          <span className="wx-atmo-val">{data.uv_index}</span>
         </div>
-        <div className="wx-stat-mini">
-          <span className="wx-mini-lbl">Solar Rad</span>
-          <span className="wx-mini-val">{data.solar_rad} W/m²</span>
+        <div className="wx-atmo-card">
+          <span className="wx-atmo-lbl">Solar Rad</span>
+          <span className="wx-atmo-val">{data.solar_rad} W/m²</span>
         </div>
       </div>
     </div>
   );
 };
 
-/** ForecastPanel: 7-Day NWS Forecast */
-const ForecastPanel = ({ periods }) => {
+/** Box 2: Wind & Rain Station */
+const WindRainBox = ({ data }) => {
+  if (!data) return <div className="wx-panel wx-loading">Loading wind data…</div>;
+
+  return (
+    <div className="wx-panel wx-box-wind" data-section="wind-rain">
+      <div className="wx-panel-header">
+        <h2 className="wx-panel-title"><IconWind /> Wind &amp; Rain Station</h2>
+        <span className="wx-badge-info">WS90</span>
+      </div>
+
+      <div className="wx-wind-rain-flex">
+        <WindCompass 
+          dir={data.wind_dir} 
+          speed={data.wind_spd_mph} 
+          gust={data.wind_gust_mph} 
+        />
+        <RainCup 
+          dailyRain={data.rain_daily_in || 0} 
+          rainRate={data.rain_rate_in || 0} 
+        />
+      </div>
+    </div>
+  );
+};
+
+/** Box 3: Humidity & Comfort Scale */
+const HumidityBox = ({ data }) => {
+  if (!data) return <div className="wx-panel wx-loading">Loading humidity…</div>;
+
+  return (
+    <div className="wx-panel wx-box-humidity" data-section="humidity">
+      <div className="wx-panel-header">
+        <h2 className="wx-panel-title"><IconDroplet /> Humidity &amp; Comfort Scale</h2>
+        <span className="wx-badge-info">ECOWITT</span>
+      </div>
+
+      <div className="wx-humidity-stack">
+        <HumidityGauge label="Outdoor Air Humidity" rh={data.humidity_out} />
+        <HumidityGauge label="Indoor Home Humidity" rh={data.humidity_in} />
+      </div>
+
+      <div className="wx-hum-note">
+        Standard comfort index: 30%–50% Ideal • 50%–60% Pleasant • 60%–70% Humid • &gt;70% Muggy
+      </div>
+    </div>
+  );
+};
+
+/** Box 4: 7-Day NWS Forecast */
+const ForecastBox = ({ periods }) => {
   if (!periods || periods.length === 0) return <div className="wx-panel wx-loading">Loading forecast…</div>;
 
   return (
-    <div className="wx-panel wx-forecast" data-section="forecast">
-      <h2 className="wx-panel-title">📅 7-Day NWS Forecast</h2>
+    <div className="wx-panel wx-box-forecast" data-section="forecast">
+      <div className="wx-panel-header">
+        <h2 className="wx-panel-title"><IconCalendar /> 7-Day NWS Forecast</h2>
+        <span className="wx-badge-info">NOAA</span>
+      </div>
       <div className="wx-forecast-grid">
         {periods.slice(0, 7).map((p, i) => (
           <div key={i} className={`wx-fc-card ${p.isDaytime ? 'day' : 'night'}`}>
@@ -271,14 +380,14 @@ const ForecastPanel = ({ periods }) => {
               {p.icon ? (
                 <img src={p.icon} alt={p.shortForecast} className="wx-fc-img" />
               ) : (
-                <span className="wx-fc-emoji">{p.isDaytime ? '☀️' : '🌙'}</span>
+                <span className="wx-fc-svg-icon">{p.isDaytime ? <IconSun /> : <IconMoon />}</span>
               )}
             </div>
             <div className="wx-fc-temp-pill" style={{ background: p.isDaytime ? '#f97316' : '#0284c7' }}>
               {p.temperature}°{p.temperatureUnit}
             </div>
             <div className="wx-fc-short">{p.shortForecast}</div>
-            <div className="wx-fc-wind">💨 {p.windSpeed}</div>
+            <div className="wx-fc-wind">{p.windSpeed}</div>
           </div>
         ))}
       </div>
@@ -286,8 +395,8 @@ const ForecastPanel = ({ periods }) => {
   );
 };
 
-/** TidePanel: High/Low Honolulu Tides */
-const TidePanel = ({ predictions }) => {
+/** Box 5: Honolulu Tides */
+const TideBox = ({ predictions }) => {
   if (!predictions || predictions.length === 0) return <div className="wx-panel wx-loading">Loading tides…</div>;
 
   const now = new Date();
@@ -310,9 +419,9 @@ const TidePanel = ({ predictions }) => {
   const nowY = toY(pts[Math.max(0, nowIdx)]?.height_ft || 0);
 
   return (
-    <div className="wx-panel wx-tides" data-section="tides">
+    <div className="wx-panel wx-box-tides" data-section="tides">
       <div className="wx-panel-header">
-        <h2 className="wx-panel-title">🌊 Honolulu Tides (Next 36 Hours)</h2>
+        <h2 className="wx-panel-title"><IconWave /> Honolulu Tides (36 Hours)</h2>
         <span className="wx-badge-info">Station 1612340</span>
       </div>
 
@@ -351,7 +460,9 @@ const TidePanel = ({ predictions }) => {
       <div className="wx-tide-cards-row">
         {upcoming.slice(0, 4).map((p, i) => (
           <div key={i} className={`wx-tide-card ${p.tide_type === 'H' ? 'hi' : 'lo'}`}>
-            <div className="wx-tc-type">{p.tide_type === 'H' ? '🔼 HIGH TIDE' : '🔽 LOW TIDE'}</div>
+            <div className="wx-tc-type">
+              {p.tide_type === 'H' ? <><IconArrowUp /> HIGH TIDE</> : <><IconArrowDown /> LOW TIDE</>}
+            </div>
             <div className="wx-tc-time">{new Date(p.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
             <div className="wx-tc-height">{p.height_ft.toFixed(1)} ft</div>
           </div>
@@ -361,8 +472,8 @@ const TidePanel = ({ predictions }) => {
   );
 };
 
-/** FishingPanel: Solunar Fishing Index */
-const FishingPanel = () => {
+/** Box 6: Solunar Fishing & Astronomy */
+const SolunarAstronomyBox = ({ sunMoon }) => {
   const fish = solunarScore();
   const ratingColor = {
     Excellent: '#22c55e',
@@ -372,13 +483,14 @@ const FishingPanel = () => {
   }[fish.rating] || '#94a3b8';
 
   return (
-    <div className="wx-panel wx-fishing" data-section="fishing">
+    <div className="wx-panel wx-box-fishing" data-section="fishing">
       <div className="wx-panel-header">
-        <h2 className="wx-panel-title">🎣 Solunar Fishing Index</h2>
-        <span className="wx-badge-solunar">MOON AGE {fish.age.toFixed(1)}d</span>
+        <h2 className="wx-panel-title"><IconFish /> Solunar Fishing &amp; Astronomy</h2>
+        <span className="wx-badge-solunar">MOON {fish.age.toFixed(1)}d</span>
       </div>
 
-      <div className="wx-fish-main">
+      <div className="wx-fish-astronomy-layout">
+        {/* Rating Header */}
         <div className="wx-fish-rating-box">
           <div className="wx-fish-stars">
             {[1,2,3,4].map(s => (
@@ -390,12 +502,13 @@ const FishingPanel = () => {
           </div>
         </div>
 
+        {/* Feeding Periods */}
         <div className="wx-fish-periods-grid">
           <div className="wx-period-box">
-            <div className="wx-period-hdr">MAJOR PERIODS (2HR WINDOWS)</div>
+            <div className="wx-period-hdr">MAJOR PERIODS (2HR)</div>
             {fish.major.map((h, i) => (
               <div key={i} className="wx-period-row">
-                <span className="wx-period-icon">🌙</span>
+                <span className="wx-period-icon"><IconMoon /></span>
                 <span className="wx-period-time">{fmtHour(h)}</span>
                 <span className="wx-period-desc">{i === 0 ? 'Moon overhead' : 'Moon underfoot'}</span>
               </div>
@@ -403,60 +516,32 @@ const FishingPanel = () => {
           </div>
 
           <div className="wx-period-box">
-            <div className="wx-period-hdr">MINOR PERIODS (1HR WINDOWS)</div>
+            <div className="wx-period-hdr">MINOR PERIODS (1HR)</div>
             {fish.minor.map((h, i) => (
               <div key={i} className="wx-period-row">
-                <span className="wx-period-icon">🎣</span>
+                <span className="wx-period-icon"><IconFish /></span>
                 <span className="wx-period-time">{fmtHour(h)}</span>
                 <span className="wx-period-desc">{i === 0 ? 'Moonrise' : 'Moonset'}</span>
               </div>
             ))}
           </div>
         </div>
-      </div>
 
-      <div className="wx-fish-theory">
-        Solunar theory: fish feeding peaks near major periods, especially during new &amp; full moon phases.
-      </div>
-    </div>
-  );
-};
-
-/** SunMoonPanel: Sun & Moon Astronomy */
-const SunMoonPanel = ({ sunMoon }) => {
-  if (!sunMoon) return null;
-  return (
-    <div className="wx-panel wx-sunmoon" data-section="sunmoon">
-      <h2 className="wx-panel-title">☀️ Sun &amp; Moon Status</h2>
-      <div className="wx-sunmoon-grid">
-        <div className="wx-sm-card">
-          <span className="wx-sm-icon">🌅</span>
-          <div>
-            <div className="wx-sm-lbl">Sunrise</div>
-            <div className="wx-sm-val">{sunMoon.sunrise || '—'}</div>
+        {/* Sun & Moon Stats */}
+        {sunMoon && (
+          <div className="wx-sunmoon-row">
+            <div className="wx-sm-item"><IconSun /> Rise: {sunMoon.sunrise}</div>
+            <div className="wx-sm-item"><IconSun /> Set: {sunMoon.sunset}</div>
+            <div className="wx-sm-item"><IconMoon /> {sunMoon.moonPhaseLabel} ({sunMoon.moonIllum}%)</div>
           </div>
-        </div>
-        <div className="wx-sm-card">
-          <span className="wx-sm-icon">🌇</span>
-          <div>
-            <div className="wx-sm-lbl">Sunset</div>
-            <div className="wx-sm-val">{sunMoon.sunset || '—'}</div>
-          </div>
-        </div>
-        <div className="wx-sm-card wx-sm-wide">
-          <span className="wx-sm-icon">🌖</span>
-          <div>
-            <div className="wx-sm-lbl">Moon Phase</div>
-            <div className="wx-sm-val">{sunMoon.moonPhaseLabel} ({sunMoon.moonIllum}% Illum)</div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Root Scalable Weather View Component
+// Root 3x2 Grid Scalable Weather View Component
 // ─────────────────────────────────────────────────────────────────────────────
 const CurrentWeatherView = React.memo(({ config }) => {
   const [data, setData] = useState(null);
@@ -468,15 +553,13 @@ const CurrentWeatherView = React.memo(({ config }) => {
   const HOME_LAT = 21.2861516;
   const HOME_LON = -157.7935187;
 
-  // Dynamic Scale Observer (scales fonts & UI based on container width & height)
   useEffect(() => {
     if (!rootRef.current) return;
     const ro = new ResizeObserver((entries) => {
       for (let entry of entries) {
         const { width, height } = entry.contentRect;
-        // Reference dimensions: 1100x650
-        const scaleW = width / 1100;
-        const scaleH = height / 650;
+        const scaleW = width / 1150;
+        const scaleH = height / 680;
         const scale = Math.min(Math.max(Math.min(scaleW, scaleH), 0.45), 2.2);
 
         if (rootRef.current) {
@@ -516,12 +599,14 @@ const CurrentWeatherView = React.memo(({ config }) => {
     <div className="wx-root" data-view="current-weather" ref={rootRef}>
       {error && <div className="wx-error-banner">⚠️ Weather Data Update Delayed: {error}</div>}
 
-      <div className="wx-dashboard-grid">
-        <EcowittPanel data={data?.ecowitt} />
-        <ForecastPanel periods={data?.forecast} />
-        <TidePanel predictions={data?.tides} />
-        <FishingPanel />
-        <SunMoonPanel sunMoon={sunMoon} />
+      {/* 3 Columns x 2 Rows Grid */}
+      <div className="wx-dashboard-grid-3x2">
+        <TempAtmosphereBox data={data?.ecowitt} />
+        <WindRainBox data={data?.ecowitt} />
+        <HumidityBox data={data?.ecowitt} />
+        <ForecastBox periods={data?.forecast} />
+        <TideBox predictions={data?.tides} />
+        <SolunarAstronomyBox sunMoon={sunMoon} />
       </div>
 
       {lastFetch && (
