@@ -20,11 +20,14 @@ export const VESSEL_DEFAULTS = {
 };
 
 // View definitions — labels for the Remote UI
+// 'black' is the universal default for any unset/new display slot
 export const VIEW_REGISTRY = [
-  { id: 'cams',         label: '📹 Camera Grid' },
-  { id: 'vessels',      label: '🚢 Vessel Tracker' },
-  { id: 'weather',      label: '🌤️ Weather Loops' },
-  { id: 'house_status', label: '🏠 House Status (Coming Soon)' },
+  { id: 'black',           label: '⬛ Black (Off)'         },
+  { id: 'cams',            label: '📹 Camera Grid'         },
+  { id: 'vessels',         label: '🚢 Vessel Tracker'      },
+  { id: 'weather',         label: '🌤️ Weather Loops'       },
+  { id: 'current_weather', label: '🌡️ Current Weather'     },
+  { id: 'house_status',    label: '🏠 House Status (Soon)' },
 ];
 
 // Map center presets for the vessel tracker UI

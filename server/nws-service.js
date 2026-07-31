@@ -575,7 +575,7 @@ function initENSOFetcher() {
 
 async function fetchFADs() {
   try {
-    const url = 'https://geo.pacioos.hawaii.edu/geoserver/wfs?service=WFS&version=1.1.0&request=GetFeature&typeName=hi_dar:fads&outputFormat=application/json';
+    const url = 'https://geo.pacioos.hawaii.edu/geoserver/wfs?service=WFS&version=1.1.0&request=GetFeature&typeName=PACIOOS:hi_dar_all_fads&outputFormat=application/json';
     const res = await conditionalFetchText(url, cache.fads?.meta);
     if (!res.updated) return;
 
@@ -1034,4 +1034,27 @@ function init(app, express) {
 }
 
 
-module.exports = { init };
+
+function getFADs() {
+  if (cache.fads?.geojson?.features) {
+    return cache.fads.geojson.features;
+  }
+  const fadFile = path.join(DATA_DIR, 'fads.geojson');
+  if (fs.existsSync(fadFile)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(fadFile, 'utf8'));
+      return data.features || [];
+    } catch(e) {}
+  }
+  const staticFAD = path.join(__dirname, '../public/static/fads_static.geojson');
+  if (fs.existsSync(staticFAD)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(staticFAD, 'utf8'));
+      return data.features || [];
+    } catch(e) {}
+  }
+  return [];
+}
+
+module.exports = { init, getFADs, fetchFADs, cache };
+

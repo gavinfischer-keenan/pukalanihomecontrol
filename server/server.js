@@ -996,7 +996,177 @@ try {
   recordTrackPoint = ke.recordTrackPoint;
 } catch(e) { console.error('[known-entities] init error:', e.message); }
 
+
+// ── GET /api/weather/conditions ─────────────────────────────────────────────
+// Weather Conditions aggregate endpoint for CurrentWeatherView screen
+let forecastCache = { data: null, fetchedAt: 0 };
+const FORECAST_TTL_MS = 60 * 60 * 1000; // 1 hour in memory cache
+
+async function fetchLandForecast() {
+  const now = Date.now();
+  if (forecastCache.data && (now - forecastCache.fetchedAt) < FORECAST_TTL_MS) {
+    return forecastCache.data;
+  }
+  const headers = { 'User-Agent': 'HawaiiCommandCenter/1.0 (private home monitoring)' };
+  let periods = [];
+  try {
+    // Try specified gridpoints HFO 56,127 first
+    const res = await axios.get('https://api.weather.gov/gridpoints/HFO/56,127/forecast', { headers, timeout: 10000 });
+    periods = res.data?.properties?.periods || [];
+  } catch (err1) {
+    try {
+      // Fallback to HFO 154,145 (Honolulu land forecast grid) if 56,127 returns 404
+      const res2 = await axios.get('https://api.weather.gov/gridpoints/HFO/154,145/forecast', { headers, timeout: 10000 });
+      periods = res2.data?.properties?.periods || [];
+    } catch (err2) {
+      console.error('[weather-conditions] NWS forecast fetch error:', err2.message);
+    }
+  }
+
+  const formatted = periods.map(p => ({
+    name: p.name,
+    temp: p.temperature,
+    tempUnit: p.temperatureUnit,
+    isDaytime: p.isDaytime,
+    shortForecast: p.shortForecast,
+    detailedForecast: p.detailedForecast,
+    icon: p.icon,
+    windSpeed: p.windSpeed,
+    windDirection: p.windDirection
+  }));
+
+  if (formatted.length > 0) {
+    forecastCache = { data: formatted, fetchedAt: now };
+  }
+  return forecastCache.data || formatted;
+}
+
+async function fetchHonoluluTides() {
+  const station = '1612340';
+  const now = Date.now();
+  let tideData = null;
+
+  if (tideCache[station] && (now - tideCache[station].fetchedAt) < TIDE_TTL_MS) {
+    tideData = tideCache[station].data;
+  } else {
+    try {
+      const days = 2; // next 48hr
+      const begin = new Date();
+      const end = new Date(begin.getTime() + days * 86400000);
+      const pad = (n) => String(n).padStart(2, '0');
+      const ymd = (d) => `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
+      const url = `https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=predictions&datum=MLLW&time_zone=lst_ldt&interval=h&units=english&format=json&begin_date=${ymd(begin)}&end_date=${ymd(end)}&station=${station}`;
+      const r = await axios.get(url, { timeout: 15000 });
+      tideCache[station] = { data: r.data, fetchedAt: now };
+      tideData = r.data;
+    } catch (err) {
+      console.error('[weather-conditions] tide fetch error:', err.message);
+      if (tideCache[station]) tideData = tideCache[station].data;
+    }
+  }
+
+  const rawPreds = tideData?.predictions || [];
+  return rawPreds.map((p, i) => {
+    let isoTime;
+    try {
+      isoTime = new Date(p.t.replace(' ', 'T') + '-10:00').toISOString();
+    } catch (e) {
+      isoTime = p.t;
+    }
+    const prev = rawPreds[i - 1];
+    const next = rawPreds[i + 1];
+    const h = parseFloat(p.v);
+    let tide_type = p.type || p.tide_type || null;
+    if (!tide_type && prev && next) {
+      const ph = parseFloat(prev.v), nh = parseFloat(next.v);
+      if (h > ph && h > nh) tide_type = 'H';
+      else if (h < ph && h < nh) tide_type = 'L';
+    }
+    return {
+      t: isoTime,
+      height_ft: h,
+      tide_type: tide_type
+    };
+  });
+}
+
+app.get('/api/weather/conditions', async (req, res) => {
+  try {
+    // 1. Ecowitt current observation (same query as /api/ecowitt/current)
+    let ecowittData = null;
+    try {
+      const ecoRes = await pool.query(`
+        SELECT
+          o.obs_time,
+          s.name, s.lat, s.lon, s.model,
+          o.temp_in_f, o.humidity_in,
+          o.temp_out_f, o.humidity_out,
+          o.baro_rel_inhg,
+          o.wind_dir, o.wind_spd_mph, o.wind_gust_mph, o.max_gust_mph,
+          o.rain_rate_in, o.rain_hourly_in, o.rain_daily_in, o.rain_monthly_in,
+          o.solar_rad, o.uv_index,
+          o.lightning_dist, o.lightning_count, o.lightning_time,
+          o.ws90_batt,
+          ROUND(
+            CAST(
+              (CAST( (o.temp_out_f - 32.0) * 5.0/9.0 AS NUMERIC) -
+               (100.0 - o.humidity_out) / 5.0) * 9.0/5.0 + 32.0
+            AS NUMERIC),
+          1) as dew_point_f
+        FROM pws_obs o
+        JOIN pws_stations s ON o.station_id = s.station_id
+        WHERE o.obs_time > NOW() - INTERVAL '5 minutes'
+        ORDER BY o.obs_time DESC
+        LIMIT 1;
+      `);
+      if (ecoRes.rows.length > 0) {
+        ecowittData = ecoRes.rows[0];
+      } else {
+        const staleRes = await pool.query(`
+          SELECT o.*, s.name, s.lat, s.lon, s.model,
+            ROUND(CAST((CAST( (o.temp_out_f - 32.0) * 5.0/9.0 AS NUMERIC) - (100.0 - o.humidity_out) / 5.0) * 9.0/5.0 + 32.0 AS NUMERIC), 1) as dew_point_f
+          FROM pws_obs o JOIN pws_stations s ON o.station_id = s.station_id
+          ORDER BY o.obs_time DESC LIMIT 1;
+        `);
+        ecowittData = staleRes.rows[0] || null;
+      }
+    } catch (eEco) {
+      console.error('[weather-conditions] Ecowitt DB query error:', eEco.message);
+    }
+
+    // 2. Forecast, 3. Tides, 4. FADs
+    const [forecast, tides] = await Promise.all([
+      fetchLandForecast(),
+      fetchHonoluluTides()
+    ]);
+
+    let fads = [];
+    if (typeof nwsService.getFADs === 'function') {
+      fads = nwsService.getFADs();
+    } else {
+      const fs = require('fs');
+      const path = require('path');
+      const f = path.join(__dirname, 'data', 'fads.geojson');
+      if (fs.existsSync(f)) {
+        try { fads = JSON.parse(fs.readFileSync(f, 'utf8'))?.features || []; } catch(e) {}
+      }
+    }
+
+    res.json({
+      ecowitt: ecowittData,
+      forecast,
+      tides,
+      fads,
+      generatedAt: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('[weather-conditions] error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // NWS/NOAA caching service
+
 nwsService.init(app, express);
 
 

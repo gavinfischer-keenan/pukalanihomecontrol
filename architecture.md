@@ -93,12 +93,32 @@ The Hawaii Tracker is a distributed edge computing system running on a Proxmox V
 
 The display server remote (`http://192.168.1.114:3000/#remote`) supports the following features:
 
-**Views Available**:
-- **📹 Camera Grid** — Frigate camera feeds via go2rtc MJPEG with snapshot fallback
-- **🚢 Vessel Tracker** — Live Hawaii Dashboard map (`DASHBOARD_URL` from `displayConfig.js`). Zoom and center are config-driven per-slot via Remote UI (slider 7-17, center presets). Default center: HOME_BASE (21.2861516, -157.7935187 — 3786 Pukalani Pl). Map interaction disabled in kiosk iframe mode. URL params: `?zoom=N&center=lat,lon`.
-- **Architecture**: Shared `viewRegistry.jsx` (single component map), `displayConfig.js` (centralized constants), `cameras.json.displays[]` (dynamic display list). WebSocket `reload` message triggers `window.location.reload()` for reliable deploys. Server sets `Cache-Control: no-cache` on JS/CSS assets. State migration removes obsolete views on startup
-- **🌤️ Weather Loops** — Full-screen NOAA satellite imagery cycler with configurable per-loop dwell time (10-120s, default 30s). Sources from dashboard API `/api/nws/loops`.
-- **🏠 House Status** — Coming Soon placeholder
+**Views Available** (defined in `viewRegistry.jsx` + `displayConfig.js`):
+
+| ID | Label | Description |
+|----|-------|-------------|
+| `black` | ⬛ Black (Off) | Pure black screen — **default for all new/unset slots** |
+| `cams` | 📹 Camera Grid | Frigate feeds via go2rtc MJPEG with snapshot fallback |
+| `vessels` | 🚢 Vessel Tracker | Live Hawaii Dashboard map. Zoom (7-17) + center presets per-slot. Default center: 2.5mi South of Pukalani (21.2500). URL params: `?zoom=N&center=lat,lon` |
+| `weather` | 🌤️ Weather Loops | Full-screen NOAA satellite imagery cycler. Dwell 10-120s, default 30s. Source: `/api/nws/loops` |
+| `current_weather` | 🌡️ Current Weather | Live weather dashboard — see below |
+| `house_status` | 🏠 House Status | Coming Soon placeholder |
+
+**Current Weather View** (`CurrentWeatherView.jsx`):
+Five self-contained panels, each independently restyable (data-section attribute for CSS targeting):
+- **EcowittPanel** (`data-section="ecowitt"`) — All readings from local HP2564BU Pro WS90 station: temp/humidity (in+out), dew point, wind speed/gust/direction, barometric pressure, rain rate/daily/monthly, UV index, solar radiation, lightning
+- **ForecastPanel** (`data-section="forecast"`) — NWS 7-day forecast, 8 periods, from `api.weather.gov/gridpoints/HFO/56,127/forecast`
+- **TidePanel** (`data-section="tides"`) — SVG sparkline of 48hr Honolulu tides (NOAA station 1612340) with H/L markers and current position dot; upcoming tide event list
+- **SunMoonPanel** (`data-section="sunmoon"`) — Sunrise/sunset + moon phase/illumination/age, computed client-side (pure math, no external dep)
+- **FishingPanel** (`data-section="fishing"`) — Oahu FAD locations from `/api/nws/fishing-areas`
+
+**Architecture — Adding a new view** (one file, two lines):
+1. Create `src/components/MyView.jsx`
+2. In `viewRegistry.jsx`: add `import MyView from './components/MyView'` + `my_view: MyView` to the map
+3. In `displayConfig.js`: add `{ id: 'my_view', label: '🔲 My View' }` to `VIEW_REGISTRY`
+That's it — the Remote UI dropdown, DisplayView, and CycleView all pick it up automatically.
+
+**CSS Architecture**: `src/weather.css` holds bare-bones structural styles for CurrentWeatherView. Intentionally unstyled — UI agents should add visual polish in `index.css` or a dedicated theme file, targeting `[data-section]` attributes.
 
 **Removed Views**: BirdNET Detections, Aircraft Radar
 
@@ -118,6 +138,16 @@ The display server remote (`http://192.168.1.114:3000/#remote`) supports the fol
 **Tests**: `/opt/display-server/tests/display-server.test.js` — 14 tests covering views, per-slot config, cycle mode, weather dwell, state structure. Run: `cd /opt/display-server && npx vitest run`
 
 **Source**: Version-controlled at `infra/ct114-display-server/` in the dashboard repo.
+
+**Dashboard API — Weather Aggregator** (`/api/weather/conditions` on CT108):
+Single endpoint returning all data needed by `CurrentWeatherView` in one call:
+```json
+{ "ecowitt": {...}, "forecast": [...14 periods], "tides": [...48hr H/L], "fads": {GeoJSON}, "generatedAt": "ISO" }
+```
+- Ecowitt: direct DB query (shared pool, `ecowitt_obs` table)
+- NWS forecast: fetched from `api.weather.gov`, cached 1hr in memory (good-citizen policy — NWS updates 2×/day)
+- NOAA tides: fetched from `tidesandcurrents.noaa.gov` station 1612340 (Honolulu), H/L detected via local extrema
+- FADs: from existing `nwsService` cache
 
 ## Auto-Recovery & Health Monitoring
 
