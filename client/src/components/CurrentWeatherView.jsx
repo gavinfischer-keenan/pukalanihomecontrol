@@ -644,7 +644,7 @@ const MarineBox = ({ predictions, alerts = [] }) => {
 };
 
 /**
- * Box 6: Sky Panel — GROUND-UP 24-HOUR TIMELINE TRAVERSE (00:00 to 24:00)
+ * Box 6: Sky Panel — PHYSICAL 24-HOUR TIMELINE TRAVERSE (00:00 to 24:00)
  */
 const SkyBox = ({ sunMoon }) => {
   const [now, setNow] = useState(new Date());
@@ -661,36 +661,42 @@ const SkyBox = ({ sunMoon }) => {
 
   const msH = sunMoon?.moonsetH != null ? sunMoon.moonsetH : 11.35; // ~11:21 AM HST
   const mrH = sunMoon?.moonriseH != null ? sunMoon.moonriseH : 23.19; // ~11:11 PM HST
+  const lunarDuration = 12.2; // ~12.2 hours above horizon per lunar day
 
   // ── SVG Canvas Setup ──
   const xMin = 25;
   const xMax = 295;
   const w24  = xMax - xMin; // 270px width spanning 24 hours
   const yHorizon = 90;
-  const sunArcHeight  = 68; // Tall Sun Arc (Peak Y=22)
-  const moonArcHeight = 48; // Distinct Moon Arc (Peak Y=42)
+  const sunArcH  = 68; // Tall Sun Arc (Peak Y=22)
+  const moonArcH = 48; // Distinct Moon Arc (Peak Y=42)
 
   const xForH = (h) => xMin + (Math.max(0, Math.min(24, h)) / 24.0) * w24;
 
+  // ── Physical Sun Arc Math (Flat Y=90 below horizon) ──
   const getSunY = (h) => {
     if (h < srH || h > ssH) return yHorizon;
     const p = (h - srH) / (ssH - srH);
-    return yHorizon - Math.sin(p * Math.PI) * sunArcHeight;
+    return yHorizon - Math.sin(p * Math.PI) * sunArcH;
   };
 
+  // ── Physical Moon Arc Math (Flat Y=90 below horizon) ──
   const getMoonY = (h) => {
     if (h <= msH) {
-      const p = h / msH;
-      return yHorizon - Math.cos(p * (Math.PI / 2.0)) * moonArcHeight;
+      const mrPrev = msH - lunarDuration;
+      const p = (h - mrPrev) / lunarDuration;
+      if (p < 0 || p > 1) return yHorizon;
+      return yHorizon - Math.sin(p * Math.PI) * moonArcH;
     } else if (h >= mrH) {
-      const p = (h - mrH) / (24.0 - mrH);
-      return yHorizon - Math.sin(p * (Math.PI / 2.0)) * moonArcHeight;
+      const p = (h - mrH) / lunarDuration;
+      if (p < 0 || p > 1) return yHorizon;
+      return yHorizon - Math.sin(p * Math.PI) * moonArcH;
     } else {
       return yHorizon;
     }
   };
 
-  // ── Sample 24-Hour Timeline to Build 100% Exact SVG Paths ──
+  // ── Sample 24-Hour Timeline to Build Exact SVG Paths ──
   const buildSampledPaths = (getYFunc) => {
     const step = 0.1;
     let solidPts = [];
