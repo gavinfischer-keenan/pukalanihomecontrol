@@ -271,7 +271,8 @@ The `CurrentWeatherView` dashboard is a container-aware, dynamic web application
 5. **Box 5: Marine Box**
    - Live NOAA Marine advisories: Small Craft Advisory and High Surf Advisory status cards (`OK` / `ALERT`), plus special notifications banner.
    - 36-Hour High/Low NOAA Tide Chart with SVG path fill, current time indicator line, and upcoming High/Low tide cards.
-6. **Box 6: Sky and Fish Panel**
-   - **24-Hour Solar & Lunar Arc Traverse**: Balanced, smooth parabolic arcs for Sun and Moon traverse, showing solid (travelled) vs dashed (remaining) paths. Morning Moonset arc entering from 00:00 + Evening Moonrise arc ascending to 24:00.
-   - **Moon Phase Slider**: Full to Dark scale (`FULL 🌕 100%` $\leftrightarrow$ `DARK 0%`), dynamic thumb marker with exact illumination %, and directional trend arrow (`GETTING DARKER WANING ➔` or `➔ GETTING BRIGHTER WAXING`).
-   - **Solunar Fishing Index**: Real-time lunar age math calculating 4-star fishing rating (`Poor`, `Fair`, `Good`, `Excellent`), 2-hour Major feeding periods (Moon Overhead/Underfoot), and 1-hour Minor feeding periods (Moonrise/Moonset).
+6. **Box 6: Sky Panel (Renamed from Sky and Fish)**
+   - **Live Clock & Spelled-Out Date Card**: Prominently features local time (`7:51 AM`) and spelled-out date (`July 31, 2026`) along with Moon Phase pill (`Waxing Gibbous`).
+   - **Enlarged 24-Hour Solar & Lunar Traverse Animation**: Scaled-up SVG graphic (`360px` max-width, `115px` height) with smooth parabolic arcs for Sun and Moon traverse.
+   - **Single-Moon Trajectory Math (No "Two Moons")**: Fixed dual-arc overlap by calculating a single, continuous Moon trajectory across the 24-hour horizon with solid (travelled) and dashed (remaining) paths.
+   - **Moon Phase Slider**: Full to Dark scale (`FULL 🌕 100%` <-> `DARK 0%`), dynamic thumb marker with exact illumination %, and **increased font size** for the trend arrow (`GETTING DARKER WANING ➔` or `➔ GETTING BRIGHTER WAXING`).
