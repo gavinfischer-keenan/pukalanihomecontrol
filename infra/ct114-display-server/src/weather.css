@@ -150,3 +150,45 @@
   padding: 4px 0;
   margin-top: 4px;
 }
+
+/* ── Solunar FishingPanel ── */
+.wx-fish-rating {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.wx-fish-stars { font-size: 1.2em; letter-spacing: 2px; }
+.wx-fish-label { font-size: 1.1em; }
+.wx-fish-meta  { font-size: 0.75em; color: #64748b; margin-bottom: 8px; }
+
+.wx-ft-section { margin-bottom: 8px; }
+.wx-ft-heading {
+  font-size: 0.65em;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.wx-ft-row {
+  display: grid;
+  grid-template-columns: 1.5em 5em 1fr;
+  gap: 4px;
+  align-items: center;
+  font-size: 0.85em;
+  padding: 2px 0;
+}
+.wx-ft-icon { text-align: center; }
+.wx-ft-time { font-weight: 700; color: #f1f5f9; }
+.wx-ft-desc { color: #94a3b8; }
+
+.wx-fish-note {
+  font-size: 0.7em;
+  color: #475569;
+  margin-top: 6px;
+  font-style: italic;
+  line-height: 1.4;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  padding-top: 6px;
+}

@@ -21,9 +21,51 @@ import React, { useState, useEffect, useCallback } from 'react';
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sun/Moon Calculator — pure math, no external dependency
-// Adapted from USNO algorithms. Good enough for display purposes (±1 min).
+// Sun/Moon + Solunar Fishing Index
+// Exact same algorithm as ForecastPanel.jsx in the main dashboard (CT108).
 // ─────────────────────────────────────────────────────────────────────────────
+const LUNAR_CYCLE  = 29.53058867;
+const EPOCH_NEW_JD = 2459198.177;  // Known new moon: Jan 13 2021 ~04:14 UTC
+
+function julianDate(d = new Date()) {
+  return (d.getTime() / 86400000) + 2440587.5;
+}
+
+function getMoonAge(d = new Date()) {
+  const jd  = julianDate(d);
+  const age = ((jd - EPOCH_NEW_JD) % LUNAR_CYCLE + LUNAR_CYCLE) % LUNAR_CYCLE;
+  return age;
+}
+
+function solunarScore(d = new Date()) {
+  const age = getMoonAge(d);
+  const theta = (age / LUNAR_CYCLE) * 2 * Math.PI;
+  const phase = (1 + Math.cos(2 * theta)) / 2; // peaks at new + full moon
+
+  // Approximate local transit times (upper/lower + rise/set)
+  const transitHour = (12 + (age * 24.84 / 24)) % 24;  // moon overhead
+  const antiHour    = (transitHour + 12) % 24;           // moon underfoot
+  const riseHour    = (transitHour - 6 + 24) % 24;       // moonrise
+  const setHour     = (transitHour + 6) % 24;            // moonset
+
+  return {
+    score:  phase,
+    rating: phase > 0.75 ? 'Excellent' : phase > 0.5 ? 'Good' : phase > 0.25 ? 'Fair' : 'Poor',
+    stars:  phase > 0.75 ? 4 : phase > 0.5 ? 3 : phase > 0.25 ? 2 : 1,
+    major:  [transitHour, antiHour],
+    minor:  [riseHour, setHour],
+    age,
+  };
+}
+
+function fmtHour(h) {
+  const hrs  = Math.floor(h);
+  const mins = Math.round((h - hrs) * 60);
+  const period = hrs >= 12 ? 'PM' : 'AM';
+  const h12 = hrs === 0 ? 12 : hrs > 12 ? hrs - 12 : hrs;
+  return `${h12}:${String(mins).padStart(2, '0')} ${period}`;
+}
+
 function getSunMoon(lat, lon, date = new Date()) {
   const rad = Math.PI / 180;
   const d = date;
@@ -31,39 +73,29 @@ function getSunMoon(lat, lon, date = new Date()) {
     Math.floor(30.6001 * (d.getUTCMonth() + 2)) +
     d.getUTCDate() - 1524.5 +
     (d.getUTCHours() + d.getUTCMinutes() / 60) / 24;
-
   const n = JD - 2451545.0;
   const L = (280.46 + 0.9856474 * n) % 360;
   const g = ((357.528 + 0.9856003 * n) % 360) * rad;
   const lambda = (L + 1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g)) * rad;
   const sinDec = Math.sin(23.439 * rad) * Math.sin(lambda);
   const dec = Math.asin(sinDec);
-
-  // Hour angle for sunrise/sunset (solar elevation = -0.833°)
   const cosH = (Math.sin(-0.833 * rad) - Math.sin(lat * rad) * sinDec) /
     (Math.cos(lat * rad) * Math.cos(dec));
-
   let sunrise = null, sunset = null;
   if (Math.abs(cosH) <= 1) {
     const H = Math.acos(cosH) / rad;
     const UT = 12 - lon / 15;
     const EqT = (-1.915 * Math.sin(g) - 0.02 * Math.sin(2 * g) + 2.466 * Math.sin(2 * lambda) - 0.053 * Math.sin(4 * lambda)) / 15;
-    sunrise = UT - H / 15 + EqT;
-    sunset = UT + H / 15 + EqT;
     const toTime = (h) => {
       const local = ((h % 24) + 24) % 24;
-      const hr = Math.floor(local);
-      const mn = Math.floor((local - hr) * 60);
-      const ampm = hr >= 12 ? 'PM' : 'AM';
-      return `${hr % 12 || 12}:${String(mn).padStart(2, '0')} ${ampm}`;
+      const hr = Math.floor(local); const mn = Math.floor((local - hr) * 60);
+      return `${hr % 12 || 12}:${String(mn).padStart(2, '0')} ${hr >= 12 ? 'PM' : 'AM'}`;
     };
-    sunrise = toTime(sunrise);
-    sunset = toTime(sunset);
+    sunrise = toTime(UT - H / 15 + EqT);
+    sunset  = toTime(UT + H / 15 + EqT);
   }
-
-  // Moon phase (0=new, 0.5=full)
-  const moonAge = ((n % 29.53) + 29.53) % 29.53;
-  const phase = moonAge / 29.53;
+  const moonAge = getMoonAge(d);
+  const phase   = moonAge / LUNAR_CYCLE;
   const moonPhaseLabel = (() => {
     if (phase < 0.03 || phase > 0.97) return '🌑 New Moon';
     if (phase < 0.22) return '🌒 Waxing Crescent';
@@ -74,9 +106,12 @@ function getSunMoon(lat, lon, date = new Date()) {
     if (phase < 0.78) return '🌗 Last Quarter';
     return '🌘 Waning Crescent';
   })();
-  const moonIllum = Math.round((1 - Math.abs(2 * phase - 1)) * 100);
-
-  return { sunrise, sunset, moonPhaseLabel, moonIllum, moonAge: Math.round(moonAge) };
+  return {
+    sunrise, sunset,
+    moonPhaseLabel,
+    moonIllum: Math.round((1 - Math.abs(2 * phase - 1)) * 100),
+    moonAge:   Math.round(moonAge * 10) / 10,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -195,25 +230,61 @@ const SunMoonPanel = ({ sunMoon }) => {
   );
 };
 
-/** FishingPanel: FAD locations near Oahu */
-const FishingPanel = ({ fads }) => {
-  const oahuFads = (fads || []).filter(f => f.properties?.island === 'Oahu');
+/** FishingPanel: Solunar fishing index — same algorithm as ForecastPanel.jsx (CT108 dashboard) */
+const FishingPanel = () => {
+  const fish = solunarScore();
+  const ratingColor = {
+    Excellent: '#22c55e',
+    Good:      '#84cc16',
+    Fair:      '#eab308',
+    Poor:      '#94a3b8',
+  }[fish.rating] || '#94a3b8';
+
   return (
     <div className="wx-panel wx-fishing" data-section="fishing">
-      <h2 className="wx-panel-title">🎣 Fishing Index — Oahu FADs</h2>
-      {oahuFads.length === 0 ? (
-        <div className="wx-loading">No FAD data</div>
-      ) : (
-        <div className="wx-fad-list">
-          {oahuFads.map((f, i) => (
-            <div key={i} className="wx-fad-row">
-              <span className="wx-fad-name">{f.properties.name}</span>
-              <span className="wx-fad-depth">{f.properties.depth_m}m depth</span>
-              <span className="wx-fad-species">{f.properties.description?.split('—')[1]?.trim() || ''}</span>
-            </div>
+      <h2 className="wx-panel-title">🎣 Fishing Index — Solunar</h2>
+
+      {/* Star rating + label */}
+      <div className="wx-fish-rating">
+        <span className="wx-fish-stars">
+          {[1,2,3,4].map(s => (
+            <span key={s} style={{ opacity: s <= fish.stars ? 1 : 0.2, color: '#f59e0b' }}>★</span>
           ))}
-        </div>
-      )}
+        </span>
+        <span className="wx-fish-label" style={{ color: ratingColor, fontWeight: 700 }}>
+          {fish.rating}
+        </span>
+      </div>
+      <div className="wx-fish-meta">Moon age: {fish.age.toFixed(1)} days</div>
+
+      {/* Major periods */}
+      <div className="wx-ft-section">
+        <div className="wx-ft-heading">MAJOR PERIODS (2HR WINDOWS)</div>
+        {fish.major.map((h, i) => (
+          <div key={i} className="wx-ft-row">
+            <span className="wx-ft-icon">🌙</span>
+            <span className="wx-ft-time">{fmtHour(h)}</span>
+            <span className="wx-ft-desc">{i === 0 ? 'Moon overhead' : 'Moon underfoot'}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Minor periods */}
+      <div className="wx-ft-section">
+        <div className="wx-ft-heading">MINOR PERIODS (1HR WINDOWS)</div>
+        {fish.minor.map((h, i) => (
+          <div key={i} className="wx-ft-row">
+            <span className="wx-ft-icon">🎣</span>
+            <span className="wx-ft-time">{fmtHour(h)}</span>
+            <span className="wx-ft-desc">{i === 0 ? 'Moonrise' : 'Moonset'}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="wx-fish-note">
+        Solunar theory: fish feeding peaks near major periods,
+        especially during new &amp; full moon phases.
+      </div>
     </div>
   );
 };
@@ -265,7 +336,7 @@ const CurrentWeatherView = React.memo(({ config }) => {
         <ForecastPanel periods={data?.forecast} />
         <TidePanel predictions={data?.tides} />
         <SunMoonPanel sunMoon={sunMoon} />
-        <FishingPanel fads={fads} />
+        <FishingPanel />
       </div>
       {lastFetch && (
         <div className="wx-footer">
