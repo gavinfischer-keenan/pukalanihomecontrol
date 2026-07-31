@@ -596,7 +596,7 @@
 .wx-tc-time { font-size: calc(0.75rem * var(--wx-scale, 1)); font-weight: 700; color: #ffffff; }
 .wx-tc-height { font-size: calc(0.65rem * var(--wx-scale, 1)); color: #94a3b8; }
 
-/* ── Box 6: Sky Panel (RENAMED & EXPANDED) ── */
+/* ── Box 6: Sky Panel (TALL ARCS, ACCURATE 00:00-24:00 REALTIME SKY TRAVERSE) ── */
 .wx-sky-grid {
   display: grid;
   grid-template-columns: calc(180px * var(--wx-scale, 1)) 1fr;
@@ -681,8 +681,8 @@
 
 .wx-solar-arc-svg {
   width: 100%;
-  max-width: calc(360px * var(--wx-scale, 1));
-  height: calc(115px * var(--wx-scale, 1));
+  max-width: calc(380px * var(--wx-scale, 1));
+  height: calc(135px * var(--wx-scale, 1));
   display: block;
 }
 
@@ -708,7 +708,7 @@
 
 .wx-ms-trend-arrow {
   color: #38bdf8;
-  font-size: calc(0.78rem * var(--wx-scale, 1)); /* Increased font size as requested! */
+  font-size: calc(0.78rem * var(--wx-scale, 1));
   font-weight: 900;
   letter-spacing: 0.04em;
 }

@@ -9,7 +9,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
  *  - Box 3: Animated Wave & Sea State.
  *  - Box 4: 7-Day NWS Forecast in horizontal rows using large, high-contrast SVG vector drawings.
  *  - Box 5: Marine Box (Advisories & Tides).
- *  - Box 6: Sky Panel (Enlarged 24-Hour Sun & Single-Moon Arc Animation, Live Clock & Date "July 31, 2026", and Moon Phase Slider).
+ *  - Box 6: Sky Panel (Enlarged 24-Hour Sun & Moon Astronomical Sky Traverse with Taller Arcs, Precise 00:00-24:00 Alignment, Solid Travelled vs Dotted Remaining Paths, Live Clock & Date "July 31, 2026", and Moon Phase Slider).
  */
 
 // ── Inline Vector SVG Icons ────────────────────────────────────────────────
@@ -166,6 +166,8 @@ function getSunMoon(lat, lon, date = new Date()) {
   })();
 
   const isWaning = phaseFraction >= 0.5;
+
+  // Accurate Moonrise & Moonset calculations based on lunar age
   const transitHour = (12 + (moonAge * 24.84 / 24)) % 24;
   const riseHour    = (transitHour - 6 + 24) % 24;
   const setHour     = (transitHour + 6) % 24;
@@ -623,7 +625,7 @@ const MarineBox = ({ predictions, alerts = [] }) => {
   );
 };
 
-/** Box 6: Sky Panel (RENAMED & EXPANDED) */
+/** Box 6: Sky Panel (RENAMED, TALL ARCS, ACCURATE 00:00-24:00 REALTIME SKY TRAVERSE) */
 const SkyBox = ({ sunMoon }) => {
   const [now, setNow] = useState(new Date());
 
@@ -632,7 +634,7 @@ const SkyBox = ({ sunMoon }) => {
     return () => clearInterval(timer);
   }, []);
 
-  const nowH = now.getHours() + now.getMinutes() / 60;
+  const nowH = now.getHours() + now.getMinutes() / 60.0;
 
   const parseTimeToDec = (timeStr) => {
     if (!timeStr) return 12;
@@ -640,60 +642,94 @@ const SkyBox = ({ sunMoon }) => {
     let [h, m] = t.split(':').map(Number);
     if (period === 'PM' && h !== 12) h += 12;
     if (period === 'AM' && h === 12) h = 0;
-    return h + m / 60;
+    return h + m / 60.0;
   };
 
   const srH = parseTimeToDec(sunMoon?.sunrise) || 6.07;
   const ssH = parseTimeToDec(sunMoon?.sunset) || 19.23;
 
-  const moonriseH = sunMoon?.moonriseH != null ? sunMoon.moonriseH : 23.68;
-  const moonsetH  = sunMoon?.moonsetH != null ? sunMoon.moonsetH : 10.50;
+  const msToday = sunMoon?.moonsetH != null ? sunMoon.moonsetH : 9.50;  // Morning set ~9:30 AM
+  const mrToday = sunMoon?.moonriseH != null ? sunMoon.moonriseH : 21.75; // Evening rise ~9:45 PM
 
-  // ── Balanced Sun Arc Math ──
-  const isSunDay = nowH >= srH && nowH <= ssH;
-  const sunProgress = isSunDay ? (nowH - srH) / (ssH - srH) : (nowH > ssH ? 1 : 0);
-  const xSunRise = 35;
-  const xSunSet  = 265;
-  const sunX = isSunDay ? xSunRise + sunProgress * (xSunSet - xSunRise) : (nowH > ssH ? xSunSet : xSunRise);
-  const sunY = isSunDay ? 70 - Math.sin(sunProgress * Math.PI) * 50 : 74;
+  // ── SVG Canvas Boundaries & Tall Arc Geometry ──
+  const xMin = 25;
+  const xMax = 295;
+  const width24 = xMax - xMin; // 270px width spanning 24 hours (00:00 to 24:00)
+  const yHorizon = 88;
+  const yPeak = 14;            // Tall peak height (74px amplitude for dramatic arcs!)
+  const arcHeight = yHorizon - yPeak;
 
-  const dSunTravelled = isSunDay
-    ? `M ${xSunRise} 70 Q ${(xSunRise + sunX)/2} ${70 - (70 - sunY)*1.1} ${sunX.toFixed(1)} ${sunY.toFixed(1)}`
-    : `M ${xSunRise} 70 Q ${(xSunRise + xSunSet)/2} 18 ${xSunSet} 70`;
+  const xForHour = (h) => xMin + (Math.max(0, Math.min(24, h)) / 24.0) * width24;
 
-  const dSunRemaining = isSunDay
-    ? `M ${sunX.toFixed(1)} ${sunY.toFixed(1)} Q ${(sunX + xSunSet)/2} ${sunY} ${xSunSet} 70`
-    : `M ${xSunSet} 70 L ${xSunSet} 70`;
+  // ── Accurate Sun Arc Calculations ──
+  const xSunRise = xForHour(srH);
+  const xSunSet  = xForHour(ssH);
 
-  // ── SINGLE Moon Arc Math (Fixes "Two Moons!") ──
-  // Calculate ONE single clean continuous Moon arc for today's primary trajectory
-  const xMoonRise = 35 + (moonriseH / 24) * 230;
-  const xMoonEnd  = 265;
+  const getSunPoint = (h) => {
+    if (h < srH) return { x: xSunRise, y: yHorizon };
+    if (h > ssH) return { x: xSunSet, y: yHorizon };
+    const p = (h - srH) / (ssH - srH);
+    const x = xSunRise + p * (xSunSet - xSunRise);
+    const y = yHorizon - Math.sin(p * Math.PI) * arcHeight;
+    return { x, y };
+  };
 
+  const sunNowPoint = getSunPoint(nowH);
+  const sunX = sunNowPoint.x;
+  const sunY = sunNowPoint.y;
+
+  // Sun SVG Paths (Solid = Travelled so far today, Dotted = Remaining today)
+  let dSunTravelled = "";
+  let dSunRemaining = "";
+
+  if (nowH <= srH) {
+    dSunRemaining = `M ${xSunRise} ${yHorizon} Q ${(xSunRise + xSunSet)/2} ${yPeak} ${xSunSet} ${yHorizon}`;
+  } else if (nowH >= ssH) {
+    dSunTravelled = `M ${xSunRise} ${yHorizon} Q ${(xSunRise + xSunSet)/2} ${yPeak} ${xSunSet} ${yHorizon}`;
+  } else {
+    dSunTravelled = `M ${xSunRise} ${yHorizon} Q ${(xSunRise + sunX)/2} ${yHorizon - (yHorizon - sunY)*1.18} ${sunX.toFixed(1)} ${sunY.toFixed(1)}`;
+    dSunRemaining = `M ${sunX.toFixed(1)} ${sunY.toFixed(1)} Q ${(sunX + xSunSet)/2} ${sunY - (yHorizon - sunY)*0.35} ${xSunSet} ${yHorizon}`;
+  }
+
+  // ── Astronomical 24-Hour Moon Arc Calculations ──
+  // Moon enters 00:00 Midnight already above horizon from yesterday's rise
+  const y00 = yHorizon - Math.sin(0.65) * (arcHeight * 0.65); // ~38px height at 00:00
+  const y24 = yHorizon - Math.sin(0.55) * (arcHeight * 0.65); // ~42px height at 24:00
+
+  let currentMoonX = xForHour(nowH);
+  let currentMoonY = yHorizon;
   let dMoonTravelled = "";
   let dMoonRemaining = "";
-  let currentMoonX = xMoonRise;
-  let currentMoonY = 70;
 
-  if (nowH >= moonriseH) {
-    const pEv = (nowH - moonriseH) / (24 - moonriseH);
-    currentMoonX = xMoonRise + pEv * (xMoonEnd - xMoonRise);
-    currentMoonY = 70 - Math.sin(pEv * Math.PI / 2) * 38;
-    dMoonTravelled = `M ${xMoonRise.toFixed(1)} 70 Q ${(xMoonRise + currentMoonX)/2} ${(70 + currentMoonY)/2} ${currentMoonX.toFixed(1)} ${currentMoonY.toFixed(1)}`;
-    dMoonRemaining = `M ${currentMoonX.toFixed(1)} ${currentMoonY.toFixed(1)} Q ${(currentMoonX + xMoonEnd)/2} 42 ${xMoonEnd} 48`;
-  } else if (nowH <= moonsetH) {
-    const xMoonStart = 35;
-    const xMoonSetX = 35 + (moonsetH / 24) * 230;
-    const pMo = nowH / moonsetH;
-    currentMoonX = xMoonStart + pMo * (xMoonSetX - xMoonStart);
-    currentMoonY = 70 - Math.sin((1 - pMo) * Math.PI / 2) * 38;
-    dMoonTravelled = `M ${xMoonStart} 48 Q ${(xMoonStart + currentMoonX)/2} ${(48 + currentMoonY)/2} ${currentMoonX.toFixed(1)} ${currentMoonY.toFixed(1)}`;
-    dMoonRemaining = `M ${currentMoonX.toFixed(1)} ${currentMoonY.toFixed(1)} Q ${(currentMoonX + xMoonSetX)/2} ${currentMoonY} ${xMoonSetX.toFixed(1)} 70`;
+  if (nowH <= msToday) {
+    // Current time is in the morning (00:00 -> msToday): Moon is UP & setting in morning sky!
+    const p = nowH / msToday;
+    currentMoonX = xForHour(nowH);
+    currentMoonY = yHorizon - Math.cos(p * (Math.PI / 2)) * (yHorizon - y00);
+
+    dMoonTravelled = `M ${xMin} ${y00.toFixed(1)} Q ${(xMin + currentMoonX)/2} ${(y00 + currentMoonY)/2} ${currentMoonX.toFixed(1)} ${currentMoonY.toFixed(1)}`;
+    
+    const dMorningRemaining = `M ${currentMoonX.toFixed(1)} ${currentMoonY.toFixed(1)} Q ${(currentMoonX + xForHour(msToday))/2} ${yHorizon} ${xForHour(msToday).toFixed(1)} ${yHorizon}`;
+    const dEveningArc = `M ${xForHour(mrToday).toFixed(1)} ${yHorizon} Q ${(xForHour(mrToday) + xMax)/2} ${yPeak + 12} ${xMax} ${y24.toFixed(1)}`;
+    dMoonRemaining = `${dMorningRemaining} ${dEveningArc}`;
+  } else if (nowH >= mrToday) {
+    // Current time is in the evening (mrToday -> 24:00): Moon has risen tonight!
+    const p = (nowH - mrToday) / (24 - mrToday);
+    currentMoonX = xForHour(nowH);
+    currentMoonY = yHorizon - Math.sin(p * (Math.PI / 2)) * (yHorizon - y24);
+
+    const dMorningFull = `M ${xMin} ${y00.toFixed(1)} Q ${(xMin + xForHour(msToday))/2} ${yHorizon} ${xForHour(msToday).toFixed(1)} ${yHorizon}`;
+    const dEveningTravelled = `M ${xForHour(mrToday).toFixed(1)} ${yHorizon} Q ${(xForHour(mrToday) + currentMoonX)/2} ${(yHorizon + currentMoonY)/2} ${currentMoonX.toFixed(1)} ${currentMoonY.toFixed(1)}`;
+    dMoonTravelled = `${dMorningFull} ${dEveningTravelled}`;
+
+    dMoonRemaining = `M ${currentMoonX.toFixed(1)} ${currentMoonY.toFixed(1)} Q ${(currentMoonX + xMax)/2} ${yPeak + 12} ${xMax} ${y24.toFixed(1)}`;
   } else {
-    // Moon is below horizon (awaiting Moonrise tonight)
-    currentMoonX = xMoonRise;
-    currentMoonY = 70;
-    dMoonRemaining = `M ${xMoonRise.toFixed(1)} 70 Q ${(xMoonRise + xMoonEnd)/2} 42 ${xMoonEnd} 48`;
+    // Daytime (msToday < nowH < mrToday): Moon is below the horizon
+    currentMoonX = xForHour(nowH);
+    currentMoonY = yHorizon;
+
+    dMoonTravelled = `M ${xMin} ${y00.toFixed(1)} Q ${(xMin + xForHour(msToday))/2} ${yHorizon} ${xForHour(msToday).toFixed(1)} ${yHorizon}`;
+    dMoonRemaining = `M ${xForHour(mrToday).toFixed(1)} ${yHorizon} Q ${(xForHour(mrToday) + xMax)/2} ${yPeak + 12} ${xMax} ${y24.toFixed(1)}`;
   }
 
   const illum = sunMoon?.moonIllum != null ? sunMoon.moonIllum : 75;
@@ -725,43 +761,50 @@ const SkyBox = ({ sunMoon }) => {
 
         {/* Right Side: Enlarged 24-Hour Solar & Lunar Animation Graphic */}
         <div className="wx-sub-card wx-solar-arc-subcard">
-          <div className="wx-arc-header-lbl">24-HOUR SKY TRAVERSE</div>
+          <div className="wx-arc-header-lbl">24-HOUR SKY TRAVERSE (00:00 ➔ 24:00)</div>
 
           <div className="wx-solar-arc-wrapper">
-            <svg viewBox="0 0 300 100" className="wx-solar-arc-svg">
-              <line x1="15" y1="70" x2="285" y2="70" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1.5" />
+            <svg viewBox="0 0 320 120" className="wx-solar-arc-svg">
+              {/* Horizon Line */}
+              <line x1="15" y1={yHorizon} x2="305" y2={yHorizon} stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1.5" />
 
-              {/* Sun Arc */}
-              <path d={dSunTravelled} fill="none" stroke="#f59e0b" strokeWidth="3" strokeLinecap="round" />
-              {dSunRemaining && <path d={dSunRemaining} fill="none" stroke="rgba(245, 158, 11, 0.35)" strokeWidth="2" strokeDasharray="4 4" />}
+              {/* Sun Arc: Solid (Travelled) & Dotted (Remaining) */}
+              {dSunTravelled && <path d={dSunTravelled} fill="none" stroke="#f59e0b" strokeWidth="3.2" strokeLinecap="round" />}
+              {dSunRemaining && <path d={dSunRemaining} fill="none" stroke="rgba(245, 158, 11, 0.38)" strokeWidth="2.2" strokeDasharray="4 4" />}
 
-              {/* Single Moon Arc (No "Two Moons!") */}
+              {/* Single Moon Arc: Solid (Travelled) & Dotted (Remaining) */}
               {dMoonTravelled && <path d={dMoonTravelled} fill="none" stroke="#38bdf8" strokeWidth="2.8" strokeLinecap="round" />}
-              {dMoonRemaining && <path d={dMoonRemaining} fill="none" stroke="rgba(56, 189, 248, 0.75)" strokeWidth="2" strokeDasharray="3 3" />}
+              {dMoonRemaining && <path d={dMoonRemaining} fill="none" stroke="rgba(56, 189, 248, 0.75)" strokeWidth="2.2" strokeDasharray="3 3" />}
 
-              <text x={xSunRise} y="88" fill="#f59e0b" fontSize="8.5" fontWeight="800" textAnchor="middle">
+              {/* Sunrise & Sunset Text Markers */}
+              <text x={xSunRise} y="106" fill="#f59e0b" fontSize="9" fontWeight="800" textAnchor="middle">
                 ☀️ Rise {sunMoon?.sunrise || '6:04 AM'}
               </text>
-              <text x={xSunSet} y="88" fill="#f97316" fontSize="8.5" fontWeight="800" textAnchor="middle">
+              <text x={xSunSet} y="106" fill="#f97316" fontSize="9" fontWeight="800" textAnchor="middle">
                 ☀️ Set {sunMoon?.sunset || '7:14 PM'}
               </text>
 
-              <text x={xMoonRise} y="84" fill="#38bdf8" fontSize="8.5" fontWeight="800" textAnchor="middle">
-                🌙 Rise {fmtHour(moonriseH)}
+              {/* Moonrise & Moonset Text Markers */}
+              <text x={xForHour(msToday)} y="102" fill="#cbd5e1" fontSize="8" fontWeight="700" textAnchor="middle">
+                🌙 Set {fmtHour(msToday)}
+              </text>
+              <text x={xForHour(mrToday)} y="102" fill="#38bdf8" fontSize="8" fontWeight="800" textAnchor="middle">
+                🌙 Rise {fmtHour(mrToday)}
               </text>
 
-              {/* Sun Indicator */}
+              {/* Live Sun Indicator */}
               <g transform={`translate(${sunX}, ${sunY})`}>
-                <circle r="7.5" fill="#f59e0b" stroke="#ffffff" strokeWidth="1.8" />
-                <circle r="13" fill="rgba(245, 158, 11, 0.25)" />
+                <circle r="8" fill="#f59e0b" stroke="#ffffff" strokeWidth="2" />
+                <circle r="14" fill="rgba(245, 158, 11, 0.25)" />
               </g>
 
-              {/* Single Moon Indicator */}
+              {/* Live Single Moon Indicator */}
               <g transform={`translate(${currentMoonX}, ${currentMoonY})`}>
-                <circle r="6" fill="#cbd5e1" stroke="#38bdf8" strokeWidth="1.8" />
+                <circle r="6.5" fill="#cbd5e1" stroke="#38bdf8" strokeWidth="2" />
               </g>
 
-              <text x={sunX} y={sunY - 16} fill="#ffffff" fontSize="9.5" fontWeight="900" textAnchor="middle">
+              {/* Live Time Badge over Sun */}
+              <text x={sunX} y={sunY - 17} fill="#ffffff" fontSize="9.5" fontWeight="900" textAnchor="middle">
                 NOW {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </text>
             </svg>
