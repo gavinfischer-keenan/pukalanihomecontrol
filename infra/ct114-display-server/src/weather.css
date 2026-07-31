@@ -3,7 +3,6 @@
    Dynamically adapts grid structure & typography scaling:
      - 2-Up Side-by-Side (Tall): 2 Columns x 3 Rows (2col layout)
      - 2-Up Stacked (Wide/Short): 3 Columns x 2 Rows (3col layout)
-   Ensures 100% fit with ZERO clipping across all resolutions & layouts.
    ============================================================ */
 
 :root {
@@ -44,13 +43,11 @@
   min-height: 0;
 }
 
-/* 3 Columns x 2 Rows Layout (Wide / Short containers, e.g. 2-Up Stacked & 4-Up) */
 .wx-dashboard-grid.wx-grid-layout-3col {
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(2, 1fr);
 }
 
-/* 2 Columns x 3 Rows Layout (Tall / Narrow containers, e.g. 2-Up Side-by-Side) */
 .wx-dashboard-grid.wx-grid-layout-2col {
   grid-template-columns: repeat(2, 1fr);
   grid-template-rows: repeat(3, 1fr);
@@ -176,26 +173,41 @@
 .wx-atmo-lbl { font-size: calc(0.65rem * var(--wx-scale, 1)); color: #64748b; text-transform: uppercase; }
 .wx-atmo-val { font-size: calc(0.95rem * var(--wx-scale, 1)); font-weight: 800; color: #38bdf8; }
 
-/* ── Box 2: Wind & Rain Station ── */
-.wx-wind-rain-flex {
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
+/* ── Box 2: Wind & Rain Station (Independent Sub-Cards) ── */
+.wx-wind-rain-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: calc(6px * var(--wx-scale, 1));
+  height: 100%;
+}
+
+.wx-sub-card {
   background: rgba(0, 0, 0, 0.25);
   border-radius: calc(6px * var(--wx-scale, 1));
   padding: calc(6px * var(--wx-scale, 1));
   border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.wx-wind-gauge {
   display: flex;
   align-items: center;
-  gap: calc(8px * var(--wx-scale, 1));
+  justify-content: center;
+}
+
+.wx-wind-subcard .wx-wind-gauge {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+}
+
+.wx-rain-subcard .wx-rain-cup-container {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
 }
 
 .wx-compass-svg {
-  width: calc(80px * var(--wx-scale, 1));
-  height: calc(80px * var(--wx-scale, 1));
+  width: calc(76px * var(--wx-scale, 1));
+  height: calc(76px * var(--wx-scale, 1));
   flex-shrink: 0;
 }
 
@@ -210,7 +222,7 @@
 }
 
 .wx-wind-dir-text {
-  font-size: calc(0.95rem * var(--wx-scale, 1));
+  font-size: calc(0.9rem * var(--wx-scale, 1));
   font-weight: 800;
   color: #f59e0b;
 }
@@ -221,12 +233,6 @@
 }
 
 /* Rain Cup */
-.wx-rain-cup-container {
-  display: flex;
-  align-items: center;
-  gap: calc(8px * var(--wx-scale, 1));
-}
-
 .wx-rain-cup {
   position: relative;
   width: calc(28px * var(--wx-scale, 1));

@@ -3,14 +3,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 /**
  * CurrentWeatherView — Container-Aware Auto-Adapting Weather Dashboard.
  * 
- * Dynamically senses container width, height, and aspect ratio:
- *  - 2-Up Side-by-Side (Tall, ~960x1080): Adapts to 2 Columns x 3 Rows
- *  - 2-Up Stacked (Wide/Short, ~1920x540): Adapts to 3 Columns x 2 Rows
- *  - 4-Up Grid (~960x540): Adapts to 3 Columns x 2 Rows (compact scale)
- *  - Full Screen 4K/1080p (~1920x1080): Adapts to 3 Columns x 2 Rows (large scale)
- * 
- * Auto-scales typography, gauges, tide charts, and cards using ResizeObserver
- * to ensure 100% of allocated space is utilized with ZERO clipping or overflow.
+ * Includes independent Wind & Rain Sub-Cards inside Box 2 for optimized,
+ * individual scaling of the Wind Compass Rose and Virtual Rain Cup.
  */
 
 // ── Inline SVG Icons ───────────────────────────────────────────────────────
@@ -312,7 +306,7 @@ const TempAtmosphereBox = ({ data }) => {
   );
 };
 
-/** Box 2: Wind & Rain Station */
+/** Box 2: Wind & Rain Station (Separated Sub-Cards for Independent Scaling) */
 const WindRainBox = ({ data }) => {
   if (!data) return <div className="wx-panel wx-loading">Loading wind data…</div>;
 
@@ -323,16 +317,23 @@ const WindRainBox = ({ data }) => {
         <span className="wx-badge-info">WS90</span>
       </div>
 
-      <div className="wx-wind-rain-flex">
-        <WindCompass 
-          dir={data.wind_dir} 
-          speed={data.wind_spd_mph} 
-          gust={data.wind_gust_mph} 
-        />
-        <RainCup 
-          dailyRain={data.rain_daily_in || 0} 
-          rainRate={data.rain_rate_in || 0} 
-        />
+      <div className="wx-wind-rain-grid">
+        {/* Sub-Card 1: Wind Gauge */}
+        <div className="wx-sub-card wx-wind-subcard">
+          <WindCompass 
+            dir={data.wind_dir} 
+            speed={data.wind_spd_mph} 
+            gust={data.wind_gust_mph} 
+          />
+        </div>
+
+        {/* Sub-Card 2: Rain Beaker */}
+        <div className="wx-sub-card wx-rain-subcard">
+          <RainCup 
+            dailyRain={data.rain_daily_in || 0} 
+            rainRate={data.rain_rate_in || 0} 
+          />
+        </div>
       </div>
     </div>
   );
@@ -593,14 +594,13 @@ const CurrentWeatherView = React.memo(({ config }) => {
   const [error, setError] = useState(null);
   const [lastFetch, setLastFetch] = useState(null);
 
-  const [gridMode, setGridMode] = useState('3col'); // '3col' (3x2) or '2col' (2x3)
+  const [gridMode, setGridMode] = useState('3col');
   const rootRef = useRef(null);
 
   const refreshMs = (config?.refreshIntervalSeconds || 300) * 1000;
   const HOME_LAT = 21.2861516;
   const HOME_LON = -157.7935187;
 
-  // Aspect-Ratio & Dimension Observer: Automatically picks best grid strategy
   useEffect(() => {
     if (!rootRef.current) return;
     const ro = new ResizeObserver((entries) => {
@@ -608,9 +608,6 @@ const CurrentWeatherView = React.memo(({ config }) => {
         const { width, height } = entry.contentRect;
         const aspect = width / height;
 
-        // Grid strategy:
-        //  - Wide & Short (e.g. 2-Up Stacked ~1920x540 or height < 620px): MUST use 3-Columns x 2-Rows (3col) so bottom panels fit!
-        //  - Tall & Narrow (e.g. 2-Up Side-by-Side ~960x1080 or aspect < 1.15): MUST use 2-Columns x 3-Rows (2col) for maximum card width!
         let newGridMode = '3col';
         if (aspect < 1.2 && width < 1100 && height >= 620) {
           newGridMode = '2col';
@@ -620,7 +617,6 @@ const CurrentWeatherView = React.memo(({ config }) => {
 
         setGridMode(newGridMode);
 
-        // Precise Scale Factor calculation for typography & SVG graphics
         const refW = newGridMode === '3col' ? 1250 : 960;
         const refH = newGridMode === '3col' ? 560 : 820;
 
@@ -665,7 +661,6 @@ const CurrentWeatherView = React.memo(({ config }) => {
     <div className={`wx-root wx-mode-${gridMode}`} data-view="current-weather" ref={rootRef}>
       {error && <div className="wx-error-banner">⚠️ Weather Data Update Delayed: {error}</div>}
 
-      {/* Auto-adapting Layout Grid */}
       <div className={`wx-dashboard-grid wx-grid-layout-${gridMode}`}>
         <TempAtmosphereBox data={data?.ecowitt} />
         <WindRainBox data={data?.ecowitt} />
