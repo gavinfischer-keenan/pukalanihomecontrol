@@ -769,13 +769,54 @@ app.get('/api/vessel-info/:mmsi', async (req, res) => {
 });
 
 // ── POST / upsert vessel local knowledge ─────────────────────────────────
-app.post('/api/vessel-info/:mmsi', express.json(), async (req, res) => {
+
+// Helper middleware to handle both multipart form-data (with optional photo upload) and JSON
+function parseVesselForm(req, res, next) {
+  const contentType = req.headers['content-type'] || '';
+  if (contentType.includes('multipart/form-data')) {
+    vesselUpload.single('photo')(req, res, (err) => {
+      if (err) return res.status(400).json({ error: err.message });
+      next();
+    });
+  } else {
+    express.json()(req, res, next);
+  }
+}
+
+app.post('/api/vessel-info/:mmsi', parseVesselForm, async (req, res) => {
   const mmsi = req.params.mmsi;
-  const {
-    vessel_name, imo, call_sign, flag, vessel_type,
-    gross_tonnage, year_built, length_m, beam_m,
-    owner, operator, notes, photo_url, data_source
-  } = req.body;
+  const b = req.body || {};
+
+  const cleanNum = (val) => {
+    if (val === undefined || val === null || val === '') return null;
+    const n = Number(val);
+    return isNaN(n) ? null : n;
+  };
+  const cleanStr = (val) => {
+    if (val === undefined || val === null || val === '') return null;
+    return String(val);
+  };
+
+  const vessel_name   = cleanStr(b.vessel_name);
+  const imo           = cleanStr(b.imo);
+  const call_sign     = cleanStr(b.call_sign);
+  const flag          = cleanStr(b.flag);
+  const vessel_type   = cleanStr(b.vessel_type);
+  const gross_tonnage = cleanNum(b.gross_tonnage);
+  const year_built    = cleanNum(b.year_built);
+  const length_m      = cleanNum(b.length_m);
+  const beam_m        = cleanNum(b.beam_m);
+  const owner         = cleanStr(b.owner);
+  const operator      = cleanStr(b.operator);
+  const notes         = cleanStr(b.notes);
+
+  let photo_url = cleanStr(b.photo_url);
+  if (req.file) {
+    photo_url = `/uploads/vessels/${req.file.filename}`;
+  }
+
+  const data_source   = cleanStr(b.data_source) || 'manual';
+
   try {
     await pool.query(`
       INSERT INTO vessel_info (mmsi, vessel_name, imo, call_sign, flag, vessel_type,
@@ -800,9 +841,10 @@ app.post('/api/vessel-info/:mmsi', express.json(), async (req, res) => {
         updated_at    = now()
     `, [mmsi, vessel_name, imo, call_sign, flag, vessel_type,
         gross_tonnage, year_built, length_m, beam_m,
-        owner, operator, notes, photo_url, data_source || 'manual']);
-    res.json({ ok: true });
+        owner, operator, notes, photo_url, data_source]);
+    res.json({ ok: true, photo_url });
   } catch (e) {
+    console.error(`[vessel-info] Error updating mmsi ${mmsi}:`, e.message);
     res.status(500).json({ error: e.message });
   }
 });
