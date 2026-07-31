@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 /**
- * CurrentWeatherView — Container-Aware Auto-Adapting Weather Dashboard.
+ * CurrentWeatherView — Dynamic Layout-Intelligent Hawaii Weather Dashboard.
  * 
- * Includes:
- *  - Box 1: Combined Current Temp, Atmosphere & Compact Humidity/Air Comfort.
- *  - Box 2: Wind & Rain Station (Expanded 160px Compass Dial & 150px Rain Cup).
- *  - Box 3 (NEW): Animated Wave & Sea State Placeholder (Dynamic ocean swell SVG animation).
- *  - Box 4: 7-Day NWS Forecast.
- *  - Box 5: Marine Box (Small Craft / High Surf Advisories, Special Notifications & Tides).
- *  - Box 6: Solunar Fishing & Astronomy.
+ * Automatically selects the optimal 6-panel grid arrangement based on container aspect ratio:
+ *  - 2-Up Side-by-Side (Tall/Vertical slot ~960x1080, aspect < 1.25):
+ *      -> Locks to 2 Columns x 3 Rows (Left Column: Temp/Atmo/Hum, Wind/Rain, Sea Anim; Right Column: Forecast, Marine, Solunar)
+ *  - 2-Up Stacked & Short/Wide slots (~1920x540, aspect >= 1.25):
+ *      -> Locks to 3 Columns x 2 Rows (Top Row: Temp/Atmo, Wind/Rain, Sea Anim; Bottom Row: Forecast, Marine, Solunar)
+ *  - Full Screen 4K/1080p (~1920x1080):
+ *      -> 3 Columns x 2 Rows with expanded scale factor
  */
 
 // ── Inline SVG Icons ───────────────────────────────────────────────────────
@@ -42,7 +42,7 @@ const IconCalendar = () => (
 
 const IconWave = () => (
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
+    <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
   </svg>
 );
 
@@ -189,7 +189,7 @@ function getCardinal(deg) {
 
 // ── Graphic Sub-Components ─────────────────────────────────────────────────
 
-/** Expanded Wind Compass Rose Gauge (Fills Container) */
+/** Expanded Wind Compass Rose Gauge */
 const WindCompass = ({ dir = 0, speed = 0, gust = 0 }) => {
   const cardinal = getCardinal(dir);
   return (
@@ -222,11 +222,11 @@ const WindCompass = ({ dir = 0, speed = 0, gust = 0 }) => {
   );
 };
 
-/** Expanded Virtual Rain Cup Gauge (150px Beaker Fill) */
+/** Expanded Virtual Rain Cup Gauge */
 const RainCup = ({ dailyRain = 0, rainRate = 0 }) => {
   const maxRain = 2.0;
   const fillRatio = Math.min(Math.max(dailyRain / maxRain, 0), 1);
-  const fillHeight = fillRatio * 150; // Scaled fill height for 150px beaker
+  const fillHeight = fillRatio * 150;
 
   return (
     <div className="wx-rain-cup-container">
@@ -251,7 +251,7 @@ const RainCup = ({ dailyRain = 0, rainRate = 0 }) => {
   );
 };
 
-/** Compact Humidity Meter for Box 1 Integration */
+/** Compact Humidity Meter */
 const CompactHumidity = ({ label, rh }) => {
   const comfort = getHumidityComfort(rh);
   return (
@@ -304,7 +304,6 @@ const TempAtmosphereBox = ({ data }) => {
         </div>
       </div>
 
-      {/* Integrated Humidity & Air Comfort Section */}
       <div className="wx-integrated-humidity-grid">
         <CompactHumidity label="Outdoor Humidity" rh={data.humidity_out} />
         <CompactHumidity label="Indoor Humidity" rh={data.humidity_in} />
@@ -344,7 +343,7 @@ const WindRainBox = ({ data }) => {
   );
 };
 
-/** Box 3 (NEW): Wave & Sea Animation Placeholder */
+/** Box 3: Wave & Sea Animation Placeholder */
 const SeaAnimationBox = () => {
   return (
     <div className="wx-panel wx-box-sea-anim" data-section="sea-animation">
@@ -354,7 +353,6 @@ const SeaAnimationBox = () => {
       </div>
 
       <div className="wx-sea-anim-container">
-        {/* Animated Ocean Wave SVG */}
         <div className="wx-sea-canvas">
           <svg className="wx-sea-waves-svg" viewBox="0 0 1200 180" preserveAspectRatio="none">
             <defs>
@@ -368,19 +366,16 @@ const SeaAnimationBox = () => {
               </linearGradient>
             </defs>
 
-            {/* Back Wave Layer */}
             <path 
               className="wx-wave-layer-back" 
               fill="url(#oceanGradBack)" 
               d="M0 90 Q300 40 600 90 T1200 90 L1200 180 L0 180 Z"
             />
-            {/* Mid Wave Layer */}
             <path 
               className="wx-wave-layer-mid" 
               fill="rgba(2, 132, 199, 0.5)" 
               d="M0 100 Q300 130 600 100 T1200 100 L1200 180 L0 180 Z"
             />
-            {/* Front Wave Layer */}
             <path 
               className="wx-wave-layer-front" 
               fill="url(#oceanGradFront)" 
@@ -388,7 +383,6 @@ const SeaAnimationBox = () => {
             />
           </svg>
 
-          {/* Floating Sea Metrics Overlay */}
           <div className="wx-sea-overlay-metrics">
             <div className="wx-sea-stat">
               <span className="wx-ss-lbl">Swell Height</span>
@@ -638,38 +632,41 @@ const SolunarAstronomyBox = ({ sunMoon }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Root Auto-Adapting Scalable Weather View Component
+// Root Dynamic Layout-Intelligent Weather View Component
 // ─────────────────────────────────────────────────────────────────────────────
 const CurrentWeatherView = React.memo(({ config }) => {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [lastFetch, setLastFetch] = useState(null);
 
-  const [gridMode, setGridMode] = useState('3col');
+  const [gridMode, setGridMode] = useState('2col'); // default 2col for 2-Up Side-by-Side
   const rootRef = useRef(null);
 
   const refreshMs = (config?.refreshIntervalSeconds || 300) * 1000;
   const HOME_LAT = 21.2861516;
   const HOME_LON = -157.7935187;
 
+  // Aspect-Ratio & Dimension Observer
   useEffect(() => {
     if (!rootRef.current) return;
     const ro = new ResizeObserver((entries) => {
       for (let entry of entries) {
         const { width, height } = entry.contentRect;
+        if (width === 0 || height === 0) continue;
+
         const aspect = width / height;
 
-        let newGridMode = '3col';
-        if (aspect < 1.2 && width < 1100 && height >= 620) {
-          newGridMode = '2col';
-        } else {
-          newGridMode = '3col';
-        }
+        // Deterministic Grid Decision:
+        //  - aspect < 1.25 (Tall/Vertical Slot, e.g. 2-Up Side-by-Side ~960x1080):
+        //      -> Use 2 Columns x 3 Rows ('2col' with Left & Right column stacks)
+        //  - aspect >= 1.25 (Wide/Horizontal Slot, e.g. 2-Up Stacked ~1920x540, Fullscreen ~1920x1080):
+        //      -> Use 3 Columns x 2 Rows ('3col' with Top & Bottom row stacks)
+        let newGridMode = aspect < 1.25 ? '2col' : '3col';
 
         setGridMode(newGridMode);
 
-        const refW = newGridMode === '3col' ? 1250 : 960;
-        const refH = newGridMode === '3col' ? 560 : 820;
+        const refW = newGridMode === '2col' ? 960 : 1250;
+        const refH = newGridMode === '2col' ? 980 : 560;
 
         const scaleW = width / refW;
         const scaleH = height / refH;
@@ -712,14 +709,30 @@ const CurrentWeatherView = React.memo(({ config }) => {
     <div className={`wx-root wx-mode-${gridMode}`} data-view="current-weather" ref={rootRef}>
       {error && <div className="wx-error-banner">⚠️ Weather Data Update Delayed: {error}</div>}
 
-      <div className={`wx-dashboard-grid wx-grid-layout-${gridMode}`}>
-        <TempAtmosphereBox data={data?.ecowitt} />
-        <WindRainBox data={data?.ecowitt} />
-        <SeaAnimationBox />
-        <ForecastBox periods={data?.forecast} />
-        <MarineBox predictions={data?.tides} alerts={data?.alerts} />
-        <SolunarAstronomyBox sunMoon={sunMoon} />
-      </div>
+      {/* Grid Layout Switcher */}
+      {gridMode === '2col' ? (
+        <div className="wx-dashboard-grid wx-grid-layout-2col">
+          <div className="wx-col">
+            <TempAtmosphereBox data={data?.ecowitt} />
+            <WindRainBox data={data?.ecowitt} />
+            <SeaAnimationBox />
+          </div>
+          <div className="wx-col">
+            <ForecastBox periods={data?.forecast} />
+            <MarineBox predictions={data?.tides} alerts={data?.alerts} />
+            <SolunarAstronomyBox sunMoon={sunMoon} />
+          </div>
+        </div>
+      ) : (
+        <div className="wx-dashboard-grid wx-grid-layout-3col">
+          <TempAtmosphereBox data={data?.ecowitt} />
+          <WindRainBox data={data?.ecowitt} />
+          <SeaAnimationBox />
+          <ForecastBox periods={data?.forecast} />
+          <MarineBox predictions={data?.tides} alerts={data?.alerts} />
+          <SolunarAstronomyBox sunMoon={sunMoon} />
+        </div>
+      )}
 
       {lastFetch && (
         <div className="wx-dashboard-footer">

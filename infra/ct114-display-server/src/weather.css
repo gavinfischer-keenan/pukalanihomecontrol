@@ -1,8 +1,8 @@
 /* ============================================================
    Hawaii Display Server — Container-Aware Weather Theme (weather.css)
    Dynamically adapts grid structure & typography scaling:
-     - 2-Up Side-by-Side (Tall): 2 Columns x 3 Rows (2col layout)
-     - 2-Up Stacked (Wide/Short): 3 Columns x 2 Rows (3col layout)
+     - 2-Up Side-by-Side (Tall, aspect < 1.25): 2 Columns x 3 Rows (2col layout)
+     - 2-Up Stacked (Wide/Short, aspect >= 1.25): 3 Columns x 2 Rows (3col layout)
    ============================================================ */
 
 :root {
@@ -49,8 +49,14 @@
 }
 
 .wx-dashboard-grid.wx-grid-layout-2col {
-  grid-template-columns: repeat(2, 1fr);
-  grid-template-rows: repeat(3, 1fr);
+  grid-template-columns: 1fr 1fr;
+}
+
+.wx-dashboard-grid.wx-grid-layout-2col .wx-col {
+  display: flex;
+  flex-direction: column;
+  gap: calc(8px * var(--wx-scale, 1));
+  height: 100%;
 }
 
 /* Panel Containers */
@@ -68,6 +74,7 @@
   gap: calc(4px * var(--wx-scale, 1));
   overflow: hidden;
   box-sizing: border-box;
+  flex: 1;
 }
 
 .wx-panel-header {
@@ -318,7 +325,7 @@
 .wx-rain-val { font-size: calc(1.5rem * var(--wx-scale, 1)); font-weight: 800; color: #38bdf8; }
 .wx-rain-lbl { font-size: calc(0.85rem * var(--wx-scale, 1)); color: #94a3b8; }
 
-/* ── Box 3 (NEW): Wave & Sea State Animation Placeholder ── */
+/* ── Box 3: Wave & Sea State Animation Placeholder ── */
 .wx-sea-anim-container {
   position: relative;
   width: 100%;
@@ -346,7 +353,6 @@
   height: 100%;
 }
 
-/* Wave CSS Animations */
 .wx-wave-layer-back {
   animation: waveMoveBack 8s ease-in-out infinite alternate;
 }
