@@ -1194,11 +1194,24 @@ app.get('/api/weather/conditions', async (req, res) => {
       }
     }
 
+    let alerts = [];
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const alertFile = path.join(__dirname, 'public', 'nws-cache', 'data', 'alerts.json');
+      if (fs.existsSync(alertFile)) {
+        alerts = JSON.parse(fs.readFileSync(alertFile, 'utf-8')).features || [];
+      }
+    } catch (eAlert) {
+      console.error('[weather-conditions] Alerts read error:', eAlert.message);
+    }
+
     res.json({
       ecowitt: ecowittData,
       forecast,
       tides,
       fads,
+      alerts,
       generatedAt: new Date().toISOString()
     });
   } catch (err) {
