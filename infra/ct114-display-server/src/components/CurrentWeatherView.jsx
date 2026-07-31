@@ -3,13 +3,16 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 /**
  * CurrentWeatherView — Container-Aware Auto-Adapting Weather Dashboard.
  * 
- * Includes "Sky and Fish" Panel with Astronomically Accurate 24-Hour Moon & Sun Arcs:
- *  - Morning Moon Arc: Enters at 00:00 (left) from yesterday night, sets at Moonset (morning).
- *  - Evening Moon Arc: Rises at Moonrise (far right, e.g. 11:41 PM) and ascends up to 24:00 Midnight.
- *  - Dashed lines show to-be-travelled paths; solid lines show travelled paths today.
+ * Includes:
+ *  - Box 1: Temp, Atmosphere & Integrated Humidity.
+ *  - Box 2: Wind & Rain Station.
+ *  - Box 3: Animated Wave & Sea State.
+ *  - Box 4 (OVERHAULED): 7-Day NWS Forecast with native SVG weather graphics & Temp Range bars.
+ *  - Box 5: Marine Box (Advisories & Tides).
+ *  - Box 6 (SMOOTHED): Sky and Fish Panel with balanced Sun & Moon arcs + Moon Phase Slider (Full to Dark with Waning/Waxing Trend arrow).
  */
 
-// ── Inline SVG Icons ───────────────────────────────────────────────────────
+// ── Inline Vector SVG Icons ────────────────────────────────────────────────
 const IconThermometer = () => (
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
@@ -19,12 +22,6 @@ const IconThermometer = () => (
 const IconWind = () => (
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/>
-  </svg>
-);
-
-const IconDroplet = () => (
-  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
   </svg>
 );
 
@@ -51,7 +48,7 @@ const IconFish = () => (
 );
 
 const IconSun = () => (
-  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="5"/>
     <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
   </svg>
@@ -60,6 +57,32 @@ const IconSun = () => (
 const IconMoon = () => (
   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#cbd5e1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+  </svg>
+);
+
+const IconCloudRain = () => (
+  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M16 13v6m-4-4v6m-4-5v6M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"/>
+  </svg>
+);
+
+const IconCloudSun = () => (
+  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 2v2m-7.1 2.9l1.4 1.4M2 12h2m15.4-7.1l-1.4 1.4M17 18a5 5 0 0 0-3-9.26 8 8 0 0 0-11.7 8.26"/>
+    <path d="M20 16.58A5 5 0 0 0 18 7h-1.26" stroke="#38bdf8" strokeWidth="2" />
+  </svg>
+);
+
+const IconThunder = () => (
+  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#eab308" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M19 16.9A5 5 0 0 0 18 7h-1.26a8 8 0 1 0-11.62 9"/>
+    <polygon points="13 11 9 17 13 17 11 23 17 15 13 15" fill="#f59e0b" stroke="none"/>
+  </svg>
+);
+
+const IconCloud = () => (
+  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#cbd5e1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>
   </svg>
 );
 
@@ -74,6 +97,16 @@ const IconArrowDown = () => (
     <path d="M12 5v14m7-7l-7 7-7-7"/>
   </svg>
 );
+
+// Helper for Forecast Vector Graphic
+function getWeatherGraphic(forecastText = '') {
+  const t = forecastText.toLowerCase();
+  if (t.includes('thunder') || t.includes('tstorm')) return <IconThunder />;
+  if (t.includes('heavy rain') || t.includes('showers') || t.includes('rain')) return <IconCloudRain />;
+  if (t.includes('partly') || t.includes('few clouds') || t.includes('scattered')) return <IconCloudSun />;
+  if (t.includes('sunny') || t.includes('clear')) return <IconSun />;
+  return <IconCloud />;
+}
 
 // ── Solunar Fishing Index Math ─────────────────────────────────────────────
 const LUNAR_CYCLE  = 29.53058867;
@@ -148,23 +181,27 @@ function getSunMoon(lat, lon, date = new Date()) {
   }
 
   const moonAge = getMoonAge(d);
-  const phase   = moonAge / LUNAR_CYCLE;
+  const phaseFraction = moonAge / LUNAR_CYCLE;
   const moonPhaseLabel = (() => {
-    if (phase < 0.03 || phase > 0.97) return 'New Moon';
-    if (phase < 0.22) return 'Waxing Crescent';
-    if (phase < 0.28) return 'First Quarter';
-    if (phase < 0.47) return 'Waxing Gibbous';
-    if (phase < 0.53) return 'Full Moon';
-    if (phase < 0.72) return 'Waning Gibbous';
-    if (phase < 0.78) return 'Last Quarter';
+    if (phaseFraction < 0.03 || phaseFraction > 0.97) return 'New Moon';
+    if (phaseFraction < 0.22) return 'Waxing Crescent';
+    if (phaseFraction < 0.28) return 'First Quarter';
+    if (phaseFraction < 0.47) return 'Waxing Gibbous';
+    if (phaseFraction < 0.53) return 'Full Moon';
+    if (phaseFraction < 0.72) return 'Waning Gibbous';
+    if (phaseFraction < 0.78) return 'Last Quarter';
     return 'Waning Crescent';
   })();
+
+  const isWaning = phaseFraction >= 0.5;
 
   return {
     sunrise, sunset,
     moonPhaseLabel,
-    moonIllum: Math.round((1 - Math.abs(2 * phase - 1)) * 100),
+    moonIllum: Math.round((1 - Math.abs(2 * phaseFraction - 1)) * 100),
     moonAge:   Math.round(moonAge * 10) / 10,
+    phaseFraction,
+    isWaning,
   };
 }
 
@@ -404,9 +441,35 @@ const SeaAnimationBox = () => {
   );
 };
 
-/** Box 4: 7-Day NWS Forecast */
+/** Box 4 (OVERHAULED): 7-Day NWS Forecast with Vector SVG Weather Graphics */
 const ForecastBox = ({ periods }) => {
   if (!periods || periods.length === 0) return <div className="wx-panel wx-loading">Loading forecast…</div>;
+
+  // Group forecast into 7 consolidated day cards
+  const daysMap = [];
+  periods.forEach(p => {
+    const dayName = p.name.replace(/ Night$/, '').substring(0, 3).toUpperCase();
+    let existing = daysMap.find(d => d.dayName === dayName);
+    if (!existing) {
+      existing = {
+        dayName: dayName === 'THU' ? 'TODAY' : dayName,
+        high: p.isDaytime ? p.temperature : null,
+        low: !p.isDaytime ? p.temperature : null,
+        shortForecast: p.shortForecast,
+        windSpeed: p.windSpeed,
+        pop: p.probabilityOfPrecipitation?.value || null,
+      };
+      daysMap.push(existing);
+    } else {
+      if (p.isDaytime) existing.high = p.temperature;
+      else existing.low = p.temperature;
+      if (!existing.pop && p.probabilityOfPrecipitation?.value) {
+        existing.pop = p.probabilityOfPrecipitation.value;
+      }
+    }
+  });
+
+  const days = daysMap.slice(0, 7);
 
   return (
     <div className="wx-panel wx-box-forecast" data-section="forecast">
@@ -414,22 +477,29 @@ const ForecastBox = ({ periods }) => {
         <h2 className="wx-panel-title"><IconCalendar /> 7-Day NWS Forecast</h2>
         <span className="wx-badge-info">NOAA</span>
       </div>
-      <div className="wx-forecast-grid">
-        {periods.slice(0, 7).map((p, i) => (
-          <div key={i} className={`wx-fc-card ${p.isDaytime ? 'day' : 'night'}`}>
-            <div className="wx-fc-day-name">{p.name}</div>
-            <div className="wx-fc-icon-wrapper">
-              {p.icon ? (
-                <img src={p.icon} alt={p.shortForecast} className="wx-fc-img" />
-              ) : (
-                <span className="wx-fc-svg-icon">{p.isDaytime ? <IconSun /> : <IconMoon />}</span>
-              )}
+
+      <div className="wx-forecast-grid-v2">
+        {days.map((d, i) => (
+          <div key={i} className={`wx-fc-card-v2 ${i === 0 ? 'today' : ''}`}>
+            <div className="wx-fcv2-hdr">{d.dayName}</div>
+            
+            <div className="wx-fcv2-icon-box">
+              {getWeatherGraphic(d.shortForecast)}
             </div>
-            <div className="wx-fc-temp-pill" style={{ background: p.isDaytime ? '#f97316' : '#0284c7' }}>
-              {p.temperature}°{p.temperatureUnit}
+
+            <div className="wx-fcv2-temps">
+              <span className="wx-fcv2-high">{d.high != null ? `${d.high}°` : '—'}</span>
+              <span className="wx-fcv2-low">{d.low != null ? `${d.low}°` : '—'}</span>
             </div>
-            <div className="wx-fc-short">{p.shortForecast}</div>
-            <div className="wx-fc-wind">{p.windSpeed}</div>
+
+            {d.pop > 0 ? (
+              <div className="wx-fcv2-pop">{d.pop}% Rain</div>
+            ) : (
+              <div className="wx-fcv2-pop-none">—</div>
+            )}
+
+            <div className="wx-fcv2-short">{d.shortForecast}</div>
+            <div className="wx-fcv2-wind">{d.windSpeed}</div>
           </div>
         ))}
       </div>
@@ -563,7 +633,7 @@ const MarineBox = ({ predictions, alerts = [] }) => {
   );
 };
 
-/** Box 6: Sky and Fish Panel with Astronomically Correct 24-Hour Moon & Sun Arcs */
+/** Box 6: Sky and Fish Panel with Balanced Arcs & Moon Slider (Full to Dark) */
 const SkyAndFishBox = ({ sunMoon }) => {
   const fish = solunarScore();
   const now = new Date();
@@ -578,37 +648,36 @@ const SkyAndFishBox = ({ sunMoon }) => {
     return h + m / 60;
   };
 
-  const srH = parseTimeToDec(sunMoon?.sunrise) || 6.07; // 6:04 AM
-  const ssH = parseTimeToDec(sunMoon?.sunset) || 19.23; // 7:14 PM
+  const srH = parseTimeToDec(sunMoon?.sunrise) || 6.07;
+  const ssH = parseTimeToDec(sunMoon?.sunset) || 19.23;
 
-  // Moonrise and Moonset decimal hours (e.g. Moonrise 11:41 PM = 23.68h, Moonset 10:30 AM = 10.50h)
   const moonriseH = fish.minor[0] != null ? fish.minor[0] : 23.68; 
   const moonsetH  = fish.minor[1] != null ? fish.minor[1] : 10.50;
 
-  // ── Sun Arc Math (Daytime Arc from Sunrise at srH to Sunset at ssH) ──
+  // ── Balanced Sun Arc Math (Smooth Parabolic Curve) ──
   const isSunDay = nowH >= srH && nowH <= ssH;
   const sunProgress = isSunDay ? (nowH - srH) / (ssH - srH) : (nowH > ssH ? 1 : 0);
   const sunX = 35 + ((isSunDay ? (srH + sunProgress * (ssH - srH)) : (nowH > ssH ? ssH : srH)) / 24) * 230;
-  const sunY = isSunDay ? 65 - Math.sin(sunProgress * Math.PI) * 45 : 68;
+  const sunY = isSunDay ? 64 - Math.sin(sunProgress * Math.PI) * 42 : 68;
 
   const xSunRise = 35 + (srH / 24) * 230;
   const xSunSet  = 35 + (ssH / 24) * 230;
 
   const dSunTravelled = isSunDay
     ? `M ${xSunRise.toFixed(1)} 65 Q ${(xSunRise + sunX)/2} ${65 - (65 - sunY)} ${sunX.toFixed(1)} ${sunY.toFixed(1)}`
-    : `M ${xSunRise.toFixed(1)} 65 Q ${(xSunRise + xSunSet)/2} 20 ${xSunSet.toFixed(1)} 65`;
+    : `M ${xSunRise.toFixed(1)} 65 Q ${(xSunRise + xSunSet)/2} 22 ${xSunSet.toFixed(1)} 65`;
 
   const dSunRemaining = isSunDay
     ? `M ${sunX.toFixed(1)} ${sunY.toFixed(1)} Q ${(sunX + xSunSet)/2} ${sunY} ${xSunSet.toFixed(1)} 65`
     : `M ${xSunSet.toFixed(1)} 65 L ${xSunSet.toFixed(1)} 65`;
 
-  // ── Moon Arc Math (Astronomically Correct 24h Timeline) ──
-  // 1. Morning Moon Arc (00:00 to Moonset): Moon entered from yesterday night and sets at moonsetH
+  // ── Balanced Moon Arc Math (Gentle Coasting Arcs) ──
+  // 1. Morning Moon Arc (00:00 to Moonset): Gentle descent from zenith (y=36) to horizon at xAMSet
   const xAMStart = 35;
   const xAMSet   = 35 + (moonsetH / 24) * 230;
-  const dMoonMorning = `M ${xAMStart} 45 Q ${(xAMStart + xAMSet)/2} 48 ${xAMSet.toFixed(1)} 65`;
+  const dMoonMorning = `M ${xAMStart} 38 Q ${(xAMStart + xAMSet)/2} 42 ${xAMSet.toFixed(1)} 65`;
 
-  // 2. Evening Moon Arc (Moonrise to 24:00 Midnight): Moon rises at moonriseH (far right) and ascends to 24:00 (265px)
+  // 2. Evening Moon Arc (Moonrise to 24:00 Midnight): Gentle ascent from horizon at xPMRise to 24:00 (y=38)
   const xPMRise = 35 + (moonriseH / 24) * 230;
   const xPMEnd  = 265;
 
@@ -619,18 +688,23 @@ const SkyAndFishBox = ({ sunMoon }) => {
   let currentMoonY = 65;
 
   if (!isMoonRisen) {
-    // Has not risen yet tonight! Entire evening arc is DASHED (to-be-travelled) leading to midnight at 265px
-    dMoonEveningRemaining = `M ${xPMRise.toFixed(1)} 65 Q ${(xPMRise + xPMEnd)/2} 48 ${xPMEnd} 42`;
+    // Gentle dashed curve from xPMRise (11:41 PM) up to 24:00 (y=38)
+    dMoonEveningRemaining = `M ${xPMRise.toFixed(1)} 65 Q ${(xPMRise + xPMEnd)/2} 55 ${xPMEnd} 38`;
     currentMoonX = xPMRise;
     currentMoonY = 65;
   } else {
-    // Moon has risen tonight!
     const pEv = (nowH - moonriseH) / (24 - moonriseH);
     currentMoonX = xPMRise + pEv * (xPMEnd - xPMRise);
-    currentMoonY = 65 - Math.sin(pEv * Math.PI / 2) * 23;
+    currentMoonY = 65 - Math.sin(pEv * Math.PI / 2) * 27;
     dMoonEveningTravelled = `M ${xPMRise.toFixed(1)} 65 Q ${(xPMRise + currentMoonX)/2} ${(65 + currentMoonY)/2} ${currentMoonX.toFixed(1)} ${currentMoonY.toFixed(1)}`;
-    dMoonEveningRemaining = `M ${currentMoonX.toFixed(1)} ${currentMoonY.toFixed(1)} Q ${(currentMoonX + xPMEnd)/2} 45 ${xPMEnd} 42`;
+    dMoonEveningRemaining = `M ${currentMoonX.toFixed(1)} ${currentMoonY.toFixed(1)} Q ${(currentMoonX + xPMEnd)/2} 42 ${xPMEnd} 38`;
   }
+
+  // ── Moon Phase Slider Math (Full to Dark Scale) ──
+  const illum = sunMoon?.moonIllum != null ? sunMoon.moonIllum : 75; // 0 to 100
+  const isWaning = sunMoon?.isWaning ?? true; // true = getting darker ->
+  // Slider position: FULL (100% at left 0%), DARK (0% at right 100%)
+  const sliderPercent = 100 - illum; 
 
   const ratingColor = {
     Excellent: '#22c55e',
@@ -644,7 +718,7 @@ const SkyAndFishBox = ({ sunMoon }) => {
       <div className="wx-panel-header">
         <h2 className="wx-panel-title"><IconFish /> Sky and Fish</h2>
         <span className="wx-badge-solunar">
-          {sunMoon?.moonPhaseLabel?.toUpperCase()} • {sunMoon?.moonIllum}% ILLUM
+          {sunMoon?.moonPhaseLabel?.toUpperCase()} • {illum}% ILLUM
         </span>
       </div>
 
@@ -658,15 +732,12 @@ const SkyAndFishBox = ({ sunMoon }) => {
               {/* Horizon Line */}
               <line x1="15" y1="65" x2="285" y2="65" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1.5" />
 
-              {/* ── Sun Arcs ── */}
+              {/* Sun Arcs */}
               <path d={dSunTravelled} fill="none" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" />
               {dSunRemaining && <path d={dSunRemaining} fill="none" stroke="rgba(245, 158, 11, 0.35)" strokeWidth="2" strokeDasharray="4 4" />}
 
-              {/* ── Moon Arcs ── */}
-              {/* 1. Morning Moon Arc (00:00 to Moonset - Solid Cyan because it completed this morning) */}
+              {/* Moon Arcs */}
               <path d={dMoonMorning} fill="none" stroke="rgba(56, 189, 248, 0.65)" strokeWidth="2" strokeLinecap="round" />
-
-              {/* 2. Evening Moon Arc (Moonrise to 24:00 Midnight) */}
               {dMoonEveningTravelled && <path d={dMoonEveningTravelled} fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" />}
               {dMoonEveningRemaining && <path d={dMoonEveningRemaining} fill="none" stroke="rgba(56, 189, 248, 0.85)" strokeWidth="2" strokeDasharray="3 3" />}
 
@@ -678,7 +749,7 @@ const SkyAndFishBox = ({ sunMoon }) => {
                 ☀️ Set {sunMoon?.sunset || '7:14 PM'}
               </text>
 
-              {/* Moonrise Endpoint Label on far right */}
+              {/* Moonrise Endpoint Label */}
               <text x={xPMRise} y="78" fill="#38bdf8" fontSize="8" fontWeight="800" textAnchor="middle">
                 🌙 Rise {fmtHour(moonriseH)}
               </text>
@@ -699,6 +770,23 @@ const SkyAndFishBox = ({ sunMoon }) => {
                 NOW {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </text>
             </svg>
+          </div>
+
+          {/* Moon Phase Slider (Full to Dark with Waning/Waxing Trend arrow) */}
+          <div className="wx-moon-slider-box">
+            <div className="wx-ms-row-labels">
+              <span className="wx-ms-lbl-left">🌕 FULL (100%)</span>
+              <span className="wx-ms-trend-arrow">
+                {isWaning ? 'GETTING DARKER (WANING ➔)' : '➔ GETTING BRIGHTER (WAXING)'}
+              </span>
+              <span className="wx-ms-lbl-right">🌑 DARK (0%)</span>
+            </div>
+            <div className="wx-ms-track">
+              <div className="wx-ms-fill" style={{ width: `${sliderPercent}%` }} />
+              <div className="wx-ms-thumb" style={{ left: `${sliderPercent}%` }}>
+                <span className="wx-ms-thumb-val">{illum}%</span>
+              </div>
+            </div>
           </div>
         </div>
 
