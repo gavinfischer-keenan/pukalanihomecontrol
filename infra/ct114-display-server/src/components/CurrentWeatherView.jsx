@@ -1,40 +1,40 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 /**
- * CurrentWeatherView — 3x2 Grid Scalable Hawaii Weather Dashboard.
+ * CurrentWeatherView — 2 Column Layout Scalable Hawaii Weather Dashboard.
  * 
- * Layout: 3 Columns x 2 Rows (6 equal, high-density panels)
- *  - Box 1: Current Temp & Atmosphere (Outdoor/Indoor, Dew Point, Baro, UV, Solar)
- *  - Box 2: Wind & Rain Station (SVG Compass Rose & Virtual Rain Cup)
- *  - Box 3: Humidity & Air Comfort (Outdoor & Indoor Comfort Meters & Status Badges)
- *  - Box 4: 7-Day NWS Forecast (Temp Pills, Weather Icons, Wind Speeds)
- *  - Box 5: Honolulu Tides (SVG Tide Curve, Peak Markers, Next Hi/Lo Cards)
- *  - Box 6: Solunar Fishing & Astronomy (4-Star Rating, Feeding Periods, Sunrise/Sunset, Moon Phase)
+ * Layout: 2 Columns of stacked boxes (Maximizes screen space & readability)
+ *  - Left Col Box 1: Current Temp & Atmosphere (Large °F readout, Dew Point, Baro, UV, Solar)
+ *  - Left Col Box 2: Wind & Rain Station (Large SVG Compass Rose & Virtual Rain Cup)
+ *  - Left Col Box 3: Humidity & Air Comfort (Outdoor & Indoor Comfort Meters & Badges)
+ *  - Right Col Box 1: 7-Day NWS Forecast (Temp Pills, Weather Icons, Wind Speeds)
+ *  - Right Col Box 2: Honolulu Tides (SVG Tide Curve, Peak Markers, Next Hi/Lo Cards)
+ *  - Right Col Box 3: Solunar Fishing & Astronomy (4-Star Rating, Feeding Periods, Sunrise/Sunset, Moon Phase)
  * 
- * Iconography: 100% Inline SVG (Zero Dependance on Unicode Emoji Fonts / No Tofu Squares)
+ * Iconography: 100% Inline SVG (Font-Independent, Zero Emoji Square Tofu)
  */
 
 // ── Inline SVG Icons (Cross-Platform / Font-Independent) ───────────────────
 const IconThermometer = () => (
-  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
   </svg>
 );
 
 const IconWind = () => (
-  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/>
   </svg>
 );
 
 const IconDroplet = () => (
-  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
   </svg>
 );
 
 const IconCalendar = () => (
-  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
     <line x1="16" y1="2" x2="16" y2="6"/>
     <line x1="8" y1="2" x2="8" y2="6"/>
@@ -43,39 +43,39 @@ const IconCalendar = () => (
 );
 
 const IconWave = () => (
-  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
   </svg>
 );
 
 const IconFish = () => (
-  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#34d399" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#34d399" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M6.5 12c.94-2.07 2.96-3.5 5.3-3.5 3.5 0 6.5 2.5 8.2 3.5-1.7 1-4.7 3.5-8.2 3.5-2.34 0-4.36-1.43-5.3-3.5zm0 0L2 8.5v7l4.5-3.5z"/>
     <circle cx="14" cy="11" r="1" fill="#34d399"/>
   </svg>
 );
 
 const IconSun = () => (
-  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="12" cy="12" r="5"/>
     <path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
   </svg>
 );
 
 const IconMoon = () => (
-  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#cbd5e1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#cbd5e1" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
   </svg>
 );
 
 const IconArrowUp = () => (
-  <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#38bdf8" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 19V5m-7 7l7-7 7 7"/>
   </svg>
 );
 
 const IconArrowDown = () => (
-  <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
     <path d="M12 5v14m7-7l-7 7-7-7"/>
   </svg>
 );
@@ -228,7 +228,7 @@ const WindCompass = ({ dir = 0, speed = 0, gust = 0 }) => {
 const RainCup = ({ dailyRain = 0, rainRate = 0 }) => {
   const maxRain = 2.0;
   const fillRatio = Math.min(Math.max(dailyRain / maxRain, 0), 1);
-  const fillHeight = fillRatio * 64;
+  const fillHeight = fillRatio * 74;
 
   return (
     <div className="wx-rain-cup-container">
@@ -274,7 +274,7 @@ const HumidityGauge = ({ label, rh }) => {
   );
 };
 
-// ── 3x2 Grid Box Panels ────────────────────────────────────────────────────
+// ── 2 Column Stacked Box Panels ───────────────────────────────────────────
 
 /** Box 1: Current Temp & Atmosphere */
 const TempAtmosphereBox = ({ data }) => {
@@ -346,7 +346,7 @@ const HumidityBox = ({ data }) => {
   return (
     <div className="wx-panel wx-box-humidity" data-section="humidity">
       <div className="wx-panel-header">
-        <h2 className="wx-panel-title"><IconDroplet /> Humidity &amp; Comfort Scale</h2>
+        <h2 className="wx-panel-title"><IconDroplet /> Humidity &amp; Air Comfort</h2>
         <span className="wx-badge-info">ECOWITT</span>
       </div>
 
@@ -407,7 +407,7 @@ const TideBox = ({ predictions }) => {
   const minH = Math.min(...pts.map(p => p.height_ft));
   const range = (maxH - minH) || 1;
 
-  const svgW = 480, svgH = 80, padY = 16, padX = 10;
+  const svgW = 480, svgH = 85, padY = 16, padX = 10;
   const toX = (i) => padX + (i / (pts.length - 1)) * (svgW - 2 * padX);
   const toY = (h) => padY + (1 - (h - minH) / range) * (svgH - 2 * padY);
 
@@ -490,7 +490,6 @@ const SolunarAstronomyBox = ({ sunMoon }) => {
       </div>
 
       <div className="wx-fish-astronomy-layout">
-        {/* Rating Header */}
         <div className="wx-fish-rating-box">
           <div className="wx-fish-stars">
             {[1,2,3,4].map(s => (
@@ -502,7 +501,6 @@ const SolunarAstronomyBox = ({ sunMoon }) => {
           </div>
         </div>
 
-        {/* Feeding Periods */}
         <div className="wx-fish-periods-grid">
           <div className="wx-period-box">
             <div className="wx-period-hdr">MAJOR PERIODS (2HR)</div>
@@ -527,7 +525,6 @@ const SolunarAstronomyBox = ({ sunMoon }) => {
           </div>
         </div>
 
-        {/* Sun & Moon Stats */}
         {sunMoon && (
           <div className="wx-sunmoon-row">
             <div className="wx-sm-item"><IconSun /> Rise: {sunMoon.sunrise}</div>
@@ -541,7 +538,7 @@ const SolunarAstronomyBox = ({ sunMoon }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Root 3x2 Grid Scalable Weather View Component
+// Root 2-Column Scalable Weather View Component
 // ─────────────────────────────────────────────────────────────────────────────
 const CurrentWeatherView = React.memo(({ config }) => {
   const [data, setData] = useState(null);
@@ -558,9 +555,10 @@ const CurrentWeatherView = React.memo(({ config }) => {
     const ro = new ResizeObserver((entries) => {
       for (let entry of entries) {
         const { width, height } = entry.contentRect;
-        const scaleW = width / 1150;
-        const scaleH = height / 680;
-        const scale = Math.min(Math.max(Math.min(scaleW, scaleH), 0.45), 2.2);
+        // Reference scale for 2-column layout (optimizes font sizes)
+        const scaleW = width / 980;
+        const scaleH = height / 580;
+        const scale = Math.min(Math.max(Math.min(scaleW, scaleH), 0.75), 2.5);
 
         if (rootRef.current) {
           rootRef.current.style.setProperty('--wx-scale', scale.toFixed(3));
@@ -599,14 +597,18 @@ const CurrentWeatherView = React.memo(({ config }) => {
     <div className="wx-root" data-view="current-weather" ref={rootRef}>
       {error && <div className="wx-error-banner">⚠️ Weather Data Update Delayed: {error}</div>}
 
-      {/* 3 Columns x 2 Rows Grid */}
-      <div className="wx-dashboard-grid-3x2">
-        <TempAtmosphereBox data={data?.ecowitt} />
-        <WindRainBox data={data?.ecowitt} />
-        <HumidityBox data={data?.ecowitt} />
-        <ForecastBox periods={data?.forecast} />
-        <TideBox predictions={data?.tides} />
-        <SolunarAstronomyBox sunMoon={sunMoon} />
+      {/* 2 Columns Layout (3 boxes in Left Col, 3 boxes in Right Col) */}
+      <div className="wx-dashboard-2col">
+        <div className="wx-col">
+          <TempAtmosphereBox data={data?.ecowitt} />
+          <WindRainBox data={data?.ecowitt} />
+          <HumidityBox data={data?.ecowitt} />
+        </div>
+        <div className="wx-col">
+          <ForecastBox periods={data?.forecast} />
+          <TideBox predictions={data?.tides} />
+          <SolunarAstronomyBox sunMoon={sunMoon} />
+        </div>
       </div>
 
       {lastFetch && (
