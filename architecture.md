@@ -241,3 +241,37 @@ Host-level infrastructure scripts are now version-controlled in the dashboard re
 - `infra/host/network-recovery.timer` — 2-minute timer
 - `infra/host/rtl-tcp-ais.service` — RTL-SDR TCP server for AIS
 - `infra/ct106/ais-catcher.service` — AIS-catcher decoder service
+
+### Current Weather View Dashboard Overhaul (CT114 / CT108)
+
+The `CurrentWeatherView` dashboard is a container-aware, dynamic web application designed for high-density multi-display monitoring.
+
+#### Dynamic Grid Layout & Container Responsiveness
+- **Aspect-Ratio Grid Decision**: A `ResizeObserver` monitors container dimensions.
+  - **`aspect < 1.25`** (Tall slot, e.g. 2-Up Side-by-Side ~960x1080): Locks to **2 Columns × 3 Rows** (`2col` layout with left & right flex columns).
+  - **`aspect >= 1.25`** (Wide slot, e.g. 2-Up Stacked ~1920x540): Locks to **3 Columns × 2 Rows** (`3col` layout).
+- **Proportional Scaling**: Automatically calculates `--wx-scale` CSS variable set on the root element, maintaining perfect typography and element proportions without scrollbars or clipping.
+
+#### 6 Panel Architecture & Features
+1. **Box 1: Current Temp & Atmosphere + Integrated Humidity**
+   - Outdoor Temperature (F) with big display, Indoor Temp, and Dew Point.
+   - Barometric Pressure (inHg), UV Index, Solar Radiation (W/m²).
+   - Integrated compact Outdoor & Indoor Humidity meters featuring a 5-stage comfort scale (`Dry`, `Ideal`, `Pleasant`, `Humid`, `Muggy`) with color-coded fill bars.
+2. **Box 2: Wind & Rain Station**
+   - Wind Compass Rose Gauge: Vector needle with live direction (°), speed (MPH), cardinal text, and gust tracking.
+   - Virtual 2.0" Rain Cup Gauge: Transparent glass tick marks, dynamic water level animation, daily total, and rain rate.
+3. **Box 3: Wave & Sea State Animation**
+   - Multi-layer SVG animated ocean waves (`waveMoveBack`, `waveMoveMid`, `waveMoveFront`) simulating live ocean swells.
+   - Overlay metrics chips displaying Swell Height (`4.2 FT @ 12s`), Swell Direction (`SSW 200°`), and Sea Temperature (`78.5°F`).
+4. **Box 4: 7-Day NWS NOAA Forecast (Horizontal Row Layout)**
+   - 7 stacked horizontal rows (`TONIGHT` highlighted with bright cyan border and glow + 6 daily rows).
+   - **Large High-Contrast Vector SVG Drawings**: `IconSun`, `IconCloudRain`, `IconCloudSun`, `IconThunder`, `IconCloud` (28px height, bold 2.2px stroke weight).
+   - **Live NWS High/Low Parsing**: `p.temp ?? p.temperature` parsing for exact NOAA High/Low temps (`HI 86° / LO 77°`).
+   - Rain chance percentage badges (`% Rain`) and right-shifted wind readouts.
+5. **Box 5: Marine Box**
+   - Live NOAA Marine advisories: Small Craft Advisory and High Surf Advisory status cards (`OK` / `ALERT`), plus special notifications banner.
+   - 36-Hour High/Low NOAA Tide Chart with SVG path fill, current time indicator line, and upcoming High/Low tide cards.
+6. **Box 6: Sky and Fish Panel**
+   - **24-Hour Solar & Lunar Arc Traverse**: Balanced, smooth parabolic arcs for Sun and Moon traverse, showing solid (travelled) vs dashed (remaining) paths. Morning Moonset arc entering from 00:00 + Evening Moonrise arc ascending to 24:00.
+   - **Moon Phase Slider**: Full to Dark scale (`FULL 🌕 100%` $\leftrightarrow$ `DARK 0%`), dynamic thumb marker with exact illumination %, and directional trend arrow (`GETTING DARKER WANING ➔` or `➔ GETTING BRIGHTER WAXING`).
+   - **Solunar Fishing Index**: Real-time lunar age math calculating 4-star fishing rating (`Poor`, `Fair`, `Good`, `Excellent`), 2-hour Major feeding periods (Moon Overhead/Underfoot), and 1-hour Minor feeding periods (Moonrise/Moonset).
