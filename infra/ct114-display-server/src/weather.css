@@ -428,7 +428,7 @@
 
 .wx-fcr-row-card {
   display: grid;
-  grid-template-columns: calc(75px * var(--wx-scale, 1)) calc(24px * var(--wx-scale, 1)) calc(80px * var(--wx-scale, 1)) 1fr auto calc(85px * var(--wx-scale, 1));
+  grid-template-columns: calc(75px * var(--wx-scale, 1)) calc(22px * var(--wx-scale, 1)) calc(82px * var(--wx-scale, 1)) 1fr auto calc(70px * var(--wx-scale, 1));
   gap: calc(6px * var(--wx-scale, 1));
   align-items: center;
   background: rgba(0, 0, 0, 0.22);
@@ -470,6 +470,7 @@
 .wx-fcr-desc-col {
   color: #cbd5e1;
   font-weight: 600;
+  font-size: calc(0.66rem * var(--wx-scale, 1)); /* Reduced ONLY description font size! */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

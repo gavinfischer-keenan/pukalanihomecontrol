@@ -7,7 +7,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
  *  - Box 1: Temp, Atmosphere & Integrated Humidity.
  *  - Box 2: Wind & Rain Station.
  *  - Box 3: Animated Wave & Sea State.
- *  - Box 4 (SIMPLIFIED ROWS): 7-Day NWS Forecast in ultra-clean horizontal rows with full day names ("TONIGHT", "FRIDAY"), HI/LO temps, SVG icons, description in parentheses, and wind speed.
+ *  - Box 4: 7-Day NWS Forecast in horizontal rows with live data (`p.temp ?? p.temperature`), compact description text size, and right-shifted wind readouts.
  *  - Box 5: Marine Box (Advisories & Tides).
  *  - Box 6: Sky and Fish Panel (Balanced Arcs & Moon Phase Slider).
  */
@@ -36,7 +36,7 @@ const IconCalendar = () => (
 
 const IconWave = () => (
   <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#38bdf8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
+    <path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.5 0 2.5 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
   </svg>
 );
 
@@ -440,11 +440,11 @@ const SeaAnimationBox = () => {
   );
 };
 
-/** Box 4 (SIMPLIFIED ROWS): 7-Day NWS Forecast Layout */
+/** Box 4 (LIVE HORIZONTAL ROWS): 7-Day Forecast Layout */
 const ForecastBox = ({ periods }) => {
   if (!periods || periods.length === 0) return <div className="wx-panel wx-loading">Loading forecast…</div>;
 
-  // Group forecast periods into daily rows
+  // Consolidate live forecast periods into daily rows
   const rowsMap = [];
   periods.forEach(p => {
     let name = p.name;
@@ -454,20 +454,22 @@ const ForecastBox = ({ periods }) => {
       name = name.replace(/ Night$/, '').toUpperCase();
     }
 
+    const temperatureValue = p.temp ?? p.temperature;
+
     let existing = rowsMap.find(r => r.name === name);
     if (!existing) {
       existing = {
         name,
-        high: p.isDaytime ? p.temperature : null,
-        low: !p.isDaytime ? p.temperature : null,
+        high: p.isDaytime ? temperatureValue : null,
+        low: !p.isDaytime ? temperatureValue : null,
         shortForecast: p.shortForecast,
         windSpeed: p.windSpeed,
         pop: p.probabilityOfPrecipitation?.value || null,
       };
       rowsMap.push(existing);
     } else {
-      if (p.isDaytime) existing.high = p.temperature;
-      else existing.low = p.temperature;
+      if (p.isDaytime) existing.high = temperatureValue;
+      else existing.low = temperatureValue;
       if (!existing.pop && p.probabilityOfPrecipitation?.value) {
         existing.pop = p.probabilityOfPrecipitation.value;
       }
@@ -480,7 +482,7 @@ const ForecastBox = ({ periods }) => {
     <div className="wx-panel wx-box-forecast" data-section="forecast">
       <div className="wx-panel-header">
         <h2 className="wx-panel-title"><IconCalendar /> 7-Day NWS Forecast</h2>
-        <span className="wx-badge-info">NOAA</span>
+        <span className="wx-badge-info">NOAA LIVE</span>
       </div>
 
       <div className="wx-forecast-rows-list">
