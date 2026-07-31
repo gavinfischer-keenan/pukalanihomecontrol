@@ -105,12 +105,16 @@ The display server remote (`http://192.168.1.114:3000/#remote`) supports the fol
 | `house_status` | 🏠 House Status | Coming Soon placeholder |
 
 **Current Weather View** (`CurrentWeatherView.jsx`):
-Five self-contained panels, each independently restyable (data-section attribute for CSS targeting):
-- **EcowittPanel** (`data-section="ecowitt"`) — All readings from local HP2564BU Pro WS90 station: temp/humidity (in+out), dew point, wind speed/gust/direction, barometric pressure, rain rate/daily/monthly, UV index, solar radiation, lightning
-- **ForecastPanel** (`data-section="forecast"`) — NWS 7-day forecast, 8 periods, from `api.weather.gov/gridpoints/HFO/56,127/forecast`
-- **TidePanel** (`data-section="tides"`) — SVG sparkline of 48hr Honolulu tides (NOAA station 1612340) with H/L markers and current position dot; upcoming tide event list
-- **SunMoonPanel** (`data-section="sunmoon"`) — Sunrise/sunset + moon phase/illumination/age, computed client-side (pure math, no external dep)
-- **FishingPanel** (`data-section="fishing"`) — Oahu FAD locations from `/api/nws/fishing-areas`
+High-density glassmorphism weather dashboard designed after Hawaii Dashboard theme:
+- **EcowittPanel** (`data-section="ecowitt"`) — Local HP2564BU Pro station readings with custom graphics:
+  - **Wind Compass Rose**: SVG circular dial with rotating needle pointing to wind bearing (`wind_dir`), centered speed readout, unit, cardinal direction, and peak gusts.
+  - **Virtual Rain Cup**: SVG beaker gauge displaying daily rainfall (`rain_daily_in`) with fluid fill height and graduation ticks.
+  - **Humidity Comfort Scales**: Dual indoor/outdoor comfort bars categorized by standard humidity scale (Dry, Ideal, Pleasant, Humid, Muggy).
+  - Secondary stats for barometric pressure, UV index, and solar radiation.
+- **ForecastPanel** (`data-section="forecast"`) — 7-Day NWS forecast cards with NWS condition icons and High/Low temperature pills.
+- **TidePanel** (`data-section="tides"`) — Honolulu tide curve (NOAA station 1612340) with SVG area fill, glowing current-time position marker, high/low peak labels, and next 4 tide event cards.
+- **FishingPanel** (`data-section="fishing"`) — Solunar Fishing Index (matching `ForecastPanel.jsx` on main dashboard): 4-star rating system, moon age, major periods (moon overhead/underfoot), and minor periods (moonrise/moonset).
+- **SunMoonPanel** (`data-section="sunmoon"`) — Sunrise/sunset times and moon phase & illumination percentage.
 
 **Architecture — Adding a new view** (one file, two lines):
 1. Create `src/components/MyView.jsx`
