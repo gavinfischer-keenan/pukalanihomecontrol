@@ -417,7 +417,7 @@
   z-index: 6;
 }
 
-/* ── Box 4 (SIMPLIFIED HORIZONTAL ROWS): 7-Day Forecast ── */
+/* ── Box 4 (EXPANDED PNG IMAGES & NO TEXT): 7-Day Forecast ── */
 .wx-forecast-rows-list {
   display: flex;
   flex-direction: column;
@@ -428,14 +428,14 @@
 
 .wx-fcr-row-card {
   display: grid;
-  grid-template-columns: calc(75px * var(--wx-scale, 1)) calc(22px * var(--wx-scale, 1)) calc(82px * var(--wx-scale, 1)) 1fr auto calc(70px * var(--wx-scale, 1));
-  gap: calc(6px * var(--wx-scale, 1));
+  grid-template-columns: calc(85px * var(--wx-scale, 1)) 1fr calc(95px * var(--wx-scale, 1)) auto calc(85px * var(--wx-scale, 1));
+  gap: calc(8px * var(--wx-scale, 1));
   align-items: center;
   background: rgba(0, 0, 0, 0.22);
-  border-radius: calc(5px * var(--wx-scale, 1));
-  padding: calc(4px * var(--wx-scale, 1)) calc(8px * var(--wx-scale, 1));
+  border-radius: calc(6px * var(--wx-scale, 1));
+  padding: calc(4px * var(--wx-scale, 1)) calc(10px * var(--wx-scale, 1));
   border: 1px solid rgba(255, 255, 255, 0.04);
-  font-size: calc(0.75rem * var(--wx-scale, 1));
+  font-size: calc(0.78rem * var(--wx-scale, 1));
 }
 
 .wx-fcr-row-card.highlight {
@@ -450,16 +450,25 @@
   letter-spacing: 0.03em;
 }
 
-.wx-fcr-icon-col {
+.wx-fcr-img-col {
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+}
+
+.wx-fcr-png-img {
+  height: calc(34px * var(--wx-scale, 1));
+  max-width: 100%;
+  object-fit: contain;
+  border-radius: 6px;
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,0.6));
 }
 
 .wx-fcr-temp-col {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
   font-weight: 800;
 }
 
@@ -467,28 +476,23 @@
 .wx-fcr-sep { color: #64748b; font-size: 0.8em; }
 .wx-fcr-lo { color: #38bdf8; }
 
-.wx-fcr-desc-col {
-  color: #cbd5e1;
-  font-weight: 600;
-  font-size: calc(0.66rem * var(--wx-scale, 1)); /* Reduced ONLY description font size! */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .wx-fcr-pop-col {
   font-size: calc(0.65rem * var(--wx-scale, 1));
   font-weight: 800;
   color: #38bdf8;
   background: rgba(56, 189, 248, 0.15);
-  padding: 1px 5px;
+  padding: 2px 6px;
   border-radius: 4px;
   white-space: nowrap;
 }
 
+.wx-fcr-pop-spacer {
+  width: 0;
+}
+
 .wx-fcr-wind-col {
   color: #94a3b8;
-  font-size: calc(0.7rem * var(--wx-scale, 1));
+  font-size: calc(0.75rem * var(--wx-scale, 1));
   text-align: right;
   white-space: nowrap;
 }
