@@ -287,3 +287,16 @@ The `CurrentWeatherView` dashboard is a container-aware, dynamic web application
 **Fix & Self-Healing Architecture**:
 1. Restarted  and . Local SDR packet decoding resumed immediately ( MMSI  tracked live at 21.1832N, -157.7101W, speed 7.1kt, heading 287°).
 2. Added self-healing watchdog to  (host timer, every 2min). If  writes  (AISHub sees ≥3 vessels within 15nm while local antenna sees 0),  automatically restarts  and , clearing the flag and restoring local SDR packet streaming seamlessly.
+
+
+### Photo Chronologizer Session Recovery & Image Serving Resilience (2026-07-31)
+
+**Issue**: Opening previously ordered photo session  ("Subject 1967") at  stuck on loading spinners. Photo serving requests () returned .
+
+**Root Cause**: The background retention loop  automatically purged import directory  after 48 hours without checking if the session was active in DB. When the user opened the session to validate/review it, image rendering failed because the source files were missing from the import directory.
+
+**Fix & Resilience Enhancements**:
+1. Restored 759 photos for session  into  and updated  paths in .
+2. Implemented  fallback resolution in : automatically checks , , and fuzzy filename matches if  is missing.
+3. Added SVG placeholder fallback: if an image file cannot be read,  returns a valid SVG placeholder image instead of throwing , preventing UI freezes.
+4. Updated retention policy: extended retention to 168 hours (7 days) and added active DB session checks so active sessions are never purged automatically.
