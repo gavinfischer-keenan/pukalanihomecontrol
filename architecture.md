@@ -276,3 +276,14 @@ The `CurrentWeatherView` dashboard is a container-aware, dynamic web application
    - **Enlarged 24-Hour Solar & Lunar Traverse Animation**: Scaled-up SVG graphic (`360px` max-width, `115px` height) with smooth parabolic arcs for Sun and Moon traverse.
    - **Single-Moon Trajectory Math (No "Two Moons")**: Fixed dual-arc overlap by calculating a single, continuous Moon trajectory across the 24-hour horizon with solid (travelled) and dashed (remaining) paths.
    - **Moon Phase Slider**: Full to Dark scale (`FULL 🌕 100%` <-> `DARK 0%`), dynamic thumb marker with exact illumination %, and **increased font size** for the trend arrow (`GETTING DARKER WANING ➔` or `➔ GETTING BRIGHTER WAXING`).
+
+
+### AIS Receiver Self-Healing Watchdog & JOSEPH SAUSE Recovery (2026-07-31)
+
+**Issue**: The user observed *JOSEPH SAUSE* (MMSI ) visible to the naked eye in Hawaii waters but displayed on  with label **"AIS (Network / AISHub)"** and missing real-time SDR trails.
+
+**Root Cause**: The  TCP connection on host  dropped connection to  on CT106. With zero local SDR packets arriving at  (CT105), the collector fell back to AISHub network API, marking vessels as network-sourced without high-resolution local trails.
+
+**Fix & Self-Healing Architecture**:
+1. Restarted  and . Local SDR packet decoding resumed immediately ( MMSI  tracked live at 21.1832N, -157.7101W, speed 7.1kt, heading 287°).
+2. Added self-healing watchdog to  (host timer, every 2min). If  writes  (AISHub sees ≥3 vessels within 15nm while local antenna sees 0),  automatically restarts  and , clearing the flag and restoring local SDR packet streaming seamlessly.
