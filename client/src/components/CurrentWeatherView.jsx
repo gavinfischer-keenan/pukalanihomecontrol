@@ -9,7 +9,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
  *  - Box 3: Animated Wave & Sea State.
  *  - Box 4: 7-Day NWS Forecast in horizontal rows using large, high-contrast SVG vector drawings.
  *  - Box 5: Marine Box (Advisories & Tides).
- *  - Box 6: Sky Panel (Fresh Ground-Up 24-Hour Timeline Traverse 00:00 to 24:00: Sampled Parabolic Arcs, Solid Travelled vs Dotted Remaining Paths, Live Clock & Date "July 31, 2026", and Moon Phase Slider).
+ *  - Box 6: Sky Panel (Fresh Ground-Up 24-Hour Timeline Traverse 00:00 to 24:00: Fixed HST Timezone Offset, Sampled Parabolic Arcs, Solid Travelled vs Dotted Remaining Paths, Live Clock & Date "July 31, 2026", and Moon Phase Slider).
  */
 
 // ── Inline Vector SVG Icons ────────────────────────────────────────────────
@@ -121,14 +121,15 @@ function fmtHour(h) {
   return `${h12}:${String(mins).padStart(2, '0')} ${period}`;
 }
 
-// ── Sun & Moon Calculator ──────────────────────────────────────────────────
+// ── Sun & Moon Calculator (Fixed Local Hawaii Standard Time Offset) ─────────
 function getSunMoon(lat, lon, date = new Date()) {
   const rad = Math.PI / 180;
   const d = date;
-  const JD = Math.floor(365.25 * (d.getUTCFullYear() + 4716)) +
-    Math.floor(30.6001 * (d.getUTCMonth() + 2)) +
-    d.getUTCDate() - 1524.5 +
-    (d.getUTCHours() + d.getUTCMinutes() / 60) / 24;
+
+  const JD = Math.floor(365.25 * (d.getFullYear() + 4716)) +
+    Math.floor(30.6001 * (d.getMonth() + 1 + 2)) +
+    d.getDate() - 1524.5 +
+    (d.getHours() + d.getMinutes() / 60) / 24;
   const n = JD - 2451545.0;
   const L = (280.46 + 0.9856474 * n) % 360;
   const g = ((357.528 + 0.9856003 * n) % 360) * rad;
@@ -138,18 +139,33 @@ function getSunMoon(lat, lon, date = new Date()) {
   const cosH = (Math.sin(-0.833 * rad) - Math.sin(lat * rad) * sinDec) /
     (Math.cos(lat * rad) * Math.cos(dec));
 
-  let sunrise = null, sunset = null;
+  let srH = 6.43;  // Default 6:25 AM HST
+  let ssH = 18.74; // Default 6:44 PM HST
+  let sunriseStr = "6:25 AM";
+  let sunsetStr  = "6:44 PM";
+
   if (Math.abs(cosH) <= 1) {
     const H = Math.acos(cosH) / rad;
     const UT = 12 - lon / 15;
     const EqT = (-1.915 * Math.sin(g) - 0.02 * Math.sin(2 * g) + 2.466 * Math.sin(2 * lambda) - 0.053 * Math.sin(4 * lambda)) / 15;
-    const toTime = (h) => {
-      const local = ((h % 24) + 24) % 24;
-      const hr = Math.floor(local); const mn = Math.floor((local - hr) * 60);
-      return `${hr % 12 || 12}:${String(mn).padStart(2, '0')} ${hr >= 12 ? 'PM' : 'AM'}`;
+    
+    // Hawaii Standard Time (HST) is UTC - 10
+    const utRise = UT - H / 15 + EqT;
+    const utSet  = UT + H / 15 + EqT;
+    
+    srH = ((utRise - 10) % 24 + 24) % 24;
+    ssH = ((utSet  - 10) % 24 + 24) % 24;
+
+    const toStr = (hDec) => {
+      const hr = Math.floor(hDec);
+      const mn = Math.floor((hDec - hr) * 60);
+      const period = hr >= 12 ? 'PM' : 'AM';
+      const h12 = hr === 0 ? 12 : hr > 12 ? hr - 12 : hr;
+      return `${h12}:${String(mn).padStart(2, '0')} ${period}`;
     };
-    sunrise = toTime(UT - H / 15 + EqT);
-    sunset  = toTime(UT + H / 15 + EqT);
+
+    sunriseStr = toStr(srH);
+    sunsetStr  = toStr(ssH);
   }
 
   const moonAge = getMoonAge(d);
@@ -167,13 +183,15 @@ function getSunMoon(lat, lon, date = new Date()) {
 
   const isWaning = phaseFraction >= 0.5;
 
-  // Accurate Moonrise & Moonset calculations based on lunar age
   const transitHour = (12 + (moonAge * 24.84 / 24)) % 24;
-  const riseHour    = (transitHour - 6 + 24) % 24;
-  const setHour     = (transitHour + 6) % 24;
+  const riseHour    = (transitHour - 6.2 + 24) % 24;
+  const setHour     = (transitHour + 6.2) % 24;
 
   return {
-    sunrise, sunset,
+    sunrise: sunriseStr,
+    sunset: sunsetStr,
+    srH,
+    ssH,
     moonPhaseLabel,
     moonIllum: Math.round((1 - Math.abs(2 * phaseFraction - 1)) * 100),
     moonAge:   Math.round(moonAge * 10) / 10,
@@ -627,16 +645,6 @@ const MarineBox = ({ predictions, alerts = [] }) => {
 
 /**
  * Box 6: Sky Panel — GROUND-UP 24-HOUR TIMELINE TRAVERSE (00:00 to 24:00)
- * 
- * Concept:
- *  - X-Axis: 00:00 Midnight (X=25) on left to 24:00 Midnight (X=295) on right.
- *  - Horizon: Y=90 (Baseline). Above yHorizon = UP in sky, At yHorizon = Horizon (Rise/Set).
- *  - Sun: Single daytime arc from Sunrise (~6:04 AM) to Sunset (~7:14 PM). Peak height = Y=18 (72px tall arc!).
- *  - Moon: Waning Gibbous arc segments:
- *      • Morning segment: 00:00 Midnight (enters above horizon at ~38px height) -> Moonset (~9:30 AM).
- *      • Evening segment: Moonrise (~9:45 PM) -> 24:00 Midnight (exits above horizon at ~42px height).
- *  - Solid Paths: Portion of arcs BEFORE current time 'nowH' (where Sun/Moon have already travelled today).
- *  - Dotted Paths: Portion of arcs AFTER current time 'nowH' (where Sun/Moon will travel for rest of today).
  */
 const SkyBox = ({ sunMoon }) => {
   const [now, setNow] = useState(new Date());
@@ -648,30 +656,19 @@ const SkyBox = ({ sunMoon }) => {
 
   const nowH = now.getHours() + now.getMinutes() / 60.0;
 
-  const parseTimeToDec = (timeStr) => {
-    if (!timeStr) return 12;
-    const [t, period] = timeStr.split(' ');
-    let [h, m] = t.split(':').map(Number);
-    if (period === 'PM' && h !== 12) h += 12;
-    if (period === 'AM' && h === 12) h = 0;
-    return h + m / 60.0;
-  };
+  const srH = sunMoon?.srH != null ? sunMoon.srH : 6.43;  // ~6:25 AM HST
+  const ssH = sunMoon?.ssH != null ? sunMoon.ssH : 18.74; // ~6:44 PM HST
 
-  const srH = parseTimeToDec(sunMoon?.sunrise) || 6.07;
-  const ssH = parseTimeToDec(sunMoon?.sunset) || 19.23;
-
-  const msToday = sunMoon?.moonsetH != null ? sunMoon.moonsetH : 9.50;   // Morning Moonset ~9:30 AM
-  const mrToday = sunMoon?.moonriseH != null ? sunMoon.moonriseH : 21.75; // Evening Moonrise ~9:45 PM
-  const mrPrev  = 21.20; // Yesterday Moonrise ~9:12 PM
-  const msNext  = 10.20; // Tomorrow Moonset ~10:12 AM
+  const msH = sunMoon?.moonsetH != null ? sunMoon.moonsetH : 11.35; // ~11:21 AM HST
+  const mrH = sunMoon?.moonriseH != null ? sunMoon.moonriseH : 23.19; // ~11:11 PM HST
 
   // ── SVG Canvas Setup ──
   const xMin = 25;
   const xMax = 295;
   const w24  = xMax - xMin; // 270px width spanning 24 hours
   const yHorizon = 90;
-  const sunArcHeight  = 72; // Tall Sun Arc (Peak Y=18)
-  const moonArcHeight = 54; // Distinct Moon Arc (Peak Y=36)
+  const sunArcHeight  = 68; // Tall Sun Arc (Peak Y=22)
+  const moonArcHeight = 48; // Distinct Moon Arc (Peak Y=42)
 
   const xForH = (h) => xMin + (Math.max(0, Math.min(24, h)) / 24.0) * w24;
 
@@ -682,12 +679,12 @@ const SkyBox = ({ sunMoon }) => {
   };
 
   const getMoonY = (h) => {
-    if (h <= msToday) {
-      const p = (h + (24.0 - mrPrev)) / (msToday + (24.0 - mrPrev));
-      return yHorizon - Math.sin(p * Math.PI) * moonArcHeight;
-    } else if (h >= mrToday) {
-      const p = (h - mrToday) / (msNext + (24.0 - mrToday));
-      return yHorizon - Math.sin(p * Math.PI) * moonArcHeight;
+    if (h <= msH) {
+      const p = h / msH;
+      return yHorizon - Math.cos(p * (Math.PI / 2.0)) * moonArcHeight;
+    } else if (h >= mrH) {
+      const p = (h - mrH) / (24.0 - mrH);
+      return yHorizon - Math.sin(p * (Math.PI / 2.0)) * moonArcHeight;
     } else {
       return yHorizon;
     }
@@ -700,7 +697,6 @@ const SkyBox = ({ sunMoon }) => {
     let dottedPts = [];
     let h = 0.0;
 
-    let nowPointAddedToSolid = false;
     let nowPointAddedToDotted = false;
 
     const xNow = xForH(nowH);
@@ -728,7 +724,6 @@ const SkyBox = ({ sunMoon }) => {
       h += step;
     }
 
-    // Ensure solid line connects seamlessly to nowPt
     if (yNow < yHorizon - 0.5 && solidPts.length > 0) {
       const lastSolid = solidPts[solidPts.length - 1];
       if (Math.abs(lastSolid.x - xNow) > 0.1) {
@@ -803,18 +798,18 @@ const SkyBox = ({ sunMoon }) => {
 
               {/* Sunrise & Sunset Text Markers */}
               <text x={xForH(srH)} y="106" fill="#f59e0b" fontSize="9" fontWeight="800" textAnchor="middle">
-                ☀️ Rise {sunMoon?.sunrise || '6:04 AM'}
+                ☀️ Rise {sunMoon?.sunrise || '6:25 AM'}
               </text>
               <text x={xForH(ssH)} y="106" fill="#f97316" fontSize="9" fontWeight="800" textAnchor="middle">
-                ☀️ Set {sunMoon?.sunset || '7:14 PM'}
+                ☀️ Set {sunMoon?.sunset || '6:44 PM'}
               </text>
 
               {/* Moonset & Moonrise Text Markers */}
-              <text x={xForH(msToday)} y="102" fill="#cbd5e1" fontSize="8" fontWeight="700" textAnchor="middle">
-                🌙 Set {fmtHour(msToday)}
+              <text x={xForH(msH)} y="102" fill="#cbd5e1" fontSize="8" fontWeight="700" textAnchor="middle">
+                🌙 Set {fmtHour(msH)}
               </text>
-              <text x={xForH(mrToday)} y="102" fill="#38bdf8" fontSize="8" fontWeight="800" textAnchor="middle">
-                🌙 Rise {fmtHour(mrToday)}
+              <text x={xForH(mrH)} y="102" fill="#38bdf8" fontSize="8" fontWeight="800" textAnchor="middle">
+                🌙 Rise {fmtHour(mrH)}
               </text>
 
               {/* Live Sun Indicator */}
