@@ -1,23 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 /**
- * CurrentWeatherView — Premium Hawaii Command Center Weather Dashboard.
- * Designed for kiosk & remote view (http://192.168.1.114:3000/#remote)
+ * CurrentWeatherView — Responsive, Scalable Hawaii Weather Dashboard.
  * 
- * Features:
- *  - High-density glassmorphism layout (minimal black space)
- *  - Rotating Wind Compass Dial (bearing, speed, direction, gusts)
- *  - Virtual Rain Cup with liquid fill & graduation ticks
- *  - Indoor/Outdoor Humidity Comfort Scale (Dry / Ideal / Pleasant / Humid / Muggy)
- *  - Honolulu Tide Chart (glowing curve, peak markers, upcoming events)
- *  - Solunar Fishing Index (exact match to dashboard ForecastPanel.jsx)
- *  - 7-Day NWS Forecast with high/low badges & weather icons
- *  - Sun & Moon Status (sunrise/sunset, moon phase & age)
+ * Auto-scales all text, SVG graphics, gauges, and grid layouts dynamically
+ * based on allocated screen space / container resolution (Full 4K, 1080p,
+ * 2-Up / 4-Up split screens, or small remote preview boxes).
  */
 
-// ── Solunar Fishing Index Math (Match ForecastPanel.jsx) ───────────────────
+// ── Solunar Fishing Index Math ─────────────────────────────────────────────
 const LUNAR_CYCLE  = 29.53058867;
-const EPOCH_NEW_JD = 2459198.177; // Jan 13 2021 ~04:14 UTC
+const EPOCH_NEW_JD = 2459198.177;
 
 function julianDate(d = new Date()) {
   return (d.getTime() / 86400000) + 2440587.5;
@@ -32,7 +25,7 @@ function getMoonAge(d = new Date()) {
 function solunarScore(d = new Date()) {
   const age = getMoonAge(d);
   const theta = (age / LUNAR_CYCLE) * 2 * Math.PI;
-  const phase = (1 + Math.cos(2 * theta)) / 2; // 0-1, peaks at new & full
+  const phase = (1 + Math.cos(2 * theta)) / 2;
 
   const transitHour = (12 + (age * 24.84 / 24)) % 24;  // moon overhead
   const antiHour    = (transitHour + 12) % 24;          // moon underfoot
@@ -109,7 +102,7 @@ function getSunMoon(lat, lon, date = new Date()) {
   };
 }
 
-// ── Helper: Humidity Comfort Scale ─────────────────────────────────────────
+// ── Humidity Comfort Scale ────────────────────────────────────────────────
 function getHumidityComfort(rh) {
   if (rh == null) return { label: '—', color: '#94a3b8', percent: 0 };
   if (rh < 30)  return { label: 'Dry 🏜️',      color: '#f59e0b', percent: Math.max(10, rh) };
@@ -133,25 +126,21 @@ const WindCompass = ({ dir = 0, speed = 0, gust = 0 }) => {
   return (
     <div className="wx-wind-gauge">
       <svg viewBox="0 0 120 120" className="wx-compass-svg">
-        {/* Outer Ring & Ticks */}
-        <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(56, 189, 248, 0.2)" strokeWidth="2" />
-        <circle cx="60" cy="60" r="48" fill="rgba(15, 23, 42, 0.6)" />
+        <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(56, 189, 248, 0.25)" strokeWidth="2" />
+        <circle cx="60" cy="60" r="48" fill="rgba(15, 23, 42, 0.7)" />
         
-        {/* Cardinal Markers */}
         <text x="60" y="18" className="wx-compass-cardinal" textAnchor="middle">N</text>
         <text x="104" y="64" className="wx-compass-cardinal" textAnchor="middle">E</text>
         <text x="60" y="108" className="wx-compass-cardinal" textAnchor="middle">S</text>
         <text x="16" y="64" className="wx-compass-cardinal" textAnchor="middle">W</text>
 
-        {/* Rotating Needle (pointing direction wind is blowing to) */}
         <g transform={`rotate(${dir} 60 60)`}>
           <polygon points="60,22 55,50 65,50" fill="#f59e0b" />
           <polygon points="60,98 57,70 63,70" fill="rgba(255,255,255,0.3)" />
           <line x1="60" y1="22" x2="60" y2="98" stroke="#f59e0b" strokeWidth="1.5" opacity="0.6" />
         </g>
 
-        {/* Center Readout */}
-        <circle cx="60" cy="60" r="26" fill="rgba(11, 19, 41, 0.9)" stroke="rgba(245, 158, 11, 0.4)" strokeWidth="1" />
+        <circle cx="60" cy="60" r="26" fill="rgba(11, 19, 41, 0.95)" stroke="rgba(245, 158, 11, 0.5)" strokeWidth="1" />
         <text x="60" y="56" className="wx-compass-speed" textAnchor="middle">{speed}</text>
         <text x="60" y="66" className="wx-compass-unit" textAnchor="middle">MPH</text>
       </svg>
@@ -164,24 +153,21 @@ const WindCompass = ({ dir = 0, speed = 0, gust = 0 }) => {
   );
 };
 
-/** Virtual Rain Cup / Beaker Gauge */
+/** Virtual Rain Cup Gauge */
 const RainCup = ({ dailyRain = 0, rainRate = 0 }) => {
-  // Scale max 2.0 inches
   const maxRain = 2.0;
   const fillRatio = Math.min(Math.max(dailyRain / maxRain, 0), 1);
-  const fillHeight = fillRatio * 64; // px
+  const fillHeight = fillRatio * 64;
 
   return (
     <div className="wx-rain-cup-container">
       <div className="wx-rain-cup">
-        {/* Cup outline & graduation lines */}
         <div className="wx-cup-glass">
           <div className="wx-cup-ticks">
             <span className="wx-tick" style={{ bottom: '75%' }}>2.0"</span>
             <span className="wx-tick" style={{ bottom: '50%' }}>1.0"</span>
             <span className="wx-tick" style={{ bottom: '25%' }}>0.5"</span>
           </div>
-          {/* Liquid fill */}
           <div className="wx-cup-water" style={{ height: `${fillHeight}px` }}>
             <div className="wx-water-wave"></div>
           </div>
@@ -217,9 +203,7 @@ const HumidityGauge = ({ label, rh }) => {
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Main Panels
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Main Panels ────────────────────────────────────────────────────────────
 
 /** EcowittPanel: Local Weather Station */
 const EcowittPanel = ({ data }) => {
@@ -233,28 +217,24 @@ const EcowittPanel = ({ data }) => {
       </div>
 
       <div className="wx-ecowitt-main-grid">
-        {/* Left: Temp Big Readout */}
         <div className="wx-temp-card">
           <div className="wx-temp-main">{data.temp_out_f}°<span className="wx-unit">F</span></div>
           <div className="wx-temp-sub">Indoor: {data.temp_in_f}°F</div>
           <div className="wx-temp-dew">Dew Point: {data.dew_point_f}°F</div>
         </div>
 
-        {/* Center: Wind Compass */}
         <WindCompass 
           dir={data.wind_dir} 
           speed={data.wind_spd_mph} 
           gust={data.wind_gust_mph} 
         />
 
-        {/* Right: Virtual Rain Cup */}
         <RainCup 
           dailyRain={data.rain_daily_in || 0} 
           rainRate={data.rain_rate_in || 0} 
         />
       </div>
 
-      {/* Bottom: Humidity Comfort Scales & Secondary Stats */}
       <div className="wx-ecowitt-footer-grid">
         <HumidityGauge label="Outdoor Humidity" rh={data.humidity_out} />
         <HumidityGauge label="Indoor Humidity" rh={data.humidity_in} />
@@ -345,16 +325,12 @@ const TidePanel = ({ predictions }) => {
             </linearGradient>
           </defs>
 
-          {/* Area under curve */}
           <path d={areaD} fill="url(#tideGrad)" />
-          {/* Curve */}
           <path d={pathD} fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" />
 
-          {/* Current Time Indicator Line */}
           <line x1={nowX} y1="0" x2={nowX} y2={svgH} stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="3 3" />
           <circle cx={nowX} cy={nowY} r="4.5" fill="#f59e0b" stroke="#ffffff" strokeWidth="1.5" />
 
-          {/* High / Low Tide Markers */}
           {pts.map((p, i) => p.tide_type ? (
             <g key={i} transform={`translate(${toX(i)}, ${toY(p.height_ft)})`}>
               <circle r="3" fill={p.tide_type === 'H' ? '#38bdf8' : '#cbd5e1'} />
@@ -372,7 +348,6 @@ const TidePanel = ({ predictions }) => {
         </svg>
       </div>
 
-      {/* High / Low Event Cards */}
       <div className="wx-tide-cards-row">
         {upcoming.slice(0, 4).map((p, i) => (
           <div key={i} className={`wx-tide-card ${p.tide_type === 'H' ? 'hi' : 'lo'}`}>
@@ -386,7 +361,7 @@ const TidePanel = ({ predictions }) => {
   );
 };
 
-/** FishingPanel: Solunar Fishing Index (Exact match to Dashboard ForecastPanel.jsx) */
+/** FishingPanel: Solunar Fishing Index */
 const FishingPanel = () => {
   const fish = solunarScore();
   const ratingColor = {
@@ -404,7 +379,6 @@ const FishingPanel = () => {
       </div>
 
       <div className="wx-fish-main">
-        {/* Rating Header */}
         <div className="wx-fish-rating-box">
           <div className="wx-fish-stars">
             {[1,2,3,4].map(s => (
@@ -416,7 +390,6 @@ const FishingPanel = () => {
           </div>
         </div>
 
-        {/* Major & Minor Periods */}
         <div className="wx-fish-periods-grid">
           <div className="wx-period-box">
             <div className="wx-period-hdr">MAJOR PERIODS (2HR WINDOWS)</div>
@@ -483,16 +456,39 @@ const SunMoonPanel = ({ sunMoon }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Root Weather View Component
+// Root Scalable Weather View Component
 // ─────────────────────────────────────────────────────────────────────────────
 const CurrentWeatherView = React.memo(({ config }) => {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [lastFetch, setLastFetch] = useState(null);
-  const refreshMs = (config?.refreshIntervalSeconds || 300) * 1000;
+  const rootRef = useRef(null);
 
+  const refreshMs = (config?.refreshIntervalSeconds || 300) * 1000;
   const HOME_LAT = 21.2861516;
   const HOME_LON = -157.7935187;
+
+  // Dynamic Scale Observer (scales fonts & UI based on container width & height)
+  useEffect(() => {
+    if (!rootRef.current) return;
+    const ro = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        // Reference dimensions: 1100x650
+        const scaleW = width / 1100;
+        const scaleH = height / 650;
+        const scale = Math.min(Math.max(Math.min(scaleW, scaleH), 0.45), 2.2);
+
+        if (rootRef.current) {
+          rootRef.current.style.setProperty('--wx-scale', scale.toFixed(3));
+          rootRef.current.style.setProperty('--wx-width', `${width}px`);
+          rootRef.current.style.setProperty('--wx-height', `${height}px`);
+        }
+      }
+    });
+    ro.observe(rootRef.current);
+    return () => ro.disconnect();
+  }, []);
 
   const fetchData = useCallback(async () => {
     try {
@@ -517,7 +513,7 @@ const CurrentWeatherView = React.memo(({ config }) => {
   const sunMoon = getSunMoon(HOME_LAT, HOME_LON);
 
   return (
-    <div className="wx-root" data-view="current-weather">
+    <div className="wx-root" data-view="current-weather" ref={rootRef}>
       {error && <div className="wx-error-banner">⚠️ Weather Data Update Delayed: {error}</div>}
 
       <div className="wx-dashboard-grid">
