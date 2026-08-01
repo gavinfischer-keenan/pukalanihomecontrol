@@ -52,3 +52,10 @@
 ### USB SSD
 - SMART monitoring available via `smartctl -a /dev/sda`
 - Weekly short self-test recommended: `smartctl -t short /dev/sda`
+
+
+## Aqara Camera 6 (Roof View)
+* **IP:** 192.168.1.39:8854
+* **Credentials:** 646:145
+* **Streams:** /ch1 (1520p), /ch2 (1080p), /ch3 (720p), /ch4 (360p)
+* **Status:** Registered, active

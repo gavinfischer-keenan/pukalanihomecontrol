@@ -10,12 +10,16 @@ FRONT_GARDEN=192.168.1.7
 BACK_DECK=192.168.1.9
 FRONT_STAIRS=192.168.1.8
 FRONT_DOORBELL=192.168.1.4
+NEW_AQARA=192.168.1.39
+GARAGE=192.168.1.22
 
 # Old IPs to replace
 OLD_FRONT_GARDEN=192.168.1.32
 OLD_BACK_DECK=192.168.1.33
 OLD_FRONT_STAIRS=192.168.1.34
 OLD_FRONT_DOORBELL=192.168.1.35
+OLD_NEW_AQARA=192.168.1.39
+OLD_GARAGE=192.168.1.22
 
 echo "=== Camera IP Registry Update ==="
 echo "  front_garden:   $OLD_FRONT_GARDEN → $FRONT_GARDEN"
@@ -60,6 +64,26 @@ cat > /opt/hawaii-tracker/camera-registry.json << REGISTRY
       "rtsp_path_main": "/ch2",
       "rtsp_path_sub": "/ch1",
       "creds": "549:322"
+    },
+    "garage_cam": {
+      "ip": "$GARAGE",
+      "mac": "UNKNOWN",
+      "port": 8554,
+      "rtsp_path_1520p": "/ch1",
+      "rtsp_path_1080p": "/ch2",
+      "rtsp_path_720p": "/ch3",
+      "rtsp_path_360p": "/ch4",
+      "creds": "737:796"
+    },
+    "new_aqara_cam": {
+      "ip": "$NEW_AQARA",
+      "mac": "UNKNOWN",
+      "port": 8854,
+      "rtsp_path_1520p": "/ch1",
+      "rtsp_path_1080p": "/ch2",
+      "rtsp_path_720p": "/ch3",
+      "rtsp_path_360p": "/ch4",
+      "creds": "646:145"
     }
   }
 }
