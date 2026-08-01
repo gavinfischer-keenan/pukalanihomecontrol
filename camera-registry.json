@@ -45,9 +45,9 @@
       "creds": "737:796"
     },
     "new_aqara_cam": {
-      "ip": "192.168.1.39",
-      "mac": "UNKNOWN",
-      "port": 8854,
+      "ip": "192.168.1.30",
+      "mac": "18:C2:3C:7A:E9:DB",
+      "port": 8554,
       "rtsp_path_1520p": "/ch1",
       "rtsp_path_1080p": "/ch2",
       "rtsp_path_720p": "/ch3",

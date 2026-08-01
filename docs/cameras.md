@@ -17,7 +17,7 @@ System supports up to 9 slots. All cameras use RTSP on port `8554`.
 | aqara_cam_3 | House Looking Down Front Stairs | 192.168.1.34 | 741:574 | `/1080p` | `/1520p` | Aqara |
 | front_doorbell | Front Doorbell | 192.168.1.35 | 549:322 | `/ch2` (960p) | `/ch1` (1536p) | Doorbell |
 | garage_cam | Garage | 192.168.1.22 | 737:796 | `/ch2` | `/ch1` | Aqara |
-| aqara_cam_6 | Roof View | 192.168.1.39 | 646:145 | `/ch2` (1080p) | `/ch1` (1520p) | Aqara |
+| aqara_cam_6 | Roof View | 192.168.1.30 | 646:145 | `/ch2` (1080p) | `/ch1` (1520p) | Aqara |
 | Slots 7-9 | - | - | - | - | - | - |
 
 ### Stream Resolution Reference

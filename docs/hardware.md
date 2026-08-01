@@ -55,7 +55,7 @@
 
 
 ## Aqara Camera 6 (Roof View)
-* **IP:** 192.168.1.39:8854
+* **IP:** 192.168.1.30:8554
 * **Credentials:** 646:145
 * **Streams:** /ch1 (1520p), /ch2 (1080p), /ch3 (720p), /ch4 (360p)
 * **Status:** Registered, active
