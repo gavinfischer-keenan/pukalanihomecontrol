@@ -331,3 +331,95 @@ The full Photo Chronologizer application now runs on Gavin's Windows desktop mac
 - **Trail Fallback**: `/api/trails/:id` automatically falls back to recent `live_tracks` points (last 12h) if `track_history` has < 2 points today.
 - **Client Trail Vectoring**: `mergeTrail` in `TrailLayer.jsx` synthesizes a 2-point trailing line for single-point live fixes using speed and heading so every active vessel (e.g. `KAPENA BOB PURDY`) immediately displays a visible trail.
 - **Global Track Recording**: `recordVesselTrackPoint` records points for all local SDR vessels into `track_history`.
+
+---
+
+## Kiosk Display System (CT114 + Host Chromium)
+
+### Architecture
+
+```
+Proxmox Host (192.168.1.100)
+  └─ corner-kiosk.service
+       └─ xinit → start-kiosk.sh
+            ├─ Chromium #1 (Main TV, HDMI-3, 3840x2160)
+            │    └─ loads http://192.168.1.114:3000/#maintv
+            │         └─ WebSocket → ws://192.168.1.114:3000/ws
+            └─ Chromium #2 (Corner Monitor, HDMI-1, 1920x1080)
+                 └─ loads http://192.168.1.114:3000/#corner
+                      └─ WebSocket → ws://192.168.1.114:3000/ws
+
+CT114 (192.168.1.114) — display-server.service
+  ├─ Express HTTP on :3000 (serves built Vite SPA from /dist)
+  ├─ WebSocket on ws://0.0.0.0:3000/ws (state sync)
+  ├─ SQLite state.db (persists view/layout state)
+  └─ cameras.json (camera registry for views)
+
+Remote controller: http://192.168.1.114:3000/#remote (any browser)
+```
+
+### Root Cause of 2026-08-01 Outage
+
+**Symptom**: Main TV showed blank/frozen screen. Corner monitor showed content.
+
+**Root Cause**: WebSocket connection from host Chromium to CT114 display-server
+stuck in a permanent reconnect loop (code=1002 WebSocket Protocol Error). This
+started at ~20:55 UTC coinciding with a `pm2 restart all` on CT108 that restarted
+the http-proxy-middleware pointing to CT108. The proxy restart caused the Vite
+bundle's WS upgrade request to be mishandled during reconnection, locking
+Chromium into a code=1002 retry storm.
+
+**Why Nanny Didn't Catch It**: The `kiosk-watchdog.sh` only checked:
+1. `ps -C chromium` — process was alive ✅
+2. Memory usage — was under old 1024MB limit... wait, log shows 1600-1800MB
+   being restarted every 30 min, but the *WS disconnect* failure mode was
+   entirely undetected.
+
+**The watchdog ran every 30 min** but the kiosk was broken continuously
+since ~10:55 AM HST. The watchdog did NOT check WebSocket connectivity.
+
+### Countermeasures Applied
+
+1. **Enhanced `kiosk-watchdog.sh`** (deployed 2026-08-01):
+   - Added WebSocket client count check via `/api/health` JSON `displays` key
+   - If WS clients = 0 → automatically restarts `corner-kiosk`
+   - Added display-server HTTP health check → restarts `display-server` then `corner-kiosk`
+   - Reduced memory limit from 1024MB to 1200MB
+   - **Changed cron interval from `*/30` to `*/5` minutes**
+
+2. **Test Suite** (`/opt/hawaii-tracker/scripts/test-kiosk-health.sh`):
+   - T1: HTTP reachability
+   - T2: /api/health valid JSON
+   - T3: WebSocket client count ≥ 1 (KEY NEW CHECK)
+   - T4: /api/state non-null
+   - T5: /api/cameras non-empty
+   - T6: /api/config non-empty
+   - T7: Chromium process alive
+   - T8: corner-kiosk service active
+   - T9: No WS code=1002 errors in last 5 min
+   - T10: kiosk-watchdog cron installed
+
+3. **Server-side WS heartbeat** added to `display-server/server.js`:
+   - 30-second ping/pong keeps WS connections alive through proxy restarts
+   - Dead connections are cleaned from `connectedDisplays` map automatically
+
+### Key Files
+
+| File | Location | Purpose |
+|---|---|---|
+| `start-kiosk.sh` | `/opt/corner-kiosk/start-kiosk.sh` | Host: launches Xorg + Chromium |
+| `corner-kiosk.service` | `/etc/systemd/system/corner-kiosk.service` | Host: systemd unit |
+| `kiosk-watchdog.sh` | `/opt/hawaii-tracker/scripts/kiosk-watchdog.sh` | Host: cron watchdog (*/5) |
+| `test-kiosk-health.sh` | `/opt/hawaii-tracker/scripts/test-kiosk-health.sh` | Host: manual test suite |
+| `server.js` | `/opt/display-server/server.js` | CT114: display-server backend |
+| `useDisplayState.js` | `/opt/display-server/src/hooks/useDisplayState.js` | CT114: WS client reconnect |
+| `cameras.json` | `/opt/display-server/cameras.json` | CT114: camera registry |
+| `state.db` | `/opt/display-server/state.db` | CT114: persistent view state |
+
+### Maintenance
+
+- To manually test: `bash /opt/hawaii-tracker/scripts/test-kiosk-health.sh`
+- To manually restart kiosk: `systemctl restart corner-kiosk`
+- To restart display backend: `pct exec 114 -- systemctl restart display-server`
+- To check live WS clients: `curl http://192.168.1.114:3000/api/health`
+- Watchdog log: `tail -f /var/log/kiosk-watchdog.log`
