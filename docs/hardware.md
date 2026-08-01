@@ -55,7 +55,7 @@
 
 
 ## Aqara Camera 6 (Roof View)
-* **IP:** 192.168.1.30:8554
+* **IP:** 192.168.1.222:8554
 * **MAC:** `18:C2:3C:7A:E9:DB`
 * **Credentials:** 646:145
 * **Role:** Aimed at Diamond Head for live monitoring and scheduled timelapse image capture.

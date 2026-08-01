@@ -1,31 +1,48 @@
 #!/bin/bash
 # ══════════════════════════════════════════════════════════════
 # Camera IP Update Script
-# Updates camera IPs in BirdNET (CT112) and Frigate (CT113)
-# Also maintains a central registry at /opt/hawaii-tracker/camera-registry.json
+# Updates camera IPs across all services:
+#   - Central Registry (/opt/hawaii-tracker/camera-registry.json)
+#   - BirdNET (CT112)
+#   - Frigate NVR (CT113)
+#   - Display Server / Kiosk (CT114)
+#   - Roofcam / Diamond Head Timelapse (CT114)
+#   - Architecture Docs (CT108)
 # ══════════════════════════════════════════════════════════════
 
-# Current mappings (update these when IPs change):
-FRONT_GARDEN=192.168.1.7
-BACK_DECK=192.168.1.9
-FRONT_STAIRS=192.168.1.8
-FRONT_DOORBELL=192.168.1.4
-NEW_AQARA=192.168.1.30
-GARAGE=192.168.1.22
+# Target Camera IPs:
+FRONT_GARDEN=192.168.1.213
+BACK_DECK=192.168.1.143
+FRONT_DOORBELL=192.168.1.141
+FRONT_STAIRS=192.168.1.187
+GARAGE=192.168.1.80
+ROOF_VIEW=192.168.1.222
 
-# Old IPs to replace
-OLD_FRONT_GARDEN=192.168.1.32
-OLD_BACK_DECK=192.168.1.33
-OLD_FRONT_STAIRS=192.168.1.34
-OLD_FRONT_DOORBELL=192.168.1.35
-OLD_NEW_AQARA=192.168.1.30
+# Previous IPs to replace:
+OLD_FRONT_GARDEN_1=192.168.1.7
+OLD_FRONT_GARDEN_2=192.168.1.32
+
+OLD_BACK_DECK_1=192.168.1.9
+OLD_BACK_DECK_2=192.168.1.33
+
+OLD_FRONT_DOORBELL_1=192.168.1.4
+OLD_FRONT_DOORBELL_2=192.168.1.35
+
+OLD_FRONT_STAIRS_1=192.168.1.8
+OLD_FRONT_STAIRS_2=192.168.1.34
+
 OLD_GARAGE=192.168.1.22
 
+OLD_ROOF_VIEW_1=192.168.1.30
+OLD_ROOF_VIEW_2=192.168.1.122
+
 echo "=== Camera IP Registry Update ==="
-echo "  front_garden:   $OLD_FRONT_GARDEN → $FRONT_GARDEN"
-echo "  back_deck:      $OLD_BACK_DECK → $BACK_DECK"
-echo "  front_stairs:   $OLD_FRONT_STAIRS → $FRONT_STAIRS"
-echo "  front_doorbell: $OLD_FRONT_DOORBELL → $FRONT_DOORBELL"
+echo "  Front Garden:  → $FRONT_GARDEN"
+echo "  Back Deck:     → $BACK_DECK"
+echo "  Doorbell:      → $FRONT_DOORBELL"
+echo "  Front Stairs:  → $FRONT_STAIRS"
+echo "  Garage:        → $GARAGE"
+echo "  Roof View:     → $ROOF_VIEW"
 
 # ── 1. Create central registry ──────────────────────────────
 cat > /opt/hawaii-tracker/camera-registry.json << REGISTRY
@@ -67,7 +84,7 @@ cat > /opt/hawaii-tracker/camera-registry.json << REGISTRY
     },
     "garage_cam": {
       "ip": "$GARAGE",
-      "mac": "UNKNOWN",
+      "mac": "18:C2:3C:6B:30:7F",
       "port": 8554,
       "rtsp_path_1520p": "/ch1",
       "rtsp_path_1080p": "/ch2",
@@ -75,9 +92,9 @@ cat > /opt/hawaii-tracker/camera-registry.json << REGISTRY
       "rtsp_path_360p": "/ch4",
       "creds": "737:796"
     },
-    "new_aqara_cam": {
-      "ip": "$NEW_AQARA",
-      "mac": "UNKNOWN",
+    "roof_view_cam": {
+      "ip": "$ROOF_VIEW",
+      "mac": "18:C2:3C:7A:E9:DB",
       "port": 8554,
       "rtsp_path_1520p": "/ch1",
       "rtsp_path_1080p": "/ch2",
@@ -94,10 +111,17 @@ echo "  ✅ Registry saved to /opt/hawaii-tracker/camera-registry.json"
 echo ""
 echo "--- BirdNET (CT112) ---"
 pct exec 112 -- sed -i \
-  -e "s|$OLD_FRONT_GARDEN|$FRONT_GARDEN|g" \
-  -e "s|$OLD_BACK_DECK|$BACK_DECK|g" \
-  -e "s|$OLD_FRONT_STAIRS|$FRONT_STAIRS|g" \
-  -e "s|$OLD_FRONT_DOORBELL|$FRONT_DOORBELL|g" \
+  -e "s|$OLD_FRONT_GARDEN_1|$FRONT_GARDEN|g" \
+  -e "s|$OLD_FRONT_GARDEN_2|$FRONT_GARDEN|g" \
+  -e "s|$OLD_BACK_DECK_1|$BACK_DECK|g" \
+  -e "s|$OLD_BACK_DECK_2|$BACK_DECK|g" \
+  -e "s|$OLD_FRONT_STAIRS_1|$FRONT_STAIRS|g" \
+  -e "s|$OLD_FRONT_STAIRS_2|$FRONT_STAIRS|g" \
+  -e "s|$OLD_FRONT_DOORBELL_1|$FRONT_DOORBELL|g" \
+  -e "s|$OLD_FRONT_DOORBELL_2|$FRONT_DOORBELL|g" \
+  -e "s|$OLD_GARAGE|$GARAGE|g" \
+  -e "s|$OLD_ROOF_VIEW_1|$ROOF_VIEW|g" \
+  -e "s|$OLD_ROOF_VIEW_2|$ROOF_VIEW|g" \
   /opt/birdnet/config/config.yaml
 echo "  ✅ config.yaml updated"
 
@@ -112,45 +136,108 @@ echo "  ✅ birdnet_go restarted"
 echo ""
 echo "--- Frigate (CT113) ---"
 pct exec 113 -- sed -i \
-  -e "s|$OLD_FRONT_GARDEN|$FRONT_GARDEN|g" \
-  -e "s|$OLD_BACK_DECK|$BACK_DECK|g" \
-  -e "s|$OLD_FRONT_STAIRS|$FRONT_STAIRS|g" \
-  -e "s|$OLD_FRONT_DOORBELL|$FRONT_DOORBELL|g" \
+  -e "s|$OLD_FRONT_GARDEN_1|$FRONT_GARDEN|g" \
+  -e "s|$OLD_FRONT_GARDEN_2|$FRONT_GARDEN|g" \
+  -e "s|$OLD_BACK_DECK_1|$BACK_DECK|g" \
+  -e "s|$OLD_BACK_DECK_2|$BACK_DECK|g" \
+  -e "s|$OLD_FRONT_STAIRS_1|$FRONT_STAIRS|g" \
+  -e "s|$OLD_FRONT_STAIRS_2|$FRONT_STAIRS|g" \
+  -e "s|$OLD_FRONT_DOORBELL_1|$FRONT_DOORBELL|g" \
+  -e "s|$OLD_FRONT_DOORBELL_2|$FRONT_DOORBELL|g" \
+  -e "s|$OLD_GARAGE|$GARAGE|g" \
+  -e "s|$OLD_ROOF_VIEW_1|$ROOF_VIEW|g" \
+  -e "s|$OLD_ROOF_VIEW_2|$ROOF_VIEW|g" \
   /opt/frigate/config/config.yml
-echo "  ✅ config.yml updated"
 
-# Also update backup config
 pct exec 113 -- sed -i \
-  -e "s|$OLD_FRONT_GARDEN|$FRONT_GARDEN|g" \
-  -e "s|$OLD_BACK_DECK|$BACK_DECK|g" \
-  -e "s|$OLD_FRONT_STAIRS|$FRONT_STAIRS|g" \
-  -e "s|$OLD_FRONT_DOORBELL|$FRONT_DOORBELL|g" \
+  -e "s|$OLD_FRONT_GARDEN_1|$FRONT_GARDEN|g" \
+  -e "s|$OLD_FRONT_GARDEN_2|$FRONT_GARDEN|g" \
+  -e "s|$OLD_BACK_DECK_1|$BACK_DECK|g" \
+  -e "s|$OLD_BACK_DECK_2|$BACK_DECK|g" \
+  -e "s|$OLD_FRONT_STAIRS_1|$FRONT_STAIRS|g" \
+  -e "s|$OLD_FRONT_STAIRS_2|$FRONT_STAIRS|g" \
+  -e "s|$OLD_FRONT_DOORBELL_1|$FRONT_DOORBELL|g" \
+  -e "s|$OLD_FRONT_DOORBELL_2|$FRONT_DOORBELL|g" \
+  -e "s|$OLD_GARAGE|$GARAGE|g" \
+  -e "s|$OLD_ROOF_VIEW_1|$ROOF_VIEW|g" \
+  -e "s|$OLD_ROOF_VIEW_2|$ROOF_VIEW|g" \
   /opt/frigate/config/backup_config.yaml 2>/dev/null
 
+echo "  ✅ config.yml updated"
+
 # Verify
-pct exec 113 -- grep 'path:.*rtsp' /opt/frigate/config/config.yml | head -8
+pct exec 113 -- grep 'path:.*rtsp' /opt/frigate/config/config.yml | head -12
 
 # Restart Frigate docker container
 pct exec 113 -- docker restart frigate 2>/dev/null
 echo "  ✅ frigate restarted"
 
-# ── 4. Update birdnet-audio-bridge on CT113 ──────────────────
+# ── 4. Update Display Server (CT114) ────────────────────────
 echo ""
-echo "--- Audio bridge (CT113) ---"
-BRIDGE_CONF=$(pct exec 113 -- cat /etc/systemd/system/birdnet-audio-bridge.service 2>/dev/null | grep -c "$OLD_FRONT_GARDEN\|$OLD_BACK_DECK\|$OLD_FRONT_STAIRS\|$OLD_FRONT_DOORBELL")
-if [ "$BRIDGE_CONF" -gt 0 ]; then
-  pct exec 113 -- sed -i \
-    -e "s|$OLD_FRONT_GARDEN|$FRONT_GARDEN|g" \
-    -e "s|$OLD_BACK_DECK|$BACK_DECK|g" \
-    -e "s|$OLD_FRONT_STAIRS|$FRONT_STAIRS|g" \
-    -e "s|$OLD_FRONT_DOORBELL|$FRONT_DOORBELL|g" \
-    /etc/systemd/system/birdnet-audio-bridge.service
-  pct exec 113 -- systemctl daemon-reload
-  pct exec 113 -- systemctl restart birdnet-audio-bridge
-  echo "  ✅ audio bridge updated & restarted"
-else
-  echo "  ℹ️  No old camera IPs in audio bridge config"
-fi
+echo "--- Display Server / Kiosk (CT114) ---"
+pct exec 114 -- python3 -c "
+import json
+path = '/opt/display-server/cameras.json'
+with open(path, 'r') as f:
+    data = json.load(f)
+
+ip_map = {
+    'aqara_cam_1': '$FRONT_GARDEN',
+    'aqara_cam_2': '$BACK_DECK',
+    'aqara_cam_3': '$FRONT_STAIRS',
+    'front_doorbell': '$FRONT_DOORBELL',
+    'aqara_cam_5': '$GARAGE',
+    'aqara_cam_6': '$ROOF_VIEW'
+}
+
+for cam in data.get('cameras', []):
+    cid = cam.get('id')
+    if cid in ip_map:
+        cam['ip'] = ip_map[cid]
+
+with open(path, 'w') as f:
+    json.dump(data, f, indent=2)
+print('  ✅ cameras.json updated on CT114')
+"
+
+pct exec 114 -- systemctl restart display-server
+echo "  ✅ display-server restarted"
+
+# ── 5. Update Roofcam Timelapse Daemon (CT114) ─────────────
+echo ""
+echo "--- Roofcam Timelapse (CT114) ---"
+pct exec 114 -- python3 -c "
+import json
+path = '/opt/roofcam/config.json'
+with open(path, 'r') as f:
+    data = json.load(f)
+
+data['camera']['ip'] = '$ROOF_VIEW'
+
+with open(path, 'w') as f:
+    json.dump(data, f, indent=2)
+print('  ✅ config.json updated for roofcam')
+"
+
+pct exec 114 -- systemctl restart roofcam 2>/dev/null || pct exec 114 -- systemctl restart roofcam-capture 2>/dev/null
+echo "  ✅ roofcam service restarted"
+
+# ── 6. Update Architecture Docs ──────────────────────────────
+pct exec 108 -- sed -i -e "s|$OLD_ROOF_VIEW_1|$ROOF_VIEW|g" -e "s|$OLD_ROOF_VIEW_2|$ROOF_VIEW|g" /opt/dashboard/architecture.md 2>/dev/null
+
+sed -i \
+  -e "s|$OLD_FRONT_GARDEN_1|$FRONT_GARDEN|g" \
+  -e "s|$OLD_FRONT_GARDEN_2|$FRONT_GARDEN|g" \
+  -e "s|$OLD_BACK_DECK_1|$BACK_DECK|g" \
+  -e "s|$OLD_BACK_DECK_2|$BACK_DECK|g" \
+  -e "s|$OLD_FRONT_STAIRS_1|$FRONT_STAIRS|g" \
+  -e "s|$OLD_FRONT_STAIRS_2|$FRONT_STAIRS|g" \
+  -e "s|$OLD_FRONT_DOORBELL_1|$FRONT_DOORBELL|g" \
+  -e "s|$OLD_FRONT_DOORBELL_2|$FRONT_DOORBELL|g" \
+  -e "s|$OLD_GARAGE|$GARAGE|g" \
+  -e "s|$OLD_ROOF_VIEW_1|$ROOF_VIEW|g" \
+  -e "s|$OLD_ROOF_VIEW_2|$ROOF_VIEW|g" \
+  /opt/hawaii-tracker/docs/cameras.md /opt/hawaii-tracker/docs/hardware.md 2>/dev/null
 
 echo ""
-echo "=== DONE — All camera IPs updated ==="
+echo "=== DONE — All camera IPs updated to 192.168.1.222 and services restarted ==="
