@@ -58,17 +58,32 @@ const LIVE_CACHE = {};  // { id: [{ lat, lon, altitude, time }] }
 
 // ── Merge DB trail points + live ring buffer ───────────────────────────────────
 function mergeTrail(dbPoints, liveBuffer) {
-  if (!dbPoints || !dbPoints.length) {
-    return (liveBuffer || []).map(p => ({
-      lat: p.lat, lon: p.lon, altitude: p.altitude, source_type: 'ais',
+  let pts = [];
+  if (dbPoints && dbPoints.length) {
+    const lastDbTime = new Date(dbPoints[dbPoints.length - 1].recorded_at).getTime();
+    const freshLive  = (liveBuffer || []).filter(p => p.time > lastDbTime + 5000);
+    pts = [
+      ...dbPoints.map(p => ({ lat: p.lat, lon: p.lon, altitude: p.altitude, source_type: p.source_type || 'ais', speed: p.speed, heading: p.heading })),
+      ...freshLive.map(p => ({ lat: p.lat, lon: p.lon, altitude: p.altitude, source_type: 'ais', speed: p.speed, heading: p.heading })),
+    ];
+  } else {
+    pts = (liveBuffer || []).map(p => ({
+      lat: p.lat, lon: p.lon, altitude: p.altitude, source_type: 'ais', speed: p.speed, heading: p.heading,
     }));
   }
-  const lastDbTime = new Date(dbPoints[dbPoints.length - 1].recorded_at).getTime();
-  const freshLive  = (liveBuffer || []).filter(p => p.time > lastDbTime + 5000);
-  return [
-    ...dbPoints.map(p => ({ lat: p.lat, lon: p.lon, altitude: p.altitude, source_type: p.source_type || 'ais' })),
-    ...freshLive.map(p => ({ lat: p.lat, lon: p.lon, altitude: p.altitude, source_type: 'ais' })),
-  ];
+
+  // Fallback: if only 1 point exists, generate a short 2-point tail backwards using heading & speed
+  if (pts.length === 1 && pts[0].lat != null && pts[0].lon != null) {
+    const p = pts[0];
+    const spd = p.speed || 5;
+    const hdg = p.heading != null && p.heading < 360 ? p.heading : 0;
+    const pastPt = deadReckon(p.lat, p.lon, spd, (hdg + 180) % 360, 180);
+    return [
+      { lat: pastPt.lat, lon: pastPt.lon, source_type: p.source_type || 'ais' },
+      p
+    ];
+  }
+  return pts;
 }
 
 // ── Build polyline segments from merged point array ───────────────────────────

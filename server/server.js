@@ -147,6 +147,18 @@ app.get('/api/vessels', async (req, res) => {
       recordVesselSighting(String(v.entity_id), v.vessel_name).catch(()=>{});
       if (v.lat && v.lon) recordVesselTrackPoint(String(v.entity_id), v.lat, v.lon, v.speed, v.heading).catch(()=>{});
     });
+    if (result.rows.length < 2) {
+      const ltResult = await pool.query(`
+        SELECT ST_X(location::geometry) AS lon, ST_Y(location::geometry) AS lat, speed, heading, recorded_at, source_type
+        FROM live_tracks
+        WHERE entity_id = $1
+          AND recorded_at > NOW() - INTERVAL '12 hours'
+        ORDER BY recorded_at ASC;
+      `, [req.params.id]);
+      if (ltResult.rows.length >= 2) {
+        result = ltResult;
+      }
+    }
     res.json(result.rows);
   } catch (err) {
     console.error('vessels query error:', err.message);
@@ -170,8 +182,8 @@ app.get('/api/vessels/nearby', async (req, res) => {
     const known = await pool.query(
       "SELECT entity_id FROM entities WHERE entity_type='VESSEL' AND last_seen > NOW() - INTERVAL '30 minutes'"
     );
-    const knownSet = new Set(known.rows.map(r => r.entity_id));
-    const nearby = data.filter(v => v.mmsi && !knownSet.has(v.mmsi));
+    const knownSet = new Set(known.rows.map(r => String(r.entity_id)));
+    const nearby = data.filter(v => v.mmsi && !knownSet.has(String(v.mmsi)));
     res.json(nearby);
   } catch (err) {
     console.error('nearby error:', err.message);
@@ -742,12 +754,7 @@ async function recordVesselTrackPoint(mmsi, lat, lon, speed, heading) {
   if (!mmsi || lat == null || lon == null) return;
   if (typeof recordTrackPoint !== 'function') return;
   try {
-    const { rows } = await pool.query(
-      `SELECT 1 FROM vessel_info WHERE mmsi=$1 AND (auto_detected OR is_pinned) LIMIT 1`, [mmsi]
-    );
-    if (rows.length) {
-      await recordTrackPoint(pool, 'vessel', String(mmsi), lat, lon, null, speed, heading);
-    }
+    await recordTrackPoint(pool, 'vessel', String(mmsi), lat, lon, null, speed, heading);
   } catch {}
 }
 
