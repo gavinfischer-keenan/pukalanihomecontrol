@@ -1,0 +1,24 @@
+[Unit]
+Description=RTL-SDR TCP Server (Blog V4 — AIS 162MHz)
+Documentation=https://github.com/osmocom/rtl-sdr
+After=network.target
+# Runs on Proxmox host — no USB passthrough headaches
+
+[Service]
+Type=simple
+User=root
+Restart=always
+RestartSec=10
+SuccessExitStatus=1
+# Blog V4 SN:00000001, 162MHz AIS, 1536kHz sample rate
+# -g 49.6  = fixed gain 49.6dB (optimal for VHF marine AIS on Blog V4)
+#            Auto-gain (-g 0) sets ~20-25dB which misses weak/distant targets
+# -T       = enable bias-T (powers Blog V4 LNA and any external preamp)
+# -s 1536000 = 1.536 Msps covers both AIS ch 87B (161.975) + 88B (162.025)
+ExecStart=/usr/bin/rtl_tcp -d 00000001 -a 0.0.0.0 -p 1234 -s 1536000 -g 49.6 -T
+# Graceful stop
+KillSignal=SIGTERM
+TimeoutStopSec=5
+
+[Install]
+WantedBy=multi-user.target
