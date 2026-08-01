@@ -325,3 +325,9 @@ The full Photo Chronologizer application now runs on Gavin's Windows desktop mac
 - **Local Antenna (source_type='ais')**: Displayed with green badge `📡 SDR` in map tooltips and `📡 Local SDR Antenna` under Data Source in DetailPanel.
 - **AISHub Network (source_type='aishub')**: Displayed with cyan badge `🌐 AISHub` in map tooltips and `🌐 AISHub Network` under Data Source in DetailPanel.
 - **Entity Naming**: `SLNC SEVERN` (MMSI 538010358) updated in `entities` and `vessel_info` tables from legacy name (`PAULA GLORY`).
+
+### Vessel Deduplication & Trail Fallback (2026-08-01)
+- **Vessel Name Deduplication**: `/api/vessels/nearby` deduplicates AISHub network vessels against local database active vessels using both MMSI and vessel name (`knownNames` set). Eliminates duplicate ghost vessels (e.g. stale `SLNC SEVERN` AISHub record at 25nm superseded by live local SDR vessel at 5nm).
+- **Trail Fallback**: `/api/trails/:id` automatically falls back to recent `live_tracks` points (last 12h) if `track_history` has < 2 points today.
+- **Client Trail Vectoring**: `mergeTrail` in `TrailLayer.jsx` synthesizes a 2-point trailing line for single-point live fixes using speed and heading so every active vessel (e.g. `KAPENA BOB PURDY`) immediately displays a visible trail.
+- **Global Track Recording**: `recordVesselTrackPoint` records points for all local SDR vessels into `track_history`.
