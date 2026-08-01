@@ -320,3 +320,8 @@ The full Photo Chronologizer application now runs on Gavin's Windows desktop mac
 2. Implemented  fallback resolution in : automatically checks , , and fuzzy filename matches if  is missing.
 3. Added SVG placeholder fallback: if an image file cannot be read,  returns a valid SVG placeholder image instead of throwing , preventing UI freezes.
 4. Updated retention policy: extended retention to 168 hours (7 days) and added active DB session checks so active sessions are never purged automatically.
+
+### AIS Source Badges & Entity Naming (2026-08-01)
+- **Local Antenna (source_type='ais')**: Displayed with green badge `📡 SDR` in map tooltips and `📡 Local SDR Antenna` under Data Source in DetailPanel.
+- **AISHub Network (source_type='aishub')**: Displayed with cyan badge `🌐 AISHub` in map tooltips and `🌐 AISHub Network` under Data Source in DetailPanel.
+- **Entity Naming**: `SLNC SEVERN` (MMSI 538010358) updated in `entities` and `vessel_info` tables from legacy name (`PAULA GLORY`).
