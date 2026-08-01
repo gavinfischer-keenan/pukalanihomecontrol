@@ -777,6 +777,7 @@ export default function DetailPanel({ entity, onClose, apiBase }) {
             <Row label="Vessel Name" value={entity.vessel_name} />
             <Row label="Callsign"    value={entity.callsign} />
             <Row label="Type"        value={vesselTypeName(entity.vessel_type)} />
+            <Row label="Data Source" value={entity.source_type === 'aishub' ? '🌐 AISHub Network' : '📡 Local SDR Antenna'} />
           </Section>
           <Section title="SPATIAL">
             <Row label="Speed"      value={fmt(entity.speed, 1)}   unit="kt" highlight />

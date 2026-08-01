@@ -231,9 +231,9 @@ function makeVesselLabel(vessel, color, vclass, prediction) {
   }
   if (vtype) {
     if (vessel.source_type === 'aishub') {
-      lines += `<div class="ac-label-line" style="font-size:9px;opacity:0.75">${vtype} <span style="color:#00bfff;font-size:8px;border:1px solid #00bfff;border-radius:2px;padding:0 2px;margin-left:2px">AIS</span></div>`;
+      lines += `<div class="ac-label-line" style="font-size:9px;opacity:0.75">${vtype} <span style="color:#00bfff;font-size:8px;border:1px solid #00bfff;border-radius:2px;padding:0 2px;margin-left:2px">🌐 AISHub</span></div>`;
     } else {
-      lines += `<div class="ac-label-line" style="font-size:9px;opacity:0.75">${vtype}</div>`;
+      lines += `<div class="ac-label-line" style="font-size:9px;opacity:0.75">${vtype} <span style="color:#10b981;font-size:8px;border:1px solid #10b981;border-radius:2px;padding:0 2px;margin-left:2px">📡 SDR</span></div>`;
     }
   }
   if (spd || navStr) {
