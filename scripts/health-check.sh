@@ -1,6 +1,8 @@
 #!/bin/bash
 # /opt/hawaii-tracker/scripts/health-check.sh
 # Unified health monitor — runs every 5 minutes via cron
+# Ensure sbin commands (pct, qm, pg_isready) are in PATH when run via cron
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" 
 # Checks all services, auto-restarts on failure, logs results
 
 LOG=/var/log/health-check.log
