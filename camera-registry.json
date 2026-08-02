@@ -1,6 +1,6 @@
 {
-  "updated": "2026-08-01T08:48:53-10:00",
-  "note": "Central camera IP registry. Update IPs here then run: bash /opt/hawaii-tracker/scripts/update-camera-ips.sh",
+  "updated": "2026-08-02T09:20:16.541646",
+  "note": "Central camera IP registry. Fixed version.",
   "cameras": {
     "front_garden_cam": {
       "ip": "192.168.1.213",

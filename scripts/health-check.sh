@@ -58,7 +58,7 @@ check_http "dashboard-api" "http://192.168.1.108:3001/api/health" \
   "pct exec 108 -- pm2 restart hawaii-api"
 check_http "dashboard-client" "http://192.168.1.108:8080/" \
   "pct exec 108 -- pm2 restart hawaii-client"
-check_http "alerts" "http://192.168.1.109:3009/health" \
+check_http "alerts" "http://192.168.1.109:3009/api/health" \
   "pct exec 109 -- systemctl restart alerts 2>/dev/null || pct exec 109 -- pm2 restart all"
 check_http "display-server" "http://192.168.1.114:3000/" \
   "pct exec 114 -- systemctl restart display-server"
