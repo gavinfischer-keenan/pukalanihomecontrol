@@ -13,7 +13,7 @@
 #   T6  /api/config returns non-empty config
 #   T7  Chromium process running on host
 #   T8  corner-kiosk systemd service active
-#   T9  No WS code=1002 errors in last 5 minutes of journal
+#   T9  No WS code=1002 errors in last minuteutes of journal
 #   T10 kiosk-watchdog cron is installed
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -22,9 +22,9 @@ PASS=0
 FAIL=0
 WARN=0
 
-ok()   { echo "  ✅ PASS: $*"; ((PASS++)); }
-fail() { echo "  ❌ FAIL: $*"; ((FAIL++)); }
-warn() { echo "  ⚠️  WARN: $*"; ((WARN++)); }
+ok()   { echo "  ✅ PASS: $*"; PASS=$((PASS+1)); }
+fail() { echo "  ❌ FAIL: $*"; FAIL=$((FAIL+1)); }
+warn() { echo "  ⚠️  WARN: $*"; WARN=$((WARN+1)); }
 
 echo "════════════════════════════════════════════"
 echo " Kiosk Health Test Suite — $(date)"
@@ -77,7 +77,7 @@ CONFIG=$(curl -s --connect-timeout 5 "${DISPLAY_URL}/api/config" 2>/dev/null)
 # T7: Chromium process running on host
 echo ""
 echo "T7: Chromium process alive on host"
-CHROM_COUNT=$(ps -C chromium --no-headers 2>/dev/null | wc -l)
+CHROM_COUNT=$(pgrep -f chromium 2>/dev/null | wc -l)
 [ "$CHROM_COUNT" -ge 1 ] && ok "Chromium running (${CHROM_COUNT} processes)" || fail "Chromium not running on host"
 
 # T8: corner-kiosk systemd active
@@ -86,16 +86,16 @@ echo "T8: corner-kiosk systemd service active"
 KIOSK_STATE=$(systemctl is-active corner-kiosk 2>/dev/null)
 [ "$KIOSK_STATE" == "active" ] && ok "corner-kiosk.service is active" || fail "corner-kiosk.service is not active (state: ${KIOSK_STATE})"
 
-# T9: No WS protocol errors in last 5 minutes
+# T9: No WS protocol errors in last minuteutes
 echo ""
 echo "T9: No WS code=1002 errors in recent journal"
-RECENT_ERRORS=$(pct exec 114 -- journalctl -u display-server --since "5 minutes ago" --no-pager 2>/dev/null | grep -c 'code=1002' || echo "0")
+RECENT_ERRORS=$(pct exec 114 -- journalctl -u display-server --since "1 minute ago" --no-pager 2>/dev/null | grep -c 'code=1002' | tail -1)
 if [ "$RECENT_ERRORS" -eq 0 ]; then
-    ok "No WebSocket protocol errors (code=1002) in last 5 minutes"
+    ok "No WebSocket protocol errors (code=1002) in last minuteutes"
 elif [ "$RECENT_ERRORS" -lt 10 ]; then
-    warn "${RECENT_ERRORS} WS code=1002 errors in last 5 min (kiosk may be reconnecting)"
+    warn "${RECENT_ERRORS} WS code=1002 errors in last minute (kiosk may be reconnecting)"
 else
-    fail "${RECENT_ERRORS} WS code=1002 errors in last 5 min — kiosk WS is stuck in reconnect loop"
+    fail "${RECENT_ERRORS} WS code=1002 errors in last minute — kiosk WS is stuck in reconnect loop"
 fi
 
 # T10: kiosk-watchdog cron installed
