@@ -473,9 +473,13 @@ app.get('/api/metar', async (req, res) => {
 //   Upload interval: 60s
 //
 // ── Receiver: Ecowitt device POSTs here every 60s ──────────
-app.post('/api/ecowitt', express.urlencoded({ extended: true }), async (req, res) => {
+const ecowittPaths = ['/api/ecowitt', '/api/ecowitt/', '/report', '/report/', '/'];
+app.all(ecowittPaths, express.urlencoded({ extended: true }), async (req, res) => {
+  const d = { ...req.query, ...req.body };
+  if (!d.PASSKEY && !d.passkey && !d.tempf && !d.tempinf && req.path === '/') {
+    return res.status(404).send('Not Found');
+  }
   try {
-    const d = req.body;
 
     // -- Forward payload to Home Assistant --
     // (Do this async so it doesn't block our DB insert)
@@ -1263,6 +1267,14 @@ app.get('/api/pm/summary', async (req, res) => {
     res.status(500).json({ error: 'DB error' });
   }
 });
+
+// Also listen on Port 80 for Ecowitt devices that POST to default HTTP port 80
+try {
+  
+  http.createServer(app).listen(80, '0.0.0.0', () => {
+    console.log('[Ecowitt Receiver] Port 80 listener online');
+  }).on('error', (e) => console.log('[Port 80] Listener note:', e.message));
+} catch (e) {}
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Hawaii API Server running on port ${PORT}`);
