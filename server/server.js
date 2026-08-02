@@ -467,7 +467,7 @@ app.get('/api/metar', async (req, res) => {
 //
 // Device setup (in WS View Pro app on your phone):
 //   Customized → Ecowitt Protocol
-//   Server: 192.168.1.24  (CT108 IP, or nginx proxy)
+//   Server: 192.168.1.108  (CT108 IP)
 //   Port: 3001
 //   Path: /api/ecowitt
 //   Upload interval: 60s
