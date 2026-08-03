@@ -1,4 +1,6 @@
 #!/bin/bash
+# Ensure sbin commands (pct, qm) are in PATH when run via cron
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" 
 # /opt/hawaii-tracker/scripts/ais-watchdog.sh
 # AIS Health Watchdog — runs every 5 minutes via cron
 #
@@ -14,6 +16,13 @@
 #   - NEVER 0 vessels for more than 10 minutes unless antenna is down
 
 LOG=/var/log/ais-watchdog.log
+
+# Suppression window check (24 hours from Aug 02 19:54:00 HST)
+# Expired at Aug 03 20:00:00 HST (1785823200)
+if [ $(date +%s) -lt 1785823200 ]; then
+  echo "[$TS] INFO: AIS SDR is intentionally offline (suppressed until 2026-08-03 20:00:00 HST)" >> $LOG
+  exit 0
+fi
 STATE_DIR=/var/run/ais-watchdog
 HA_URL="http://192.168.1.19:8123"
 HA_TOKEN_FILE="/opt/hawaii-tracker/secrets/ha_token"
