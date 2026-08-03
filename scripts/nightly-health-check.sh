@@ -60,43 +60,43 @@ else
   check "VM100 (haos-18.1)" "FAIL" "status: $HA_STATUS"
 fi
 
-# ── 3. Key Systemd Services on Host ─────────────────────────────────────────
-echo "" >> $LOG
-echo "[Host Services]" >> $LOG
-for SVC in ais-host-forwarder rtl-tcp-ais sdr-scheduler; do
-  STATE=$(systemctl is-active $SVC 2>/dev/null || echo 'inactive')
-  if [ "$STATE" = "active" ]; then
-    check "host/$SVC" "PASS" "active"
-  else
-    check "host/$SVC" "FAIL" "$STATE — attempting restart"
-    systemctl restart $SVC 2>/dev/null || true
-  fi
-done
+# ── 3. Key Systemd Services on Host (Bypassed due to power issues) ──────────
+# echo "" >> $LOG
+# echo "[Host Services]" >> $LOG
+# for SVC in ais-host-forwarder rtl-tcp-ais sdr-scheduler; do
+#   STATE=$(systemctl is-active $SVC 2>/dev/null || echo 'inactive')
+#   if [ "$STATE" = "active" ]; then
+#     check "host/$SVC" "PASS" "active"
+#   else
+#     check "host/$SVC" "FAIL" "$STATE — attempting restart"
+#     systemctl restart $SVC 2>/dev/null || true
+#   fi
+# done
 
-# ── 4. AIS USB device ───────────────────────────────────────────────────────
-echo "" >> $LOG
-echo "[AIS Hardware]" >> $LOG
-if ls /dev/ttyAIS 2>/dev/null; then
-  check "AIS USB (/dev/ttyAIS)" "PASS" "device present"
-else
-  AIS_DEV=$(ls /dev/ttyUSB* 2>/dev/null | head -1 || echo '')
-  if [ -n "$AIS_DEV" ]; then
-    check "AIS USB" "WARN" "ttyAIS symlink missing, using $AIS_DEV"
-  else
-    check "AIS USB" "FAIL" "no serial device found — physically reseat USB"
-  fi
-fi
+# ── 4. AIS USB device (Bypassed due to power issues) ────────────────────────
+# echo "" >> $LOG
+# echo "[AIS Hardware]" >> $LOG
+# if ls /dev/ttyAIS 2>/dev/null; then
+#   check "AIS USB (/dev/ttyAIS)" "PASS" "device present"
+# else
+#   AIS_DEV=$(ls /dev/ttyUSB* 2>/dev/null | head -1 || echo '')
+#   if [ -n "$AIS_DEV" ]; then
+#     check "AIS USB" "WARN" "ttyAIS symlink missing, using $AIS_DEV"
+#   else
+#     check "AIS USB" "FAIL" "no serial device found — physically reseat USB"
+#   fi
+# fi
 
-# AIS data flow — check data in last 5 min
-AIS_COUNT=$(pct exec 104 -- bash -c 'su - postgres -c "psql -d tracking_db -qtAc \"SELECT COUNT(*) FROM live_tracks WHERE source_type=\'ais\' AND recorded_at > NOW() - INTERVAL \'5 minutes\';\""' 2>/dev/null | tr -d '[:space:]' || echo '0')
-if [ "$AIS_COUNT" -gt 0 ] 2>/dev/null; then
-  check "AIS data flow" "PASS" "$AIS_COUNT positions in last 5min"
-else
-  check "AIS data flow" "FAIL" "no AIS data in last 5min"
-  # Try restart
-  systemctl restart ais-host-forwarder 2>/dev/null || true
-  pct exec 105 -- systemctl restart tracker-engine 2>/dev/null || true
-fi
+# AIS data flow — check data in last 5 min (Bypassed due to power issues)
+# AIS_COUNT=$(pct exec 104 -- bash -c 'su - postgres -c "psql -d tracking_db -qtAc \"SELECT COUNT(*) FROM live_tracks WHERE source_type=\'ais\' AND recorded_at > NOW() - INTERVAL \'5 minutes\';\""' 2>/dev/null | tr -d '[:space:]' || echo '0')
+# if [ "$AIS_COUNT" -gt 0 ] 2>/dev/null; then
+#   check "AIS data flow" "PASS" "$AIS_COUNT positions in last 5min"
+# else
+#   check "AIS data flow" "FAIL" "no AIS data in last 5min"
+#   # Try restart
+#   systemctl restart ais-host-forwarder 2>/dev/null || true
+#   pct exec 105 -- systemctl restart tracker-engine 2>/dev/null || true
+# fi
 
 # ── 5. ADS-B ────────────────────────────────────────────────────────────────
 echo "" >> $LOG

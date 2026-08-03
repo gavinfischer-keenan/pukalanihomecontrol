@@ -1,6 +1,9 @@
 #!/bin/bash
 # Ensure sbin commands (pct, qm) are in PATH when run via cron
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" 
+# Bypassed until physical power issues are resolved.
+exit 0
+
 # /opt/hawaii-tracker/scripts/ais-watchdog.sh
 # AIS Health Watchdog — runs every 5 minutes via cron
 #

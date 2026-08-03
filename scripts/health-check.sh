@@ -69,13 +69,13 @@ pg_ok=$(pct exec 104 -- pg_isready -h 127.0.0.1 -U tracker 2>/dev/null | grep -c
 if [ "$pg_ok" -ge 1 ]; then ok "PostgreSQL accepting connections" "postgres"
 else fail "postgres" "PostgreSQL not accepting connections" "pct exec 104 -- systemctl restart postgresql@17-main"; fi
 
-# 4. Check data freshness
-ais_age=$(pct exec 104 -- bash -c "PGPASSWORD=pukalani psql -h 127.0.0.1 -U tracker -d tracking_db -t -c \"SELECT EXTRACT(EPOCH FROM (now() - max(recorded_at)))::int FROM live_tracks WHERE source_type='ais';\"" 2>/dev/null | tr -d ' ')
-if [ -n "$ais_age" ] && [ "$ais_age" -lt 300 ] 2>/dev/null; then
-  ok "AIS data fresh (${ais_age}s)" "ais_fresh"
-else
-  fail "ais_fresh" "AIS data stale (${ais_age}s)" "pct exec 105 -- systemctl restart ais-collector"
-fi
+# 4. Check data freshness (AIS bypassed until hardware power issues are resolved)
+# ais_age=$(pct exec 104 -- bash -c "PGPASSWORD=pukalani psql -h 127.0.0.1 -U tracker -d tracking_db -t -c \"SELECT EXTRACT(EPOCH FROM (now() - max(recorded_at)))::int FROM live_tracks WHERE source_type='ais';\"" 2>/dev/null | tr -d ' ')
+# if [ -n "$ais_age" ] && [ "$ais_age" -lt 300 ] 2>/dev/null; then
+#   ok "AIS data fresh (${ais_age}s)" "ais_fresh"
+# else
+#   fail "ais_fresh" "AIS data stale (${ais_age}s)" "pct exec 105 -- systemctl restart ais-collector"
+# fi
 
 adsb_age=$(pct exec 104 -- bash -c "PGPASSWORD=pukalani psql -h 127.0.0.1 -U tracker -d tracking_db -t -c \"SELECT EXTRACT(EPOCH FROM (now() - max(recorded_at)))::int FROM live_tracks WHERE source_type='adsb';\"" 2>/dev/null | tr -d ' ')
 if [ -n "$adsb_age" ] && [ "$adsb_age" -lt 120 ] 2>/dev/null; then
@@ -105,21 +105,21 @@ else
   fail "nic_hang" "NIC Hardware Hang detected ($nic_hang occurrences)"     "ip link set nic0 down; sleep 2; ip link set nic0 up"
 fi
 
-# 9. AIS receiver health (cross-check with AISHub)
-ais_health=$(pct exec 105 -- cat /tmp/ais-receiver-health 2>/dev/null)
-if [ -z "$ais_health" ]; then
-  ok "AIS receiver cross-check OK" "ais_hw"
-else
-  fail "ais_hw" "AIS receiver: $ais_health" ""
-fi
+# 9. AIS receiver health (cross-check with AISHub) — bypassed until hardware power issues are resolved
+# ais_health=$(pct exec 105 -- cat /tmp/ais-receiver-health 2>/dev/null)
+# if [ -z "$ais_health" ]; then
+#   ok "AIS receiver cross-check OK" "ais_hw"
+# else
+#   fail "ais_hw" "AIS receiver: $ais_health" ""
+# fi
 
-# 10. AIS radio pipeline — check rtl_tcp + AIS-catcher producing data
-ais_msgs=$(pct exec 106 -- journalctl -u ais-catcher --no-pager -n 50 2>/dev/null | grep -oP 'received: \K[0-9]+' | tail -n 1)
-if [ -n "$ais_msgs" ] && [ "$ais_msgs" -gt 0 ] 2>/dev/null; then
-  ok "AIS radio receiving ($ais_msgs msgs/min)" "ais_radio"
-else
-  # Check how many consecutive zero-message minutes
-  fail "ais_radio" "AIS radio: 0 messages received"     "systemctl restart rtl-tcp-ais && sleep 3 && pct exec 106 -- systemctl restart ais-catcher"
-fi
+# 10. AIS radio pipeline — check rtl_tcp + AIS-catcher producing data — bypassed until hardware power issues are resolved
+# ais_msgs=$(pct exec 106 -- journalctl -u ais-catcher --no-pager -n 50 2>/dev/null | grep -oP 'received: \K[0-9]+' | tail -n 1)
+# if [ -n "$ais_msgs" ] && [ "$ais_msgs" -gt 0 ] 2>/dev/null; then
+#   ok "AIS radio receiving ($ais_msgs msgs/min)" "ais_radio"
+# else
+#   # Check how many consecutive zero-message minutes
+#   fail "ais_radio" "AIS radio: 0 messages received"     "systemctl restart rtl-tcp-ais && sleep 3 && pct exec 106 -- systemctl restart ais-catcher"
+# fi
 
 log "--- Health check complete ---"

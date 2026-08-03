@@ -145,7 +145,7 @@ pct exec 112 -- docker restart birdnet_go 2>/dev/null && log "  CT112 birdnet_go
 pct exec 114 -- systemctl restart display-server 2>/dev/null && log "  CT114 display-server: restarted" || log "  CT114 display-server: failed"
 
 # Restart data collectors on CT105 (systemd services)
-for SVC in adsb-collector ais-collector avia-collector env-collector; do
+for SVC in adsb-collector avia-collector env-collector; do
   pct exec 105 -- systemctl restart $SVC 2>/dev/null && log "  CT105 $SVC: restarted" || log "  CT105 $SVC: failed"
 done
 
