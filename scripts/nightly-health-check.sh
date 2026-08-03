@@ -101,12 +101,12 @@ fi
 # ── 5. ADS-B ────────────────────────────────────────────────────────────────
 echo "" >> $LOG
 echo "[ADS-B]" >> $LOG
-ADSB_COUNT=$(pct exec 104 -- bash -c 'su - postgres -c "psql -d tracking_db -qtAc \"SELECT COUNT(*) FROM live_tracks WHERE source_type=\'adsb\' AND recorded_at > NOW() - INTERVAL \'5 minutes\';\""' 2>/dev/null | tr -d '[:space:]' || echo '0')
+ADSB_COUNT=$(pct exec 104 -- bash -c "PGPASSWORD=pukalani psql -h 127.0.0.1 -U tracker -d tracking_db -qtAc \"SELECT COUNT(*) FROM live_tracks WHERE source_type='adsb' AND recorded_at > NOW() - INTERVAL '5 minutes';\"" 2>/dev/null | tr -d '[:space:]' || echo '0')
 if [ "$ADSB_COUNT" -gt 0 ] 2>/dev/null; then
   check "ADS-B data flow" "PASS" "$ADSB_COUNT positions in last 5min"
 else
   # Midnight may be dead — check last hour
-  ADSB_HOUR=$(pct exec 104 -- bash -c 'su - postgres -c "psql -d tracking_db -qtAc \"SELECT COUNT(*) FROM live_tracks WHERE source_type=\'adsb\' AND recorded_at > NOW() - INTERVAL \'1 hour\';\""' 2>/dev/null | tr -d '[:space:]' || echo '0')
+  ADSB_HOUR=$(pct exec 104 -- bash -c "PGPASSWORD=pukalani psql -h 127.0.0.1 -U tracker -d tracking_db -qtAc \"SELECT COUNT(*) FROM live_tracks WHERE source_type='adsb' AND recorded_at > NOW() - INTERVAL '1 hour';\"" 2>/dev/null | tr -d '[:space:]' || echo '0')
   if [ "$ADSB_HOUR" -gt 0 ] 2>/dev/null; then
     check "ADS-B data flow" "WARN" "no aircraft in 5min but $ADSB_HOUR in last hour (quiet period)"
   else
@@ -118,7 +118,7 @@ fi
 # ── 6. Weather Station ──────────────────────────────────────────────────────
 echo "" >> $LOG
 echo "[Weather]" >> $LOG
-WX_COUNT=$(pct exec 104 -- bash -c 'su - postgres -c "psql -d tracking_db -qtAc \"SELECT COUNT(*) FROM pws_obs WHERE obs_time > NOW() - INTERVAL \'5 minutes\';\""' 2>/dev/null | tr -d '[:space:]' || echo '0')
+WX_COUNT=$(pct exec 104 -- bash -c "PGPASSWORD=pukalani psql -h 127.0.0.1 -U tracker -d tracking_db -qtAc \"SELECT COUNT(*) FROM pws_obs WHERE obs_time > NOW() - INTERVAL '5 minutes';\"" 2>/dev/null | tr -d '[:space:]' || echo '0')
 if [ "$WX_COUNT" -gt 0 ] 2>/dev/null; then
   check "PWS weather" "PASS" "fresh data"
 else
