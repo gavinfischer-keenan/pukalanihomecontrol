@@ -56,18 +56,12 @@ check_http() {
   fi
 }
 
-check_http "dashboard-api" "http://192.168.1.108:3001/api/health" \
-  "pct exec 108 -- pm2 restart hawaii-api"
-check_http "dashboard-client" "http://192.168.1.108:8080/" \
-  "pct exec 108 -- pm2 restart hawaii-client"
-check_http "alerts" "http://192.168.1.109:3009/api/health" \
-  "pct exec 109 -- systemctl restart alerts 2>/dev/null || pct exec 109 -- pm2 restart all"
-check_http "display-server" "http://192.168.1.114:3000/" \
-  "pct exec 114 -- systemctl restart display-server"
-check_http "frigate" "http://192.168.1.113:5000/" \
-  "pct exec 113 -- docker restart frigate"
-check_http "tar1090" "http://192.168.1.102:80/" \
-  "pct exec 102 -- systemctl restart dump1090-fa"
+check_http "dashboard-api" "http://192.168.1.108:3001/api/health"   "pct exec 108 -- pm2 restart hawaii-api"
+check_http "dashboard-client" "http://192.168.1.108:8080/"   "pct exec 108 -- pm2 restart hawaii-client"
+check_http "alerts" "http://192.168.1.109:3009/api/health"   "pct exec 109 -- systemctl restart alerts 2>/dev/null || pct exec 109 -- pm2 restart all"
+check_http "display-server" "http://192.168.1.114:3000/"   "pct exec 114 -- systemctl restart display-server"
+check_http "frigate" "http://192.168.1.113:5000/"   "pct exec 113 -- docker restart frigate"
+check_http "tar1090" "http://192.168.1.102:80/"   "pct exec 102 -- systemctl restart dump1090-fa"
 check_http "home-assistant" "http://192.168.1.19:8123/" ""
 
 # 3. Check database
@@ -80,11 +74,7 @@ ais_age=$(pct exec 104 -- bash -c "PGPASSWORD=pukalani psql -h 127.0.0.1 -U trac
 if [ -n "$ais_age" ] && [ "$ais_age" -lt 300 ] 2>/dev/null; then
   ok "AIS data fresh (${ais_age}s)" "ais_fresh"
 else
-  if [ $(date +%s) -lt 1785823200 ]; then
-    ok "AIS data stale (Offline Suppression Active)" "ais_fresh"
-  else
-    fail "ais_fresh" "AIS data stale (${ais_age}s)" "pct exec 105 -- systemctl restart ais-collector"
-  fi
+  fail "ais_fresh" "AIS data stale (${ais_age}s)" "pct exec 105 -- systemctl restart ais-collector"
 fi
 
 adsb_age=$(pct exec 104 -- bash -c "PGPASSWORD=pukalani psql -h 127.0.0.1 -U tracker -d tracking_db -t -c \"SELECT EXTRACT(EPOCH FROM (now() - max(recorded_at)))::int FROM live_tracks WHERE source_type='adsb';\"" 2>/dev/null | tr -d ' ')
@@ -112,35 +102,15 @@ else fail "sdr" "No RTL-SDR dongles detected" ""; fi
 nic_hang=$(dmesg | grep -c 'Hardware Unit Hang')
 if [ "$nic_hang" -eq 0 ]; then ok "NIC healthy" "nic_hang"
 else
-  fail "nic_hang" "NIC Hardware Hang detected ($nic_hang occurrences)" \
-    "ip link set nic0 down; sleep 2; ip link set nic0 up"
+  fail "nic_hang" "NIC Hardware Hang detected ($nic_hang occurrences)"     "ip link set nic0 down; sleep 2; ip link set nic0 up"
 fi
-
-
-# 9. AIS receiver health (cross-check with AISHub)
-ais_health=$(pct exec 105 -- cat /tmp/ais-receiver-health 2>/dev/null)
-if [ -z "$ais_health" ]; then
-  ok "AIS receiver healthy (cross-check)" "ais_hw"
-else
-  if [ $(date +%s) -lt 1785823200 ]; then
-    ok "AIS receiver healthy (Offline Suppression Active)" "ais_hw"
-  else
-    fail "ais_hw" "AIS receiver issue: $ais_health" ""
-  fi
-fi
-
-log "--- Health check complete ---"
 
 # 9. AIS receiver health (cross-check with AISHub)
 ais_health=$(pct exec 105 -- cat /tmp/ais-receiver-health 2>/dev/null)
 if [ -z "$ais_health" ]; then
   ok "AIS receiver cross-check OK" "ais_hw"
 else
-  if [ $(date +%s) -lt 1785823200 ]; then
-    ok "AIS receiver cross-check OK (Offline Suppression Active)" "ais_hw"
-  else
-    fail "ais_hw" "AIS receiver: $ais_health" ""
-  fi
+  fail "ais_hw" "AIS receiver: $ais_health" ""
 fi
 
 # 10. AIS radio pipeline — check rtl_tcp + AIS-catcher producing data
@@ -148,11 +118,8 @@ ais_msgs=$(pct exec 106 -- journalctl -u ais-catcher --no-pager -n 1 2>/dev/null
 if [ -n "$ais_msgs" ] && [ "$ais_msgs" -gt 0 ] 2>/dev/null; then
   ok "AIS radio receiving ($ais_msgs msgs/min)" "ais_radio"
 else
-  if [ $(date +%s) -lt 1785823200 ]; then
-    ok "AIS radio offline (Offline Suppression Active)" "ais_radio"
-  else
-    # Check how many consecutive zero-message minutes
-    fail "ais_radio" "AIS radio: 0 messages received" \
-      "systemctl restart rtl-tcp-ais && sleep 3 && pct exec 106 -- systemctl restart ais-catcher"
-  fi
+  # Check how many consecutive zero-message minutes
+  fail "ais_radio" "AIS radio: 0 messages received"     "systemctl restart rtl-tcp-ais && sleep 3 && pct exec 106 -- systemctl restart ais-catcher"
 fi
+
+log "--- Health check complete ---"

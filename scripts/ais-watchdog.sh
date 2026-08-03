@@ -16,13 +16,6 @@ export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 #   - NEVER 0 vessels for more than 10 minutes unless antenna is down
 
 LOG=/var/log/ais-watchdog.log
-
-# Suppression window check (24 hours from Aug 02 19:54:00 HST)
-# Expired at Aug 03 20:00:00 HST (1785823200)
-if [ $(date +%s) -lt 1785823200 ]; then
-  echo "[$TS] INFO: AIS SDR is intentionally offline (suppressed until 2026-08-03 20:00:00 HST)" >> $LOG
-  exit 0
-fi
 STATE_DIR=/var/run/ais-watchdog
 HA_URL="http://192.168.1.19:8123"
 HA_TOKEN_FILE="/opt/hawaii-tracker/secrets/ha_token"
@@ -37,23 +30,15 @@ notify_ha() {
   local severity="${2:-warning}"  # warning or critical
   if [ -f "$HA_TOKEN_FILE" ]; then
     local token=$(cat "$HA_TOKEN_FILE")
-    curl -s -X POST "$HA_URL/api/services/persistent_notification/create" \
-      -H "Authorization: Bearer $token" \
-      -H "Content-Type: application/json" \
-      -d "{\"title\":\"AIS Watchdog [$severity]\",\"message\":\"$msg\",\"notification_id\":\"ais_watchdog\"}" \
-      >/dev/null 2>&1
+    curl -s -X POST "$HA_URL/api/services/persistent_notification/create"       -H "Authorization: Bearer $token"       -H "Content-Type: application/json"       -d "{\"title\":\"AIS Watchdog [$severity]\",\"message\":\"$msg\",\"notification_id\":\"ais_watchdog\"}"       >/dev/null 2>&1
   fi
   log "NOTIFY [$severity]: $msg"
 }
 
 # ── Step 1: Check AIS data freshness ──
-AIS_AGE=$(pct exec 104 -- bash -c "PGPASSWORD=pukalani psql -h 127.0.0.1 -U tracker -d tracking_db -t -c \
-  \"SELECT COALESCE(EXTRACT(EPOCH FROM (now() - max(recorded_at)))::int, 99999) FROM live_tracks WHERE source_type='ais';\"" \
-  2>/dev/null | tr -d ' ')
+AIS_AGE=$(pct exec 104 -- bash -c "PGPASSWORD=pukalani psql -h 127.0.0.1 -U tracker -d tracking_db -t -c   \"SELECT COALESCE(EXTRACT(EPOCH FROM (now() - max(recorded_at)))::int, 99999) FROM live_tracks WHERE source_type='ais';\""   2>/dev/null | tr -d ' ')
 
-AIS_COUNT=$(pct exec 104 -- bash -c "PGPASSWORD=pukalani psql -h 127.0.0.1 -U tracker -d tracking_db -t -c \
-  \"SELECT COUNT(DISTINCT entity_id) FROM live_tracks WHERE source_type='ais' AND recorded_at > NOW() - INTERVAL '10 minutes';\"" \
-  2>/dev/null | tr -d ' ')
+AIS_COUNT=$(pct exec 104 -- bash -c "PGPASSWORD=pukalani psql -h 127.0.0.1 -U tracker -d tracking_db -t -c   \"SELECT COUNT(DISTINCT entity_id) FROM live_tracks WHERE source_type='ais' AND recorded_at > NOW() - INTERVAL '10 minutes';\""   2>/dev/null | tr -d ' ')
 
 log "AIS age: ${AIS_AGE}s | Vessels in last 10min: ${AIS_COUNT}"
 
