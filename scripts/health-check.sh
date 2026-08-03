@@ -31,7 +31,7 @@ fail() {
 log "--- Health check starting ---"
 
 # 1. Check containers are running
-for ct in 102 104 105 106 108 109 110 112 113 114; do
+for ct in 102 104 105 106 108 109 110 112 113 114 115; do
   status=$(pct status $ct 2>/dev/null | awk '{print $2}')
   if [ "$status" = "running" ]; then
     ok "CT$ct running" "ct$ct"
@@ -63,6 +63,7 @@ check_http "display-server" "http://192.168.1.114:3000/"   "pct exec 114 -- syst
 check_http "frigate" "http://192.168.1.113:5000/"   "pct exec 113 -- docker restart frigate"
 check_http "tar1090" "http://192.168.1.102:80/"   "pct exec 102 -- systemctl restart dump1090-fa"
 check_http "home-assistant" "http://192.168.1.19:8123/" ""
+check_http "expense-tracker" "http://192.168.1.203:3001/" "pct exec 115 -- pm2 restart expense-api"
 
 # 3. Check database
 pg_ok=$(pct exec 104 -- pg_isready -h 127.0.0.1 -U tracker 2>/dev/null | grep -c accepting)

@@ -39,7 +39,7 @@ check() {
 # ── 1. Container Status ─────────────────────────────────────────────────────
 echo "" >> $LOG
 echo "[Containers]" >> $LOG
-for VMID in 101 102 103 104 105 106 108 109 110 111 112 113; do
+for VMID in 101 102 103 104 105 106 108 109 110 111 112 113 114 115; do
   STATUS=$(pct status $VMID 2>/dev/null | awk '{print $2}' || echo 'unknown')
   NAME=$(pct config $VMID 2>/dev/null | grep ^hostname | awk '{print $2}' || echo "CT$VMID")
   if [ "$STATUS" = "running" ]; then
@@ -159,7 +159,7 @@ fi
 # ── 9. Disk Usage ───────────────────────────────────────────────────────────
 echo "" >> $LOG
 echo "[Disk Usage]" >> $LOG
-for VMID in 104 105 108 112 113; do
+for VMID in 104 105 108 112 113 114 115; do
   USAGE=$(pct exec $VMID -- df -h / 2>/dev/null | tail -1 | awk '{print $5}' | tr -d '%' || echo '0')
   NAME=$(pct config $VMID 2>/dev/null | grep ^hostname | awk '{print $2}' || echo "CT$VMID")
   if [ "$USAGE" -lt 80 ] 2>/dev/null; then
@@ -187,6 +187,17 @@ if [ "$FRIGATE_STATUS" = "running" ]; then
   check "Frigate container" "PASS" "running"
 else
   check "Frigate container" "WARN" "status: $FRIGATE_STATUS"
+fi
+
+# ── 11. Expense Tracker ─────────────────────────────────────────────────────
+echo "" >> $LOG
+echo "[Expense Tracker]" >> $LOG
+EXPENSE_RESP=$(curl -sf --max-time 5 http://192.168.1.203:3001/ 2>/dev/null || echo '')
+if [ -n "$EXPENSE_RESP" ]; then
+  check "Expense Tracker API" "PASS" "responding"
+else
+  check "Expense Tracker API" "FAIL" "not responding — restarting"
+  pct exec 115 -- pm2 restart expense-api 2>/dev/null || true
 fi
 
 # ── Summary ─────────────────────────────────────────────────────────────────

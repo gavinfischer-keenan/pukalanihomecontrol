@@ -151,6 +151,9 @@ done
 
 # Restart dashboard services on CT108
 pct exec 108 -- bash -c 'pm2 restart all 2>/dev/null' && log "  CT108 PM2 processes: restarted" || log "  CT108 PM2: not found"
+
+# Restart expense tracker PM2 processes on CT115
+pct exec 115 -- pm2 restart all 2>/dev/null && log "  CT115 PM2 processes: restarted" || log "  CT115 PM2: failed"
 log "  Done"
 
 # ── 7. SQLite WAL checkpoint — compact display-server state.db ──
@@ -205,6 +208,15 @@ if [ "$HTTP" = "200" ]; then
   log "  Dashboard: ✅"
 else
   log "  Dashboard: ❌ (HTTP $HTTP)"
+  FAILURES=$((FAILURES+1))
+fi
+
+# Check Expense Tracker
+HTTP=$(curl -s -o /dev/null -w '%{http_code}' http://192.168.1.203:3001 2>/dev/null)
+if [ "$HTTP" = "200" ]; then
+  log "  Expense Tracker: ✅"
+else
+  log "  Expense Tracker: ❌ (HTTP $HTTP)"
   FAILURES=$((FAILURES+1))
 fi
 
