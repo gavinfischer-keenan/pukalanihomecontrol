@@ -114,7 +114,7 @@ else
 fi
 
 # 10. AIS radio pipeline — check rtl_tcp + AIS-catcher producing data
-ais_msgs=$(pct exec 106 -- journalctl -u ais-catcher --no-pager -n 1 2>/dev/null | grep -oP 'received: \K[0-9]+')
+ais_msgs=$(pct exec 106 -- journalctl -u ais-catcher --no-pager -n 50 2>/dev/null | grep -oP 'received: \K[0-9]+' | tail -n 1)
 if [ -n "$ais_msgs" ] && [ "$ais_msgs" -gt 0 ] 2>/dev/null; then
   ok "AIS radio receiving ($ais_msgs msgs/min)" "ais_radio"
 else
