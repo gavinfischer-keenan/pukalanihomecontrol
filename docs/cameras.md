@@ -19,7 +19,8 @@ All Aqara cameras use RTSP on port `8554`.
 | `front_doorbell_cam` (cam 4) | Front Doorbell | 192.168.1.141 | `18:C2:3C:7A:03:00` | 549:322 | `/ch2` (960p) | `/ch1` (1536p) |
 | `garage_cam` (cam 5) | Garage | 192.168.1.80 | UNKNOWN | 737:796 | `/ch2` | `/ch1` |
 | `aqara_cam_6` (roof_view) | Roof View (Diamond Head) | 192.168.1.222 | `18:C2:3C:7A:E9:DB` | 646:145 | `/ch2` (1080p) | `/ch1` (1536p) |
-| Slots 7-9 | Reserved | - | - | - | - | - |
+| `side_view_house` (cam 7) | Side View House | 192.168.1.126 | UNKNOWN | 253:645 | `/ch2` | `/ch1` |
+| Slots 8-9 | Reserved | - | - | - | - | - |
 
 ## Stream Resolution Reference
 * **Aqara cameras:** `/ch1` (1520p / 1536p), `/ch2` (1080p), `/ch3` (720p), `/ch4` (360p)

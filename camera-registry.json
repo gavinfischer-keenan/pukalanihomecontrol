@@ -1,5 +1,5 @@
 {
-  "updated": "2026-08-02T09:20:16.541646",
+  "updated": "2026-08-02T19:58:24.730729",
   "note": "Central camera IP registry. Fixed version.",
   "cameras": {
     "front_garden_cam": {
@@ -53,6 +53,16 @@
       "rtsp_path_720p": "/ch3",
       "rtsp_path_360p": "/ch4",
       "creds": "646:145"
+    },
+    "side_view_house": {
+      "ip": "192.168.1.126",
+      "mac": "UNKNOWN",
+      "port": 8554,
+      "rtsp_path_1520p": "/ch1",
+      "rtsp_path_1080p": "/ch2",
+      "rtsp_path_720p": "/ch3",
+      "rtsp_path_360p": "/ch4",
+      "creds": "253:645"
     }
   }
 }

@@ -17,6 +17,7 @@ FRONT_DOORBELL=192.168.1.141
 FRONT_STAIRS=192.168.1.187
 GARAGE=192.168.1.80
 ROOF_VIEW=192.168.1.222
+SIDE_VIEW_HOUSE=192.168.1.126
 
 # Previous IPs to replace:
 OLD_FRONT_GARDEN_1=192.168.1.7
@@ -101,6 +102,16 @@ cat > /opt/hawaii-tracker/camera-registry.json << REGISTRY
       "rtsp_path_720p": "/ch3",
       "rtsp_path_360p": "/ch4",
       "creds": "646:145"
+    },
+    "side_view_house": {
+      "ip": "$SIDE_VIEW_HOUSE",
+      "mac": "UNKNOWN",
+      "port": 8554,
+      "rtsp_path_1520p": "/ch1",
+      "rtsp_path_1080p": "/ch2",
+      "rtsp_path_720p": "/ch3",
+      "rtsp_path_360p": "/ch4",
+      "creds": "253:645"
     }
   }
 }
